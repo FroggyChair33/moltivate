@@ -6,6 +6,7 @@ const trophy = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const styles = `
 :host{position:fixed;right:0;top:172px;width:184px;z-index:40;font:13px/1.45 'DM Sans',Arial,sans-serif;color:#f3f3f1;--up:#83e5a7;--down:#ff858a}
 *{box-sizing:border-box}[hidden]{display:none!important}button,a{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible{outline:2px solid #efce78;outline-offset:4px}svg{width:18px;height:18px;flex-shrink:0}
+.peek-motion{transform-origin:right center;transform:perspective(850px) translate3d(var(--peek-x,0px),var(--peek-y,0px),0) rotateY(var(--peek-fold,0deg)) rotateZ(var(--peek-turn,0deg)) scale(var(--peek-scale,1));opacity:var(--peek-opacity,1);transition:transform .18s cubic-bezier(.2,.65,.3,1),opacity .18s linear;will-change:transform,opacity}
 .peek{display:block;width:100%;padding:17px 25px 15px 17px;text-align:left;color:inherit;border:1px solid #333639;border-right:0;border-radius:15px 0 0 15px;background:#111214;box-shadow:-8px 12px 24px #162d2014;transform:translateX(9px);transition:transform .25s,box-shadow .25s}
 .peek:hover,.peek:focus-visible{transform:translateX(0);box-shadow:-10px 14px 28px #162d2026}.peek:active{transform:translateX(3px)}
 .peek-heading{display:flex;gap:8px;align-items:center}.peek-heading>svg{color:#e6c57b;width:15px;height:15px}.peek-overline{font-size:8px;letter-spacing:1.3px;color:#b7b8bc}.compact-demo{display:none}.peek-title{display:block;font-size:16px;font-weight:600;letter-spacing:-.4px;margin:8px 0 3px}.peek-live{display:block;color:#92959a;font-size:8px}
@@ -25,14 +26,15 @@ ol{list-style:none;padding:0;margin:0 0 22px}.team{display:grid;grid-template-co
 @media(max-width:1200px){.compact-demo{display:block;font-size:7px;letter-spacing:.3px;color:#9a9ea7}.compact-open{display:block;font-size:8px}.peek-cta{flex-direction:column;gap:3px}}
 @media(max-width:500px){:host{top:92px;width:224px}.drawer{padding:22px 18px 18px}.team{gap:8px;grid-template-columns:16px 31px minmax(0,1fr) auto}.avatar{width:31px;height:31px}.team-name{font-size:11px}.amount{font-size:15px}h2{font-size:27px}}
 @media(max-width:350px){.drawer{padding-left:14px;padding-right:14px}.team{gap:7px;grid-template-columns:15px 27px minmax(0,1fr) auto}.avatar{width:27px;height:27px;font-size:9px}.amount{font-size:13px}.team-name{font-size:10px}.members{font-size:8px}}
-@media(prefers-reduced-motion:reduce){.peek,.peek-cta svg,.full-board{transition:none}.drawer[open]{animation:none}}
+@media(prefers-reduced-motion:reduce){.peek-motion{transform:none;transition:none}.peek,.peek-cta svg,.full-board{transition:none}.drawer[open]{animation:none}}
 `;
 
 class ClubPeek extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({mode:'open'});
-    this.heroVisible = false;
+    this.storyProgress = 0;
+    this.effects = !matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.onFeed = event => this.updateFigures(event.detail);
     this.onHidden = () => {
       if (document.hidden) this.shadowRoot.querySelectorAll('rolling-amount').forEach(amount=>amount.settle());
@@ -44,12 +46,14 @@ class ClubPeek extends HTMLElement {
     if (!this.board) return;
     const snapshot = this.board.weeklySnapshot();
     this.shadowRoot.innerHTML = `<style>${styles}</style>
+      <div class="peek-motion">
       <button class="peek" aria-label="Open leaderboard" aria-haspopup="dialog" aria-controls="club-drawer" aria-expanded="false">
         <span class="peek-heading">${trophy}<span class="peek-overline">THE CLUB</span><span class="compact-demo">DEMO SOL</span></span>
         <span class="peek-title">Leaderboard</span><span class="peek-live">Simulated feed · demo SOL</span>
         <span class="peek-rows">${snapshot.slice(0,2).map(club=>`<span class="peek-row"><span class="peek-name">${club.name}</span><span class="peek-value up" data-amount="${club.id}"><rolling-amount value="${club.value.toFixed(3)}"></rolling-amount></span></span>`).join('')}</span>
         <span class="peek-cta"><span class="cta-text">Open leaderboard</span><span class="compact-open">Open</span>${arrow}</span>
       </button>
+      </div>
       <dialog class="drawer" id="club-drawer" aria-labelledby="drawer-title" aria-describedby="drawer-intro">
         <div class="drawer-top"><span class="drawer-brand">${trophy}THE CLUB</span><button class="close" aria-label="Close leaderboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
         <h2 id="drawer-title">Stronger together.</h2><p class="intro" id="drawer-intro">The crews showing up. The commitments adding up.</p>
@@ -59,10 +63,18 @@ class ClubPeek extends HTMLElement {
         <div class="drawer-bottom"><p class="drawer-signoff">a little skin in the game.</p><a class="full-board" href="#club">Explore the club ${arrow}</a><p class="note">Sample teams and rolling demo SOL, refreshed every 4.5 seconds. No live balances or real money movements.</p></div>
       </dialog>`;
     this.trigger = this.shadowRoot.querySelector('.peek');
+    this.motion = this.shadowRoot.querySelector('.peek-motion');
     this.dialog = this.shadowRoot.querySelector('dialog');
     this.trigger.addEventListener('click',()=>this.open());
     this.shadowRoot.querySelector('.close').addEventListener('click',()=>this.dialog.close());
-    this.shadowRoot.querySelector('.full-board').addEventListener('click',()=>this.dialog.close());
+    this.shadowRoot.querySelector('.full-board').addEventListener('click',()=>{
+      this.dialog.close();
+      const heading = document.querySelector('#club-title');
+      heading.tabIndex = -1;
+      heading.focus({preventScroll:true});
+    });
+    this.trigger.addEventListener('focus',()=>this.updateVisibility());
+    this.trigger.addEventListener('blur',()=>this.updateVisibility());
     this.dialog.addEventListener('keydown',event=>{
       if(event.key!=='Tab') return;
       const first=this.shadowRoot.querySelector('.close');
@@ -87,15 +99,10 @@ class ClubPeek extends HTMLElement {
     });
     this.board.addEventListener('moltivate:club-feed',this.onFeed);
     document.addEventListener('visibilitychange',this.onHidden);
-    this.observer = new IntersectionObserver(([entry])=>{
-      this.heroVisible = entry.isIntersecting;
-      this.updateVisibility();
-    });
-    this.observer.observe(document.querySelector('.hero'));
+    this.updateVisibility();
   }
 
   disconnectedCallback() {
-    this.observer?.disconnect();
     this.board?.removeEventListener('moltivate:club-feed',this.onFeed);
     this.board?.setExternalVisible(false);
     document.removeEventListener('visibilitychange',this.onHidden);
@@ -115,9 +122,29 @@ class ClubPeek extends HTMLElement {
   }
 
   updateVisibility() {
-    this.trigger.hidden = !this.heroVisible;
-    this.board.setExternalVisible(this.heroVisible || this.dialog.open);
-    if (!this.heroVisible && !this.dialog.open) this.shadowRoot.querySelectorAll('rolling-amount').forEach(amount=>amount.settle());
+    if (!this.motion) return;
+    const keyboardFocus = this.shadowRoot.activeElement === this.trigger && this.trigger.matches(':focus-visible');
+    const progress = this.dialog.open || keyboardFocus ? 0 : this.storyProgress;
+    const eased = progress * progress * (3 - 2 * progress);
+    const visible = progress < 1;
+    this.motion.hidden = !visible;
+    const values = {
+      x: `${(innerWidth <= 1200 ? 250 : 205) * eased}px`,
+      y: `${-28 * eased}px`,
+      fold: `${-62 * eased}deg`,
+      turn: `${-3 * eased}deg`,
+      scale: 1 - .16 * eased,
+      opacity: this.effects ? 1 - Math.max(0, (eased - .22) / .78) : 1,
+    };
+    for (const [key, value] of Object.entries(values)) this.motion.style.setProperty(`--peek-${key}`, String(value));
+    this.board.setExternalVisible(visible || this.dialog.open);
+    if (!visible && !this.dialog.open) this.shadowRoot.querySelectorAll('rolling-amount').forEach(amount=>amount.settle());
+  }
+
+  setStoryProgress(progress, effects) {
+    this.storyProgress = progress;
+    this.effects = effects;
+    this.updateVisibility();
   }
 
   updateFigures(snapshot) {

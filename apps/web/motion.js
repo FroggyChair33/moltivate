@@ -2,6 +2,7 @@
 const story = document.querySelector('.product-story');
 const stage = story.querySelector('.product-stage');
 const phone = story.querySelector('moltivate-demo');
+const clubPeek = document.querySelector('club-peek');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const tallDesktop = matchMedia('(min-width: 901px) and (min-height: 800px)');
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
@@ -19,6 +20,8 @@ let pointerY = 0;
 let handlingPhone = false;
 const revealAnimations = new Set();
 const clamp = (value, low=0, high=1) => Math.min(high, Math.max(low, value));
+// Each chapter gets about a viewport of travel; the workout gets the longest hold.
+const chapterEdges = [0, .30, .72, 1];
 
 function paintChapter(index) {
   if (index === activeChapter) return;
@@ -29,7 +32,10 @@ function paintChapter(index) {
   for (const key of ['title','text','label','value','detail','signoff']) {
     story.querySelector(`[data-chapter-${key}]`).textContent = chapter[key];
   }
-  story.querySelectorAll('.story-ticks span').forEach((tick, i) => tick.classList.toggle('active',i === index));
+  story.querySelectorAll('.story-ticks span').forEach((tick, i) => {
+    tick.classList.toggle('active', i === index);
+    tick.classList.toggle('complete', i < index);
+  });
 }
 
 function resetTilt() {
@@ -42,15 +48,21 @@ function update() {
   if (document.hidden) return;
   const rect = story.getBoundingClientRect();
   const stickyTop = parseFloat(getComputedStyle(stage).top) || 0;
-  const distance = Math.max(1, story.offsetHeight - stage.offsetHeight - 55);
+  const distance = Math.max(1, story.offsetHeight - stage.offsetHeight - parseFloat(getComputedStyle(story).paddingBottom));
   const progress = clamp((stickyTop - rect.top) / distance);
   stage.style.setProperty('--story-progress', String(progress));
+  // The standings make room for the phone as it enters, then unwind on scroll-up.
+  const handoffStart = innerHeight * .75;
+  const handoffEnd = Math.max(stickyTop + 60, innerHeight * .12);
+  clubPeek?.setStoryProgress(clamp((handoffStart - rect.top) / (handoffStart - handoffEnd)), effects);
   if (effects && tallDesktop.matches) {
     // Hysteresis keeps trackpad jitter around a chapter boundary from flickering.
-    let next = progress < .33 ? 0 : progress < .68 ? 1 : 2;
-    if ((activeChapter === 1 && progress > .30 && progress < .33) || (activeChapter === 2 && progress > .65 && progress < .68)) next = activeChapter;
+    let next = progress < chapterEdges[1] ? 0 : progress < chapterEdges[2] ? 1 : 2;
+    if (activeChapter > 0 && progress > chapterEdges[activeChapter] - .018 && progress < chapterEdges[activeChapter]) next = activeChapter;
     phone.setStoryStage?.(next);
   }
+  const chapter = Math.max(0, activeChapter);
+  stage.style.setProperty('--chapter-progress', String(clamp((progress - chapterEdges[chapter]) / (chapterEdges[chapter + 1] - chapterEdges[chapter]))));
   if (!effects || !tallDesktop.matches || handlingPhone || rect.bottom < 0 || rect.top > innerHeight) {
     resetTilt();
     return;

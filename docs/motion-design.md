@@ -8,6 +8,8 @@ The user asked for Folk's centered message-to-phone progression, Hey Clicky's gl
 
 - Let the complete headline and CTA be readable immediately. The product follows below, with the sponsor-track strip near the opening.
 - Make motion explain the actual three-part flow: crew, workout, result. The phone remains interactive throughout; manual actions take precedence over scrolling.
+- Give the pinned phone three viewport heights of scroll travel. Crew holds for 30%, workout for 42%, and result for 28%; the active chapter's progress tick fills as the reader scrolls. Native wheel/touch input stays untouched, so readers can still skip or reverse the story.
+- Hand attention from the leaderboard to the phone: the edge card folds, lifts, slides right, and fades as the phone approaches its resting position. Scroll-up reverses that movement. An open drawer or keyboard-focused opener stays stable; system reduced motion uses simple visibility without the fold.
 - Use a subtle CSS perspective phone with reflected light, paired with a paper commitment note. Keep the interface flat when it is being used. Avoid loading a 3D engine for a single device.
 - Use the metallic gradient as a material effect on the requested words, and the glass gradient only on the primary CTA. Keep the rest of the page's established materials and hierarchy.
 - Reveal supporting Polaroids/chat once, without delaying text. Run motion automatically and honor system reduced-motion preferences; the user requested removal of page animation switches. Short and mobile screens use normal page flow.
@@ -22,4 +24,4 @@ The user asked for Folk's centered message-to-phone progression, Hey Clicky's gl
 
 ## Checks
 
-The browser suite covers vertical headline/phone order and centering, the coming-soon CTA, reduced-motion behavior, scroll chapter transitions, dialog survival during scrolling, explicit resumption, and automatic motion without on-page switches. The leaderboard drawer adds keyboard, navigation, responsive, and shared-feed checks. Existing tests cover the full demo loop, leaderboard, local assets, and narrow-screen overflow.
+The browser suite covers vertical headline/phone order and centering, the coming-soon CTA, reduced-motion behavior, scroll chapter transitions, reading space across ordinary wheel gestures, dialog survival during scrolling, explicit resumption, and automatic motion without on-page switches. The leaderboard drawer adds keyboard, navigation, responsive, shared-feed, and reversible scroll-handoff checks. Existing tests cover the full demo loop, leaderboard, local assets, and narrow-screen overflow.

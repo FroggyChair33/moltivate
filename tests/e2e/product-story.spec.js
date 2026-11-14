@@ -29,14 +29,21 @@ test.describe('scroll-led product story', () => {
     const bounds = await story.boundingBox();
     const stageHeight = await page.locator('.product-stage').evaluate(node=>node.offsetHeight);
     const available = bounds.height - stageHeight - 55;
+    expect(available).toBeGreaterThanOrEqual(page.viewportSize().height * 2.8);
     const scrollTo = async progress => {
       await page.evaluate(y=>window.scrollTo({top:y,behavior:'instant'}), bounds.y + available * progress);
     };
     await scrollTo(.1);
     await expect(phone.getByRole('tab',{name:'Your crew',exact:true})).toHaveAttribute('aria-selected','true');
+    await page.mouse.wheel(0, 450);
+    await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(bounds.y + available * .1 + 400);
+    await expect(phone.getByRole('tab',{name:'Your crew',exact:true})).toHaveAttribute('aria-selected','true');
     await scrollTo(.45);
     await expect(phone.getByRole('tab',{name:'Your workout',exact:true})).toHaveAttribute('aria-selected','true');
     await expect(page.locator('[data-chapter-title]')).toHaveText('Make it count.');
+    await page.mouse.wheel(0, 600);
+    await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(bounds.y + available * .45 + 550);
+    await expect(phone.getByRole('tab',{name:'Your workout',exact:true})).toHaveAttribute('aria-selected','true');
     await scrollTo(.8);
     await expect(phone.getByRole('tab',{name:'Your progress',exact:true})).toHaveAttribute('aria-selected','true');
     await phone.getByRole('tab',{name:'Your crew',exact:true}).click();
