@@ -50,15 +50,13 @@ test.describe('scroll-led product story', () => {
     await expect(phone.getByRole('tab',{name:'Your progress',exact:true})).toHaveAttribute('aria-selected','true');
   });
 
-  test('visual effects can be disabled without losing the interactive demo', async ({ page }) => {
+  test('motion starts automatically without page animation switches', async ({ page }) => {
     await page.goto('./');
-    await page.getByRole('button',{name:'Turn off visual effects',exact:true}).click();
-    await expect(page.locator('body')).toHaveAttribute('data-effects','off');
-    await expect(page.locator('body')).toHaveAttribute('data-story-layout','static');
+    await expect(page.locator('body')).toHaveAttribute('data-effects','on');
+    await expect(page.getByRole('button',{name:/Turn off visual effects|Pause sponsor logos|Pause updates|Pause scroll tour|Pause automatic demo/})).toHaveCount(0);
     const phone=page.locator('moltivate-demo');
     await phone.getByRole('tab',{name:'Your workout',exact:true}).click();
     await expect(phone.getByRole('button',{name:'Start demo set',exact:true})).toBeVisible();
-    expect(await phone.locator('.phone').evaluate(node=>getComputedStyle(node).transform)).toBe('none');
-    expect(await page.locator('.metal-type').evaluate(node=>getComputedStyle(node).animationPlayState)).toBe('paused');
+    expect(await page.locator('.metal-type').evaluate(node=>getComputedStyle(node).animationPlayState)).toBe('running');
   });
 });

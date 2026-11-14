@@ -329,8 +329,8 @@ class MoltivateDemo extends HTMLElement {
   render(focusAction = null) {
     const views = [this.crewView(), this.workoutView(), this.progressView()];
     const selectors = `<div class="selectors" role="tablist" aria-label="Explore the app demo">${['Your crew', 'Your workout', 'Your progress'].map((label, i) => `<button id="tab-${i}" data-action="tab-${i}" data-stage="${i}" role="tab" aria-controls="demo-view" aria-selected="${this.stage === i}" tabindex="${this.stage === i ? '0' : '-1'}"><span class="tab-number" aria-hidden="true">0${i + 1}</span>${label}</button>`).join('')}</div>`;
-    const controlLabel = this.storyLayout ? (this.playing ? 'Pause scroll tour' : 'Follow scroll tour') : `${this.playing ? 'Pause' : 'Play'} automatic demo`;
-    const controlText = this.storyLayout ? (this.playing ? 'Scroll tour on' : 'Follow scroll') : (this.playing ? 'Pause tour' : 'Play tour');
+    const controlLabel = this.storyLayout ? 'Follow scroll tour' : 'Play automatic demo';
+    const controlText = this.storyLayout ? 'Follow scroll' : 'Play tour';
     this.shadowRoot.innerHTML = `<style>${css}${productCss}</style>
       ${this.hasAttribute('scroll-story') ? selectors : ''}
       <div class="phone"><div class="screen">
@@ -341,7 +341,7 @@ class MoltivateDemo extends HTMLElement {
         <span class="homebar" aria-hidden="true"></span>${this.overlayView()}
       </div></div>
       ${this.hasAttribute('scroll-story') ? '' : selectors}
-      <div class="tour-bottom"><button class="tour-control" data-action="toggle" aria-label="${controlLabel}">${icon(this.playing ? 'pause' : 'play', 12)}${controlText}</button><button class="tour-control" data-action="replay" aria-label="Restart app demo">${icon('replay', 11)}Replay</button></div>
+      <div class="tour-bottom">${this.playing ? '' : `<button class="tour-control" data-action="toggle" aria-label="${controlLabel}">${icon('play', 12)}${controlText}</button>`}<button class="tour-control" data-action="replay" aria-label="Restart app demo">${icon('replay', 11)}Replay</button></div>
       <p class="demo-caption">Interactive preview · sample data</p>`;
     if (this.overlay) {
       for (const el of this.shadowRoot.querySelectorAll('.view,.bottom-nav,.selectors,.tour-bottom')) el.inert = true;

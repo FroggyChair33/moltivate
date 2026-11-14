@@ -2,7 +2,6 @@
 const story = document.querySelector('.product-story');
 const stage = story.querySelector('.product-stage');
 const phone = story.querySelector('moltivate-demo');
-const effectsButton = document.querySelector('.effects-toggle');
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const tallDesktop = matchMedia('(min-width: 901px) and (min-height: 800px)');
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
@@ -74,10 +73,6 @@ function applyPreferences() {
   effects = allowed;
   document.body.dataset.effects = allowed ? 'on' : 'off';
   document.body.dataset.storyLayout = tallDesktop.matches && allowed ? 'scroll' : 'static';
-  effectsButton.setAttribute('aria-pressed', String(allowed));
-  effectsButton.setAttribute('aria-label', allowed ? 'Turn off visual effects' : 'Turn on visual effects');
-  effectsButton.querySelector('span').textContent = reduced.matches ? 'Reduced motion' : allowed ? 'Effects on' : 'Effects off';
-  effectsButton.disabled = reduced.matches;
   phone.toggleAttribute('effects-off', !allowed);
   phone.setStoryLayout?.(tallDesktop.matches && allowed);
   if (!allowed) {
@@ -94,7 +89,6 @@ phone.addEventListener('moltivate:demo-state', event => {
     scheduleUpdate();
   }
 });
-effectsButton.addEventListener('click', () => { effects = !effects; applyPreferences(); });
 reduced.addEventListener('change', () => { effects = !reduced.matches; applyPreferences(); });
 tallDesktop.addEventListener('change', applyPreferences);
 window.addEventListener('scroll', scheduleUpdate, {passive:true});
