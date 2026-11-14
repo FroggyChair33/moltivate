@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173e2c">
+  <meta name="description" content="Moltivate is the team fitness app that puts a little commitment behind a stronger you. Explore the app demo and meet the club.">
+  <title>Moltivate — Put your money where your muscles are.</title>
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./fonts.css">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="wordmark" href="#" aria-label="Moltivate home">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 26V15a4 4 0 0 1 8 0v8l8-11a4.5 4.5 0 0 1 8 3v11" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="5" r="3" fill="#e66b3d"/></svg>
+      <span>moltivate<span class="wordmark-dot">.</span></span>
+    </a>
+    <button class="menu-toggle" aria-expanded="false" aria-controls="main-nav" aria-label="Open navigation"><span></span><span></span></button>
+    <nav id="main-nav" aria-label="Main navigation">
+      <a href="#how-it-works">How it works</a>
+      <a href="#club">The club <span class="nav-dot"></span></a>
+      <a href="#faq">FAQs</a>
+      <button class="nav-cta" data-get-app>Get Moltivated <span aria-hidden="true">↗</span></button>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero section-shell" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="green-dot"></span> A LITTLE COMMITMENT. A STRONGER YOU.</p>
+        <h1 id="hero-title">Put your money<br>where your<br><em>muscles are.</em></h1>
+        <p class="hero-description">The fitness app where friends put money behind their goals—and get stronger together.</p>
+        <div class="hero-actions">
+          <button class="store-button" data-get-app aria-label="App Store, coming soon. View app availability">
+            <svg viewBox="0 0 28 34" aria-hidden="true"><path fill="currentColor" d="M22.8 18c.1 5.1 4.5 6.8 4.6 6.8 0 .1-.7 2.5-2.3 4.9-1.4 2.1-2.9 4.1-5.2 4.2-2.3.1-3-1.3-5.6-1.3s-3.4 1.2-5.6 1.4c-2.2.1-3.9-2.2-5.3-4.3C.5 25.4-1.8 17.5 1.2 12.2c1.5-2.6 4.2-4.2 7.1-4.3 2.2 0 4.3 1.5 5.6 1.5s3.8-1.8 6.4-1.5c1.1 0 4.3.5 6.4 3.4-.2.1-3.9 2.3-3.9 6.7ZM18.5 5.1C19.7 3.6 20.6 1.5 20.4 0c-1.8.1-3.9 1.2-5.2 2.7-1.1 1.3-2.1 3.4-1.9 5.2 2 .1 4-1 5.2-2.8Z"/></svg>
+            <span><small>COMING SOON ON THE</small><strong>App Store</strong></span>
+          </button>
+          <a class="text-button demo-link" href="#demo">Try the demo <span aria-hidden="true">↗</span></a>
+        </div>
+        <p class="platform-note">Made for iOS & Android. Built around your people.</p>
+        <div class="hero-note" aria-hidden="true">
+          <span>a little stronger,<br><span>together.</span></span>
+          <svg viewBox="0 0 130 64"><path d="M4 29c30-36 58 45 99 11M91 34l15 5-9 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+      <div class="hero-product" id="demo">
+        <div class="phone-sun" aria-hidden="true"></div>
+        <div class="round-stamp" aria-hidden="true"><span>YOUR NEXT</span><svg viewBox="0 0 36 36"><path d="M18 5v26M5 18h26M9 9l18 18M9 27 27 9" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg><span>CHAPTER</span></div>
+        <moltivate-demo></moltivate-demo>
+        <span class="phone-caption" aria-hidden="true">real effort.<br><i>real good energy.</i></span>
+      </div>
+    </section>
+
+    <div class="ethos-strip" aria-label="Less scrolling. More showing up. Stronger together. Stay Moltivated.">
+      <div class="ethos-track" aria-hidden="true">
+        <span>less scrolling</span><b>✳</b><span>more showing up</span><b>✳</b><span>stronger together</span><b>✳</b><span>stay moltivated</span><b>✳</b>
+        <span>less scrolling</span><b>✳</b><span>more showing up</span><b>✳</b><span>stronger together</span><b>✳</b><span>stay moltivated</span><b>✳</b>
+      </div>
+    </div>
+
+    <section class="how-section section-shell" id="how-it-works" aria-labelledby="how-title">
+      <div class="section-intro">
+        <div><p class="eyebrow">THE ROUTINE, REIMAGINED</p><h2 id="how-title">Good habits.<br>Better company.</h2></div>
+        <p>You don't need another reason to work out.<br>You need a reason to <em>show up.</em></p>
+      </div>
+      <div class="steps">
+        <article class="step">
+          <div class="step-art crew-art" aria-hidden="true">
+            <span class="mini-label">THE GROUP CHAT, BUT STRONGER.</span>
+            <div class="crew-orbit"><span class="avatar av-a">a.</span><span class="avatar av-b">j.</span><span class="crew-plus">+</span><span class="avatar av-c">m.</span><span class="avatar av-d">r.</span></div>
+            <span class="crew-message">same time tomorrow? <b>↗</b></span>
+          </div>
+          <div class="step-title"><span>01</span><h3>Find your people.</h3></div>
+          <p>Bring a friend. Make a team. Turn “we should go to the gym” into an actual plan.</p>
+        </article>
+        <article class="step">
+          <div class="step-art pact-art" aria-hidden="true">
+            <div class="pact-ticket"><div class="ticket-top"><span>OUR LITTLE PACT</span><span>↗</span></div><strong>all in.</strong><div class="ticket-bottom"><span>your goal.<br>your commitment.</span><svg viewBox="0 0 52 36"><path d="m4 19 9 9L47 5" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/></svg></div></div>
+            <span class="pact-script">make it mean something.</span>
+          </div>
+          <div class="step-title"><span>02</span><h3>Put a little on the line.</h3></div>
+          <p>Pick a shared goal and agree on the stakes. Clear rules, a little skin in the game.</p>
+        </article>
+        <article class="step">
+          <div class="step-art progress-art" aria-hidden="true">
+            <div class="progress-note"><span>SMALL WINS ADD UP</span><div class="week-days"><i>M</i><i>T</i><i>W</i><i>T</i><i>F</i><i>S</i><i>S</i></div><div class="week-checks"><b>✓</b><b>✓</b><b>✓</b><b class="today">✳</b><b>·</b><b>·</b><b>·</b></div><div class="progress-bottom"><strong>Look at you go.</strong><span>↗</span></div></div>
+            <span class="tiny-spark">✳</span>
+          </div>
+          <div class="step-title"><span>03</span><h3>Show up. Level up.</h3></div>
+          <p>Record your workout. Count your contribution. Celebrate a commitment you actually kept.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="club-section" id="club" aria-labelledby="club-title">
+      <div class="section-shell">
+        <div class="club-intro">
+          <div><p class="eyebrow"><span class="green-dot"></span> WELCOME TO THE CLUB</p><h2 id="club-title">A little friendly<br><em>competition.</em></h2></div>
+          <div class="club-intro-aside"><p>Big team energy.<br>A reason to come back tomorrow.</p><span class="handwritten">let's make gains together.</span></div>
+        </div>
+        <club-board></club-board>
+      </div>
+    </section>
+
+    <section class="quote-section section-shell" aria-label="A little motivation">
+      <span class="quote-spark" aria-hidden="true">✳</span>
+      <p class="quote-serif">You don't have to become<br>someone else.</p>
+      <p class="quote-hand">just someone you can count on.</p>
+      <p class="quote-caption">One promise. One workout. One day at a time.</p>
+    </section>
+
+    <section class="faq-section section-shell" id="faq" aria-labelledby="faq-title">
+      <div class="faq-intro"><p class="eyebrow">LET'S CLEAR THINGS UP</p><h2 id="faq-title">Good questions.<br>Honest answers.</h2><p>A little more about the app,<br>the stakes, and what comes next.</p></div>
+      <div class="faq-list">
+        <details open><summary>Okay, what exactly is Moltivate?<span aria-hidden="true">+</span></summary><div>Moltivate is a mobile fitness app we're building around team challenges. Friends agree on a workout goal, put a stake behind it, and hold each other accountable. Your accepted workouts contribute to your team's result.</div></details>
+        <details><summary>Is this real money?<span aria-hidden="true">+</span></summary><div>This website is an interactive preview. The teams, progress, and SOL amounts are sample data; no money moves here. The first working app demo will use Solana devnet and test SOL. Actual-money features are not available yet.</div></details>
+        <details><summary>How will my workout count?<span aria-hidden="true">+</span></summary><div>The planned app lets you record a supported exercise. Our verification service will analyze the recording and count accepted reps. The phone demo illustrates the experience; it doesn't access your camera or verify a real workout.</div></details>
+        <details><summary>What if my team doesn't win?<span aria-hidden="true">+</span></summary><div>Our proposed rules return your stake when you complete your commitment, even if your team loses. Winning teammates who completed their goals share the forfeited stakes. Ties and settlement timeouts return everyone's stake. These rules are still being finalized and will be shown before any deposit.</div></details>
+        <details><summary>Do I need to know anything about crypto?<span aria-hidden="true">+</span></summary><div>You don't need a wallet to explore this preview. For funded challenges in the planned app, you'll connect a supported Solana wallet and approve your own transactions. Moltivate will never ask for your seed phrase.</div></details>
+        <details><summary>When can I get the app?<span aria-hidden="true">+</span></summary><div>We're building for iPhone and Android. There isn't an App Store or Google Play release yet, so the download buttons show “coming soon.” In the meantime, you can try the interactive phone preview above.</div></details>
+      </div>
+    </section>
+
+    <section class="last-call section-shell">
+      <div class="last-call-inner"><span class="last-call-doodle" aria-hidden="true">↗</span><div><p class="eyebrow">THAT “ONE DAY” ENERGY? MAKE IT TODAY.</p><h2>Your future self<br>is rooting for you.</h2></div><div class="last-call-action"><button class="button-dark" data-get-app>Get Moltivated <span aria-hidden="true">↗</span></button><p>iOS & Android · coming soon</p></div></div>
+    </section>
+  </main>
+
+  <footer class="site-footer section-shell"><div><a class="footer-wordmark" href="#">moltivate.</a><p>Made for the days you nearly don't.</p></div><div class="footer-right"><nav aria-label="Footer navigation"><a href="#how-it-works">How it works</a><a href="#club">The club</a><a href="#faq">FAQs</a></nav><p>© 2026 Moltivate <span>·</span> Interactive prototype</p></div></footer>
+
+  <dialog class="app-dialog" id="app-dialog" aria-labelledby="dialog-title">
+    <button class="dialog-close" aria-label="Close app availability">×</button>
+    <div class="dialog-symbol" aria-hidden="true">✳</div>
+    <p class="eyebrow">A STRONG START IS COMING.</p>
+    <h2 id="dialog-title">Good things take<br>a little training.</h2>
+    <p>Moltivate is getting ready for iOS and Android. The store links will go live when the app launches.</p>
+    <div class="availability"><span>iPhone</span><span>Coming soon</span></div><div class="availability"><span>Android</span><span>Coming soon</span></div>
+    <button class="button-dark" id="dialog-demo">Take the demo for a rep <span aria-hidden="true">↗</span></button>
+    <small>This preview uses sample workouts and balances.</small>
+  </dialog>
+</body>
+</html>

@@ -2,11 +2,36 @@
 
 **Put your money where your muscles are.**
 
-Moltivate is a mobile fitness competition app where friends form teams, put Solana behind their commitments, and compete through verified workouts. Team accountability makes showing up social; financial stakes give the commitment weight.
+Moltivate is a mobile fitness competition app where friends form teams, put money behind their commitments, and compete through verified workouts. Team accountability makes showing up social; financial stakes give the commitment weight.
 
 **Are you Moltivated?**
 
-> Status: planning repository. This initial commit contains the product brief, proposed architecture, and contributor instructions. The mobile app, backend, verification worker, and smart contract have not been implemented or deployed. The first working demo will use Solana devnet and test SOL only.
+> Status: an interactive browser frontend is implemented in `apps/web/`. It introduces Moltivate and previews the planned mobile experience with sample data. The native mobile app, backend, verification worker, and smart contract have not been implemented or deployed. A future end-to-end blockchain demo will use Solana devnet and test SOL only.
+
+## Current frontend
+
+The website combines a clear landing page with an interactive phone preview and a searchable Club leaderboard. It is built with HTML, CSS, vanilla JavaScript ES modules, and two custom elements: `<moltivate-demo>` and `<club-board>`.
+
+- Phone preview: three selectable views, looping playback with pause/replay, and a simulated workout and reward flow.
+- Club: sample teams, search, progress/reward sorting, weekly/monthly filters, and individual crew details.
+- Responsive navigation, FAQ content, and a **coming soon** App Store action that opens an availability dialog.
+- Self-hosted Fraunces, DM Sans, and La Belle Aurore fonts; font sources and licenses are included with the assets.
+
+The preview makes no wallet requests, camera requests, application API calls, or payments. Its SOL figures are illustrative display data, **not devnet balances or real payouts**. It does not create accounts, save workout results, or register visitors for a waitlist.
+
+### Run locally
+
+Requirements: **Node.js 20 or newer**, npm, and Python 3 for the simple local HTTP server. The frontend has no package dependencies, so no installation step is needed.
+
+```sh
+npm run check
+npm run build
+python3 -m http.server 5173 --directory dist
+```
+
+Open [http://localhost:5173](http://localhost:5173). `npm run check` checks JavaScript syntax; it is not a browser or end-to-end test suite. `npm run build` recreates `dist/` by copying `apps/web/`, including its assets. Edit the source files, rebuild, and refresh the browser. The Python server is for local preview, not production hosting.
+
+No environment variables, API keys, or wallet credentials are needed for this frontend. See [architecture.md](architecture.md) for the boundary between this browser preview and the planned native product.
 
 ## The idea
 
@@ -41,7 +66,7 @@ The brand centers on self-improvement, consistency, and belonging. Competition i
 
 Entertainment is the team's chosen submission track. The demo should show an engaging competition, clear team contributions, and a complete workout-to-settlement loop. GoDaddy domain and other sponsor submissions depend on the event's actual rules; no prize eligibility is assumed here.
 
-## First MVP
+## Planned native MVP
 
 All items below are planned, not shipped.
 
@@ -93,10 +118,13 @@ Pin exact package versions after a device integration spike. Android Mobile Wall
 | [readme.md](readme.md) | Product, scope, stack, and build milestones |
 | [architecture.md](architecture.md) | System boundaries, data model, contract rules, failure paths, deployment plan |
 | [AGENTS.md](AGENTS.md) | Instructions and quality expectations for coding agents and contributors |
+| `apps/web/` | Implemented browser frontend, custom elements, styles, and self-hosted assets |
+| `scripts/build.mjs` | Dependency-free build that copies the frontend into `dist/` |
+| `package.json` | Node requirement and the `check` / `build` commands |
 
-There are no install, run, or deployment commands yet because there is no executable application. Add tested setup instructions alongside the first scaffold, including prerequisites, environment templates, migrations, and local development commands. Never commit wallet keypairs, database credentials, or private workout clips.
+Native-app and backend setup commands will be added alongside their implementations, including prerequisites, environment templates, migrations, and local development commands. Never commit wallet keypairs, database credentials, or private workout clips.
 
-## Build milestones
+## Native product build milestones
 
 1. **Integration spike:** test camera capture/upload and wallet signing on real iPhone and Android devices; select one exercise and compatible dependency versions.
 2. **Vertical slice:** create a challenge, join with a confirmed devnet deposit, record a set, and display its verification result.

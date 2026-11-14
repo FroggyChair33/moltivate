@@ -1,10 +1,32 @@
 # Moltivate architecture
 
-> Planning document — 14 November 2026. The repository currently contains documentation, not a working application. Components, schemas, endpoints, and contract instructions below are proposed implementation targets. The scoring and payout example is a proposal to confirm before contract implementation.
+> Updated 14 November 2026. The static browser frontend described below is implemented. The native app, backend, verification service, database integration, and Solana program remain proposed implementation targets. The scoring and payout example is a proposal to confirm before contract implementation.
 
-Moltivate turns exercise commitments into a social competition: join a team, commit a deposit, record a workout, and see the challenge settle. The mobile experience leads with self-improvement and belonging. The hackathon positioning is **Entertainment**; the demonstration uses **Solana devnet and test SOL**.
+Moltivate turns exercise commitments into a social competition: join a team, commit a deposit, record a workout, and see the challenge settle. The mobile experience leads with self-improvement and belonging. The hackathon positioning is **Entertainment**; the planned end-to-end demonstration will use **Solana devnet and test SOL**.
 
-## 1. System shape
+## Implemented browser frontend
+
+The current website is a presentation and interaction prototype for the mobile product. It is a static application under `apps/web/`, using native HTML, CSS, and JavaScript ES modules without package dependencies or a framework runtime.
+
+| Current file | Responsibility |
+| --- | --- |
+| `apps/web/index.html` | Landing-page content, navigation, sections, and app-availability dialog |
+| `apps/web/styles.css` / `fonts.css` | Responsive page design and local font declarations |
+| `apps/web/app.js` | Navigation and dialog behavior; imports the custom elements |
+| `apps/web/phone-demo.js` | `<moltivate-demo>` with scoped styles and simulated mobile interaction states |
+| `apps/web/club-board.js` | `<club-board>` with scoped styles, fixture data, search, filters, sorting, and crew details |
+| `apps/web/assets/` | Original favicon and self-hosted fonts, with font license/source records |
+| `scripts/build.mjs` | Recreates `dist/` from the source directory using Node's standard library |
+
+State lives in the current browser session. The components do not connect to a wallet, camera, API, database, or Solana network. Reps, teams, rankings, and reward figures are illustrative; clicking a simulated claim does not submit a transaction. The App Store action opens a coming-soon dialog instead of implying that a store listing exists.
+
+The page loads Fraunces, DM Sans, and La Belle Aurore from local assets. Components use native custom elements and scoped Shadow DOM styles. The Club CTA dispatches `moltivate:get-app`, which the page handles by opening the availability dialog.
+
+From the repository root, use `npm run check` for JavaScript syntax checks, `npm run build` to create `dist/`, and `python3 -m http.server 5173 --directory dist` for local HTTP preview. Node.js 20+ and Python 3 are the only required runtimes for those commands; no dependency installation or application secrets are required. Browser QA is separate from the syntax check.
+
+This web layer introduces and demonstrates the product. It does not replace the planned Expo application or establish that native camera, wallet, verification, or settlement integrations work. The remainder of this document specifies that future system.
+
+## 1. Planned system shape
 
 ```mermaid
 flowchart TD

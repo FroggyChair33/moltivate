@@ -4,14 +4,14 @@
 
 This repository belongs to **Moltivate**, a mobile social fitness competition app. Read [readme.md](readme.md) for product intent and [architecture.md](architecture.md) for the proposed technical design before implementing changes.
 
-The repository initially contains documentation only. Distinguish decisions, proposals, implemented behavior, and verified behavior. Never describe a proposed service, unrun test, or simulated transaction as working production functionality.
+The repository contains an implemented static browser frontend in `apps/web/` and planning documents for the native product. The Expo app, backend, verification service, and Solana program remain unimplemented. Distinguish decisions, proposals, implemented behavior, and verified behavior. Never describe a proposed service, unrun test, or simulated transaction as working production functionality.
 
 Keep this filename as `AGENTS.md` so compatible coding agents can discover it. Add narrower instructions only when a component needs them; keep project-wide rules here.
 
 ## Product direction
 
 - Use **Moltivate** as the product name and `moltivate` as the repository name.
-- This is a **mobile app**, targeting iPhone and Android. Do not substitute a browser-only app for the requested product.
+- The product is a **mobile app**, targeting iPhone and Android. The separately requested website introduces it and offers an interactive browser preview; do not treat that preview as an implementation of the native app.
 - The chosen hackathon track is **Entertainment**. Lead with social fitness competition and self-improvement.
 - Preserve the brand line **“Put your money where your muscles are.”** Supporting copy includes “Are you Moltivated?” and “Stay Moltivated.”
 - Keep the experience about showing up, contributing to a team, and keeping commitments. Avoid casino styling, promises of returns, and pressure to increase stakes.
@@ -19,6 +19,8 @@ Keep this filename as `AGENTS.md` so compatible coding agents can discover it. A
 - An avatar/evolution system is optional future scope. Do not copy Pokémon characters, names, artwork, or interfaces.
 
 ## Technical direction
+
+The current website uses **HTML, CSS, and vanilla JavaScript ES modules** without package dependencies. `<moltivate-demo>` and `<club-board>` are custom elements with scoped styles. The planned native/backend stack below remains unchanged.
 
 | Component | Planned approach |
 | --- | --- |
@@ -36,6 +38,17 @@ Keep video processing out of API request handlers. The mobile app captures evide
 Consult the [official Solana quick start](https://solana.com/docs/intro/quick-start) and relevant primary documentation when implementing blockchain features. Recheck current package names and compatibility; do not mix incompatible Solana client generations. Pin compatible dependencies in lockfiles and record the reason for that choice.
 
 Validate wallet and camera behavior on physical devices. Handle Android and iOS wallet flows separately. An emulator, mocked signature, or Expo Go preview does not establish that the full mobile integration works.
+
+## Working on the current frontend
+
+- Edit `apps/web/` as the source of truth. `dist/` is generated; rebuild it rather than editing it directly.
+- Use Node.js 20+ and `npm run check` for syntax checks. Use `npm run build` to recreate `dist/`, then `python3 -m http.server 5173 --directory dist` for local preview. No package installation or environment secrets are required.
+- Preserve the self-hosted fonts and their license/source files in `apps/web/assets/fonts/`. Keep the editorial headings, readable interface type, and handwritten accents distinct.
+- Keep sample activity and simulated SOL figures visibly labeled. The frontend does not access a camera, wallet, application API, database, or network payout service. Do not suggest otherwise in status messages or documentation.
+- Keep App Store availability honest: the current button opens a coming-soon dialog. Do not invent a store listing, waitlist signup, or successful subscription.
+- Preserve keyboard navigation, focus states, modal Escape behavior, responsive layouts, and reduced-motion behavior. Verify the phone's playback controls and Club search/filter/sort/detail flows after relevant changes.
+- The website's completion bars show fixture workout progress; Club reward totals reflect the selected sample period. Keep that distinction visible rather than implying a current challenge payout.
+- A successful `npm run check` establishes syntax only. Report browser interaction checks separately, and do not substitute frontend simulation for native-device or devnet verification.
 
 ## Implementation workflow
 
