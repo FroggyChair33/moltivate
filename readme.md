@@ -6,6 +6,10 @@ Moltivate is a mobile fitness competition app where friends form teams, put mone
 
 **Are you Moltivated?**
 
+[Private demo](https://moltivate-club.betrji.chatgpt.site) · [Demo CI](https://github.com/betrji/moltivate/actions/workflows/demo.yml) · [CI/CD guide](docs/ci-cd.md)
+
+The complete demo source lives in `apps/web/`. The private demo requires ChatGPT sign-in; GitHub Actions produces tested build artifacts, with optional GitHub Pages deployment when a public host is selected.
+
 > Status: an interactive browser frontend is implemented in `apps/web/`. It introduces Moltivate and previews the planned mobile experience with sample data. The native mobile app, backend, verification worker, and smart contract have not been implemented or deployed. A future end-to-end blockchain demo will use Solana devnet and test SOL only.
 
 ## Current frontend
@@ -25,15 +29,26 @@ The sponsor marks describe the team's selected hackathon tracks, not customers, 
 
 ### Run locally
 
-Requirements: **Node.js 20 or newer**, npm, and Python 3 for the simple local HTTP server. The frontend has no package dependencies, so no installation step is needed.
+Requirements: **Node.js 24** (exact CI version in `.node-version`). The site has no runtime package dependencies. Playwright is a pinned development dependency for automated browser testing.
 
 ```sh
 npm run check
 npm run build
-python3 -m http.server 5173 --directory dist
+npm run check:build
+npm run preview
 ```
 
-Open [http://localhost:5173](http://localhost:5173). `npm run check` checks JavaScript syntax; it is not a browser or end-to-end test suite. `npm run build` recreates `dist/` by copying `apps/web/`, including its assets. Edit the source files, rebuild, and refresh the browser. The Python server is for local preview, not production hosting.
+Open [http://127.0.0.1:5173](http://127.0.0.1:5173). For the full CI suite:
+
+```sh
+npm ci --ignore-scripts
+npx --no-install playwright install --with-deps chromium
+npm run ci
+```
+
+Every pull request and push to `main` runs the same checks in GitHub Actions. Successful builds are available as downloadable artifacts; failed browser tests include reports/traces. Public deployment is deliberately disabled until `DEMO_DEPLOY_TARGET=github-pages` and Pages settings are configured. See [CI/CD](docs/ci-cd.md) for setup, required checks, and rollback. GitHub pushes do not automatically republish the existing private Site.
+
+`npm run check` checks JavaScript syntax; `npm run check:build` validates assets, imports, anchors, and build boundaries; Playwright tests the actual browser interactions. `npm run build` recreates `dist/` from `apps/web/`. Edit source files, rebuild, and refresh the preview.
 
 No environment variables, API keys, or wallet credentials are needed for this frontend. See [architecture.md](architecture.md) for the boundary between this browser preview and the planned native product.
 

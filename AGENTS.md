@@ -20,7 +20,7 @@ Keep this filename as `AGENTS.md` so compatible coding agents can discover it. A
 
 ## Technical direction
 
-The current website uses **HTML, CSS, and vanilla JavaScript ES modules** without package dependencies. `<moltivate-demo>` and `<club-board>` are custom elements with scoped styles. The planned native/backend stack below remains unchanged.
+The current website uses **HTML, CSS, and vanilla JavaScript ES modules** without runtime package dependencies. `<moltivate-demo>` and `<club-board>` are custom elements with scoped styles. The planned native/backend stack below remains unchanged.
 
 | Component | Planned approach |
 | --- | --- |
@@ -42,7 +42,8 @@ Validate wallet and camera behavior on physical devices. Handle Android and iOS 
 ## Working on the current frontend
 
 - Edit `apps/web/` as the source of truth. `dist/` is generated; rebuild it rather than editing it directly.
-- Use Node.js 20+ and `npm run check` for syntax checks. Use `npm run build` to recreate `dist/`, then `python3 -m http.server 5173 --directory dist` for local preview. No package installation or environment secrets are required.
+- Use Node.js 24 from `.node-version`. `npm run check` checks syntax; `npm run build` recreates `dist/`; `npm run check:build` validates static references; `npm run preview` serves a local preview. For the full browser suite, use `npm ci --ignore-scripts`, install Playwright Chromium, then `npm run ci`. Runtime secrets are not required. Keep `package-lock.json` committed and do not claim syntax checks alone cover interactions.
+- Preserve `.github/workflows/demo.yml` deployment gating: PRs never deploy, Pages is opt-in through `DEMO_DEPLOY_TARGET=github-pages`, and the tested artifact is reused. Never commit Sites credentials or bypass tokens. See [CI/CD](docs/ci-cd.md) before changing delivery or hosting.
 - Preserve the self-hosted fonts and their license/source files in `apps/web/assets/fonts/`. Keep the editorial headings, readable interface type, and handwritten accents distinct.
 - Keep sample activity and simulated SOL figures visibly labeled. The frontend does not access a camera, wallet, application API, database, or network payout service. Do not suggest otherwise in status messages or documentation.
 - Keep App Store availability honest: the current button opens a coming-soon dialog. Do not invent a store listing, waitlist signup, or successful subscription.

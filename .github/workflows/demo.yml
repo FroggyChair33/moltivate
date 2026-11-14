@@ -1,0 +1,105 @@
+name: Demo CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: demo-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Demo checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts
+      - name: Check JavaScript
+        run: npm run check
+      - name: Build the demo
+        run: npm run build
+      - name: Verify assets and project-relative links
+        run: npm run check:build
+      - name: Install test browser
+        run: npx --no-install playwright install --with-deps chromium
+      - name: Test desktop and mobile interactions
+        run: npm run test:e2e
+      - name: Keep test report and failure traces
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: demo-test-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Deliver the tested static build
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: moltivate-demo-${{ github.sha }}-${{ github.run_attempt }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+      # Public hosting stays off until the repository owner selects it.
+      - name: Prepare optional Pages deployment artifact
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEMO_DEPLOY_TARGET == 'github-pages' }}
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: dist/
+      - name: Summarize delivery
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          DEPLOY_TARGET: ${{ vars.DEMO_DEPLOY_TARGET }}
+        run: |
+          {
+            echo '## Moltivate demo'
+            echo "Tested commit: $COMMIT_SHA"
+            echo 'The static build and browser report are attached to this run.'
+            if [ "$DEPLOY_TARGET" = 'github-pages' ]; then
+              echo 'Pages is selected; eligible main builds continue to the deployment job.'
+            else
+              echo 'Public deployment is disabled. The current private Site is published separately through Sites.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy demo
+    needs: checks
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEMO_DEPLOY_TARGET == 'github-pages' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+        with:
+          enablement: false
+      - name: Publish the exact tested artifact
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+        with:
+          artifact_name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          timeout: 480000
+

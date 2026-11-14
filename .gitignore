@@ -7,3 +7,5 @@ node_modules/
 *.log
 *.key
 *-keypair.json
+playwright-report/
+test-results/
