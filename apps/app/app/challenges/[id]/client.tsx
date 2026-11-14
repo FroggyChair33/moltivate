@@ -1,0 +1,159 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { PublicKey } from "@solana/web3.js";
+import { LogSessionStub } from "@/app/components/log-session-stub";
+import { useProgram } from "@/lib/use-program";
+import { fetchChallengeMembers, teamPda } from "@/lib/anchor";
+
+type MemberRow = {
+  pubkey: string;
+  owner: string;
+  teamIndex: 0 | 1;
+  countedUnits: number;
+  claimed: boolean;
+};
+
+type Loaded = {
+  title: string;
+  target: number;
+  settled: boolean;
+  teamAName: string;
+  teamBName: string;
+  members: MemberRow[];
+};
+
+export function ChallengeScoreboardClient({ id }: { id: string }) {
+  const program = useProgram();
+  const [state, setState] = useState<Loaded | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!program) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const challengePk = new PublicKey(id);
+        const teamAPk = teamPda(challengePk, 0);
+        const teamBPk = teamPda(challengePk, 1);
+        const [challengeAcc, teamA, teamB, memberAccs] = await Promise.all([
+          program.account.challenge.fetch(challengePk),
+          program.account.team.fetch(teamAPk),
+          program.account.team.fetch(teamBPk),
+          fetchChallengeMembers(program, challengePk),
+        ]);
+        if (cancelled) return;
+
+        const members: MemberRow[] = memberAccs.map((m) => ({
+          pubkey: m.publicKey.toBase58(),
+          owner: m.account.owner.toBase58(),
+          teamIndex: (m.account.team as PublicKey).equals(teamAPk) ? 0 : 1,
+          // Settle hasn't necessarily run yet - counted_units is 0 until it does.
+          countedUnits: m.account.countedUnits.toNumber(),
+          claimed: m.account.claimed,
+        }));
+
+        setState({
+          title: `${teamA.name} vs ${teamB.name}`,
+          target: challengeAcc.target,
+          settled: challengeAcc.settled,
+          teamAName: teamA.name,
+          teamBName: teamB.name,
+          members,
+        });
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [program, id]);
+
+  if (error) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-6 py-12">
+        <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+      </div>
+    );
+  }
+
+  if (!state) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-6 py-12">
+        <p className="text-sm text-zinc-500">Loading challenge from devnet...</p>
+      </div>
+    );
+  }
+
+  const teamAMembers = state.members.filter((m) => m.teamIndex === 0);
+  const teamBMembers = state.members.filter((m) => m.teamIndex === 1);
+  // Half-workout units (see math::capped_workout_units) -> whole reps/workouts.
+  const goalUnits = state.target * 2;
+
+  return (
+    <div className="mx-auto w-full max-w-3xl px-6 py-12">
+      <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">
+        Challenge {id.slice(0, 4)}...{id.slice(-4)}
+      </p>
+      <h1 className="mb-1 text-2xl font-semibold tracking-tight">{state.title}</h1>
+      <p className="mb-8 text-sm text-zinc-600 dark:text-zinc-400">
+        Goal: {state.target} workouts per member
+        {state.settled && " · settled"}
+      </p>
+
+      <div className="grid gap-8 sm:grid-cols-2">
+        <TeamColumn name={state.teamAName} members={teamAMembers} goalUnits={goalUnits} />
+        <TeamColumn name={state.teamBName} members={teamBMembers} goalUnits={goalUnits} />
+      </div>
+
+      <div className="mt-10 flex flex-col gap-6">
+        {state.members[0] && <LogSessionStub teamMemberId={state.members[0].pubkey} />}
+        <div>
+          <Link
+            href={`/challenges/${id}/results`}
+            className="rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
+          >
+            View results / claim
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TeamColumn({ name, members, goalUnits }: { name: string; members: MemberRow[]; goalUnits: number }) {
+  const total = members.reduce((sum, m) => sum + m.countedUnits, 0);
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold">{name}</h2>
+        <span className="text-sm text-zinc-500">
+          {total}/{members.length * goalUnits} units
+        </span>
+      </div>
+      <div className="flex flex-col gap-3">
+        {members.length === 0 && <p className="text-sm text-zinc-500">No one has joined yet.</p>}
+        {members.map((member) => {
+          const pct = goalUnits > 0 ? Math.min(100, Math.round((member.countedUnits / goalUnits) * 100)) : 0;
+          return (
+            <div key={member.pubkey} className="flex flex-col gap-1">
+              <div className="flex justify-between text-sm">
+                <span>
+                  {member.owner.slice(0, 4)}...{member.owner.slice(-4)}
+                </span>
+                <span className="text-zinc-500">
+                  {member.countedUnits}/{goalUnits}
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                <div className="h-full rounded-full bg-foreground" style={{ width: `${pct}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
