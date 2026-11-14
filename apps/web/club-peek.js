@@ -63,6 +63,18 @@ class ClubPeek extends HTMLElement {
     this.trigger.addEventListener('click',()=>this.open());
     this.shadowRoot.querySelector('.close').addEventListener('click',()=>this.dialog.close());
     this.shadowRoot.querySelector('.full-board').addEventListener('click',()=>this.dialog.close());
+    this.dialog.addEventListener('keydown',event=>{
+      if(event.key!=='Tab') return;
+      const first=this.shadowRoot.querySelector('.close');
+      const last=this.shadowRoot.querySelector('.full-board');
+      if(event.shiftKey && this.shadowRoot.activeElement===first){
+        event.preventDefault();
+        last.focus();
+      }else if(!event.shiftKey && this.shadowRoot.activeElement===last){
+        event.preventDefault();
+        first.focus();
+      }
+    });
     this.dialog.addEventListener('close',()=>{
       document.body.style.overflow = this.previousOverflow ?? '';
       this.trigger.setAttribute('aria-expanded','false');

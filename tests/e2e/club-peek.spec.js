@@ -25,6 +25,8 @@ test('the top preview opens standings, handles keyboard focus, and leads to the 
   await expect(peek.getByRole('button',{name:'Close leaderboard'})).toBeFocused();
   await page.keyboard.press('Shift+Tab');
   await expect(peek.getByRole('link',{name:'Explore the club'})).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(peek.getByRole('button',{name:'Close leaderboard'})).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).not.toBeVisible();
   await expect(trigger).toBeFocused();
