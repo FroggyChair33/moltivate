@@ -2,6 +2,7 @@
 
 **Status:** Proposed implementation brief; capabilities and workout rules still need to be tested.  
 **Prepared:** November 14, 2026  
+**Updated:** November 14, 2026 — dedicated Vultr worker and video-processing flows.  
 **Goal:** Help people complete their workouts with a live skeleton overlay, rep counting, and useful coaching, while giving Moltivate a foundation for challenge verification.
 
 ## The idea
@@ -17,16 +18,79 @@ The technology is **human pose estimation**, also called **skeletal tracking**. 
 | Component | Proposed responsibility |
 | --- | --- |
 | Phone camera and app UI | Guide camera placement, show the skeleton, display rep progress and tracking status. |
-| MediaPipe Pose Landmarker | Estimate body landmarks from camera frames. |
+| Main API | Manage users, challenges, authorized workout sessions, and accepted results. |
+| Dedicated Vultr vision VM | Decode video, run pose inference and exercise rules, and return session results without using the main API's CPU or memory. |
+| MediaPipe Pose Landmarker | Estimate body landmarks from camera frames inside the vision worker. |
 | Exercise evaluator | Calculate joint angles and track movement phases using tested, exercise-specific rules. |
 | Coaching agent | Turn structured exercise events into short, relevant spoken or written feedback. |
 | Chert | Connect the agent to supported iMessage or FaceTime experiences. |
-| Backend verifier | Independently evaluate challenge evidence and record accepted results. |
+| Backend verifier | Evaluate challenge evidence on the worker; return an authenticated, versioned result for the API to validate and record once. |
 | Solana integration | Settle a challenge only after the backend authorizes its result. Keep the prototype on simulated balances or test funds. |
 
 **Verified capability:** MediaPipe provides 33 estimated body landmarks, including image and 3D world coordinates, with visibility/presence information. These are inputs to our evaluator; they do not include a ready-made verdict that a workout was performed correctly. [1]
 
 **Chert dependency:** Chert documents a FaceTime bridge to a LiveKit room we control. Caller-camera capture and outgoing agent video are separate capabilities. We must confirm caller-camera access on our assigned line and test the integration before promising a FaceTime workout coach. [2][3]
+
+## Dedicated Vultr processing
+
+For this coaching extension, use a **separate Vultr VM for the vision worker**. The website/mobile app renders the experience, and the core API handles small requests and result records. Heavy video decoding and pose analysis run on the worker.
+
+This remains server-side compute. The benefit is isolating the workload and scaling it independently. Separate containers on one VM still share that VM's CPU and memory; they do not provide the same resource separation. This proposed split extends the repository's initial single-VM deployment plan for the AI-coach feature. It does not mean a VM has already been provisioned.
+
+Keep video processing out of API request handlers. Send media directly to the approved streaming or private-storage destination, and pass only session identifiers, job references, and compact results through the core API.
+
+### Live coaching flow
+
+The conditional FaceTime route would look like this:
+
+```mermaid
+flowchart TD
+    P["Phone / FaceTime"] -->|"Caller video"| C["Chert + LiveKit"]
+    C -->|"Video frames"| W["Vultr vision worker"]
+    W -->|"Rep and tracking events"| A["Coaching agent"]
+    A -->|"Spoken feedback"| C
+    W -->|"Versioned session result"| B["Moltivate API"]
+    B -->|"Accepted progress in app"| P
+```
+
+1. The API authorizes a workout session and binds it to the participant and challenge.
+2. With caller capture enabled, the worker subscribes to the relevant LiveKit video track and processes timestamped frames.
+3. The worker returns pose data for an in-app overlay and compact exercise events for the coaching agent. Overlay data must match a sufficiently recent preview frame; clear stale overlays rather than drawing them over unrelated movement.
+4. The coach explains those events through Chert. The API records a final result only after its verification checks pass.
+
+Use a small, bounded frame buffer. If processing falls behind, discard stale frames for live feedback rather than accumulating delayed advice. Record tracking gaps and reset incomplete reps when necessary. If the evidence becomes too sparse, return a retry state instead of guessing completion.
+
+Chert documents connecting caller frames to our own vision pipeline. Caller capture must be enabled, and the track can contain FaceTime controls, names, or self-preview rather than a clean camera feed. Test framing, changing images, camera mute, and track replacement before relying on this input. [5]
+
+The in-app camera route can use an authenticated media stream to the worker independently of FaceTime. That transport still needs to be implemented and tested. Chert is optional for video ingestion in this route and remains useful for coaching or session summaries.
+
+### Recorded verification flow
+
+1. The API creates an authorized session and a short-lived upload URL.
+2. The app uploads its clip directly to private object storage.
+3. After upload validation, the API enqueues a verification job. A Postgres-backed job table is sufficient for the first version.
+4. The Vultr worker claims the job, reads the clip, evaluates it, and submits the result through an authenticated internal interface.
+5. The API records the result once and makes it available to the app and leaderboard.
+
+Use bounded retries and job leases so an interrupted worker can recover. Duplicate job delivery must not credit a workout twice. Recorded verification can process asynchronously; it does not need to share the live-feedback latency target.
+
+### Capacity, failures, and cost
+
+Start by benchmarking one squat session on a CPU VM. Vultr offers CPU and GPU instance options, but we have not measured which size is appropriate for this workload. [6]
+
+Measure:
+
+- Sustained processing frame rate and camera-to-feedback delay.
+- CPU, memory, and network usage per active session.
+- Recorded-clip processing time and queue wait time.
+- Error rates and performance with a small increase in concurrent sessions.
+- Total usage across compute, media transport, storage, and the coaching model.
+
+Choose an initial session limit from those measurements. Reject or defer new sessions clearly when capacity is full. Put live sessions and recorded jobs under separate capacity limits so background processing cannot make live coaching unusable; split them across workers if benchmarking shows contention.
+
+A worker outage should leave normal app pages and account requests available while verification shows a pending or retry state. Do not convert processing failures into failed workouts. Keep the existing challenge deadlines and refund rules intact.
+
+The worker should have scoped access to its media and result interface. Settlement signing keys belong in the settlement service, not the video-processing VM.
 
 ## Recommended first version
 
@@ -83,9 +147,9 @@ A raised-hand gesture could later start a set. Require a deliberate hold and deb
 
 ## Chert integration plan
 
-**Start with the in-app camera flow.** Keep the skeleton and immediate tracking feedback in Moltivate. A separate Chert integration could send reminders and session summaries through iMessage.
+**Start with the in-app camera flow.** Render the camera preview and skeleton in Moltivate, with the dedicated Vultr worker doing the heavy pose analysis. Return timestamped landmarks and feedback to the app. A separate Chert integration could send reminders and session summaries through iMessage.
 
-**Then test FaceTime coaching.** On a caller-video-enabled Chert line, investigate receiving the LiveKit video track in our processing service and returning spoken feedback through the agent. Confirm frame access, latency, and session cleanup with an actual call.
+**Then test FaceTime coaching.** On a caller-video-enabled Chert line, connect the LiveKit video track to the Vultr worker and return spoken feedback through the agent. Confirm usable caller frames, latency, camera-mute handling, and session cleanup with an actual call before treating this path as supported.
 
 Do not assume a custom skeleton overlay can be drawn inside the caller’s native FaceTime UI. That display behavior needs its own integration check; the in-app overlay remains the simplest first implementation.
 
@@ -113,16 +177,17 @@ If independent verification and anti-replay checks are unfinished, keep the demo
 
 A single camera estimates depth. Occlusion, poor lighting, framing, and orientation can degrade tracking. The model’s own documentation describes these limitations. We can assess selected movement criteria; we cannot guarantee complete or safe technique from a skeleton overlay. [4]
 
-Request camera access only when needed. Prefer local processing for immediate feedback. Explain any video transmission or retention needed for server verification, and avoid keeping raw video by default. Keep provider credentials on the server.
+Request camera access only when needed. Keep lightweight preview and overlay rendering in the app, and explain that video is transmitted to the worker for cloud analysis. Optional local pose inference could later improve feedback latency, but client output remains untrusted for rewards. Define retention for any stored verification clips and avoid keeping raw video by default. Keep provider credentials on the server.
 
 ## Suggested build order
 
-1. **Vision/UI:** Camera preview, landmark overlay, framing feedback.
-2. **Exercise logic:** Squat phase tracking, rep counting, confidence handling.
-3. **Validation:** Test full reps, partial reps, pauses, occlusion, different bodies, clothing, lighting, and camera positions.
-4. **Backend:** Session records and independently verified sample results.
-5. **Chert:** Confirm access, then connect structured events to the coaching conversation.
-6. **Demo polish:** Clear start/end states, concise feedback, and a readable challenge summary.
+1. **Vision/UI:** Camera preview, framing guide, and timestamped landmark overlay.
+2. **Vultr worker:** Containerize the pose pipeline, run it separately from the API, and benchmark one CPU session.
+3. **Exercise logic:** Squat phase tracking, rep counting, confidence handling, and tracking-gap recovery.
+4. **Recorded verification:** Private direct uploads, queued jobs, bounded retries, and independently evaluated sample results.
+5. **Validation:** Test full and partial reps, pauses, occlusion, different bodies, clothing, lighting, camera positions, and worker failures.
+6. **Live coaching:** Test the in-app media stream, confirm Chert caller capture, and connect worker events to the coaching conversation. Set concurrency limits from measurements.
+7. **Demo polish:** Clear start/end states, concise feedback, processing/retry states, and a readable challenge summary.
 
 Before calling the MVP ready, confirm that tracking loss cannot award a rep, pauses cannot duplicate reps, and repeated submissions cannot duplicate a result. Measure false accepts and false rejects against manually labeled clips. Record actual results rather than advertising an unmeasured accuracy percentage.
 
@@ -134,9 +199,13 @@ Sources checked November 14, 2026.
 [2]: https://www.trychert.com/facetime
 [3]: https://docs.trychert.com/facetime-cli/quickstart
 [4]: https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf
+[5]: https://docs.trychert.com/facetime/audio-video
+[6]: https://docs.vultr.com/products/compute/instances
 
 - [Google MediaPipe Pose Landmarker][1] — landmark outputs and supported platforms.
 - [Chert FaceTime][2] — LiveKit integration and caller-camera capability requirements.
 - [Chert setup guide][3] — assigned lines and real-call testing.
 - [BlazePose GHUM model card][4] — intended uses, depth estimates, and tracking limitations.
+- [Chert audio/video guidance][5] — caller tracks, custom vision processing, and capture limitations.
+- [Vultr compute instances][6] — CPU and GPU instance categories.
 
