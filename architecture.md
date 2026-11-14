@@ -13,6 +13,7 @@ The current website is a presentation and interaction prototype for the mobile p
 | `apps/web/index.html` | Landing-page content, navigation, sections, and app-availability dialog |
 | `apps/web/styles.css` / `fonts.css` | Responsive page design and local font declarations |
 | `apps/web/editorial.css` | App-icon and navigation treatment, sponsor ribbon, retro chat, Polaroids, and origin-story layout |
+| `apps/web/motion.css` / `motion.js` | Centered hero, copper shine, glossy CTA, scroll chapters, device perspective, one-time object reveals, and effects preferences |
 | `apps/web/app.js` | Navigation, dialog behavior, and sponsor-ribbon playback; imports the custom elements |
 | `apps/web/phone-demo.js` | `<moltivate-demo>` with scoped styles and simulated mobile interaction states |
 | `apps/web/club-board.js` | `<club-board>` with scoped styles, bounded simulated SOL feed, search, filters, sorting, and crew details |
@@ -27,6 +28,10 @@ State lives in the current browser session. The components do not connect to a w
 The page loads Fraunces, DM Sans, and La Belle Aurore from local assets. Components use native custom elements and scoped Shadow DOM styles. The Club feed advances deterministic display fixtures every 4.5 seconds while visible. It updates figures in place to preserve search focus and pauses when offscreen, hidden, explicitly paused, or a crew dialog is open. Digits use cancellable Web Animations; no live financial data is fetched.
 
 The Club CTA dispatches `moltivate:get-app`, which the page handles by opening the availability dialog.
+
+The phone follows scroll position only on viewports at least 901 px wide and 800 px high with effects enabled. The three chapters select existing demo screens; they never submit actions or alter workout results. `setStoryStage()` respects manual pause, open dialogs, and active sets. The component emits `moltivate:demo-state` to synchronize the surrounding captions. Direct interaction pauses the story; **Follow scroll** resumes it. Replay resets the demo and leaves scroll following paused. On smaller screens, the phone remains in normal flow and its optional automatic tour pauses while offscreen or the document is hidden.
+
+Perspective uses CSS transforms, not a WebGL model or downloaded video. Scroll listeners are passive and work is coalesced into animation frames. Text remains readable without waiting for a reveal. The page-level **Effects** control stops decorative motion; system reduced motion also disables pinning, perspective, and automatic screen progression. See [motion design notes](docs/motion-design.md) for the rationale and research.
 
 The sponsor ribbon repeats one decorative logo group for continuous movement. Its duplicate is hidden from assistive technology and removed from keyboard focus; playback can be paused and reduced-motion settings stop it. Each original logo links to its track's explanation. These sections describe planned work: Vultr backend deployment, Solana devnet commitments, and exploration of Chert video/messaging infrastructure. They do not establish live integrations, customers, or endorsement. Chert is not the rep-counting verifier; the MediaPipe plan below remains separate.
 

@@ -16,7 +16,8 @@ The complete demo source lives in `apps/web/`. The private demo requires ChatGPT
 
 The website combines a clear landing page with an interactive phone preview and a searchable Club leaderboard. It is built with HTML, CSS, vanilla JavaScript ES modules, and three custom elements: `<moltivate-demo>`, `<club-board>`, and `<rolling-amount>`.
 
-- Phone preview: three selectable views, looping playback with pause/replay, and a simulated workout and reward flow.
+- Centered headline with a copper light sweep and a glossy App Store button. The phone sits below the opening, with three scroll-led chapters on tall desktop screens and a direct, optionally looping tour on smaller screens. Selecting a screen or using the phone pauses the scroll story; **Follow scroll** resumes it.
+- The phone uses lightweight CSS perspective and a glass reflection, settling flat during interaction. Supporting photo/chat objects reveal once. The **Effects** control and system reduced-motion preference disable decorative movement; the complete simulated workout and reward flow stays usable.
 - Club: a neutral black leaderboard with green gains/red losses, sample teams, search, progress/reward sorting, weekly/monthly filters, and individual crew details. Demo SOL totals update every 4.5 seconds while visible; rolling digits settle on each exact sample value. Updates can be paused, and reduced-motion preferences disable the rolling effect.
 - Green app icon with a white **m** and orange dot, feature navigation, FAQ content, and a **coming soon** App Store action that opens an availability dialog.
 - A pausable sponsor-logo ribbon links to the selected hackathon track ideas: GoDaddy's creative domain, planned Vultr deployment, planned Solana devnet challenges, and Chert video/vision exploration.

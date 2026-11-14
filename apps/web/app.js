@@ -1,5 +1,6 @@
 import './phone-demo.js';
 import './club-board.js';
+import './motion.js';
 
 const menuButton = document.querySelector('.menu-toggle');
 const nav = document.querySelector('#main-nav');
@@ -36,7 +37,7 @@ dialog.addEventListener('click', event => {
 });
 document.querySelector('#dialog-demo').addEventListener('click', () => {
   dialog.close();
-  demo.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block:'center'});
+  demo.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block:'start'});
   const phone = document.querySelector('moltivate-demo');
   phone?.focusDemo?.();
 });
