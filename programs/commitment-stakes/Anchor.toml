@@ -15,5 +15,8 @@ url = "https://api.apr.dev"
 cluster = "localnet"
 wallet = "~/.config/solana/devnet-throwaway.json"
 
+[test]
+startup_wait = 20000
+
 [scripts]
-test = "echo \"no integration tests yet\""
+test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
