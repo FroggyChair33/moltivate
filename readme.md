@@ -2,7 +2,7 @@
 
 **Put your money where your muscles are.**
 
-Moltivate is a mobile fitness competition app where friends form teams, put money behind their commitments, and compete through verified workouts. Team accountability makes showing up social; financial stakes give the commitment weight.
+Moltivate is a mobile fitness competition app where friends form teams, put Solana behind their commitments, and compete through verified workouts. Team accountability makes showing up social; financial stakes give the commitment weight.
 
 **Are you Moltivated?**
 
