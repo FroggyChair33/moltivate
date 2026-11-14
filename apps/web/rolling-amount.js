@@ -1,17 +1,7 @@
 // Display-only demo amounts. Never use this formatter for settlement arithmetic.
-const amountFormatter = new Intl.NumberFormat('en-US', {
-  useGrouping: false,
-  minimumFractionDigits: 3,
-  maximumFractionDigits: 3,
-});
+import { currencyState, formatMoney, subscribeCurrency } from './currency.js';
 
-export function formatAmount(value) {
-  const number = Number(value ?? 0);
-  if (!Number.isFinite(number)) return '—';
-  const magnitude = amountFormatter.format(Math.abs(number));
-  const negative = number < 0 && magnitude !== '0.000';
-  return `${negative ? '−' : '+'}${magnitude}`;
-}
+export function formatAmount(value) { return formatMoney(value, { signed: true }); }
 
 const styles = `
 :host{display:inline-flex;vertical-align:bottom;min-width:6ch;justify-content:flex-end;color:inherit;font:inherit;font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.15;letter-spacing:0}
@@ -40,9 +30,13 @@ class RollingAmount extends HTMLElement {
     this.setAttribute('role', 'img');
     this.motionQuery.addEventListener('change', this.onMotionChange);
     this.render(false);
+    this.unsubscribeCurrency = subscribeCurrency(() => {
+      if (formatAmount(this.getAttribute('value')) !== this.dataset.value) this.render(true);
+    });
   }
 
   disconnectedCallback() {
+    this.unsubscribeCurrency?.();
     this.motionQuery.removeEventListener('change', this.onMotionChange);
     this.cancel();
   }
@@ -81,7 +75,7 @@ class RollingAmount extends HTMLElement {
     this.cancel();
     const revision = this.revision;
     const formatted = formatAmount(this.getAttribute('value'));
-    this.setAttribute('aria-label', formatted === '—' ? 'Amount unavailable' : formatted);
+    this.setAttribute('aria-label', formatted === '—' ? 'Amount unavailable' : `${formatted} ${currencyState().currency === 'USD' ? 'US dollars, estimated' : 'demo SOL'}`);
     this.dataset.value = formatted;
     this.reels = [];
     this.shadowRoot.innerHTML = `<style>${styles}</style><span class="amount" aria-hidden="true"></span>`;

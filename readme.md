@@ -6,9 +6,9 @@ Moltivate is a mobile fitness competition app where friends form teams, put mone
 
 **Are you Moltivated?**
 
-[Private demo](https://moltivate-club.betrji.chatgpt.site) · [Demo CI](https://github.com/betrji/moltivate/actions/workflows/demo.yml) · [CI/CD guide](docs/ci-cd.md)
+[Live demo](https://staymoltivated.club) · [Demo CI](https://github.com/betrji/moltivate/actions/workflows/demo.yml) · [CI/CD guide](docs/ci-cd.md)
 
-The complete demo source lives in `apps/web/`. The private demo requires ChatGPT sign-in; GitHub Actions produces tested build artifacts, with optional GitHub Pages deployment when a public host is selected.
+The complete demo source lives in `apps/web/`. The demo is public at staymoltivated.club; GitHub Actions produces tested build artifacts, with optional GitHub Pages deployment when a public host is selected.
 
 > Status: an interactive browser frontend is implemented in `apps/web/`. It introduces Moltivate and previews the planned mobile experience with sample data. The native mobile app, backend, verification worker, and smart contract have not been implemented or deployed. A future end-to-end blockchain demo will use Solana devnet and test SOL only.
 
@@ -19,6 +19,7 @@ The website combines a clear landing page with an interactive phone preview and 
 - Centered headline with a copper light sweep and a glossy App Store button. The phone sits below the opening, with three scroll-led chapters spread over three viewport heights on tall desktop screens. The workout chapter gets extra reading space, and chapter ticks show progress. Smaller screens use a direct, optionally looping tour. Selecting a screen or using the phone pauses the scroll story; **Follow scroll** resumes it.
 - The phone uses lightweight CSS perspective and a glass reflection, settling flat during interaction. Supporting photo/chat objects reveal once. Motion starts automatically without page-level animation switches. System reduced-motion preferences disable decorative movement; the complete simulated workout and reward flow stays usable.
 - Club: a neutral black leaderboard with green gains/red losses, sample teams, search, progress/reward sorting, weekly/monthly filters, and individual crew details. Demo SOL totals update every 4.5 seconds while visible; rolling digits settle on each exact sample value. Updates hold steady while crew details are open, and reduced-motion preferences disable the rolling effect.
+- A shared **SOL / USD** switch in the phone, leaderboard, and standings drawer converts sample amounts using Coinbase’s public SOL/USD spot quote. Rates refresh every minute while USD is selected and the page is visible. The price source and retrieval time are shown; unavailable prices keep SOL visible with a retry action. Estimates exclude fees and do not represent real balances.
 - Green app icon with a white **m** and orange dot, feature navigation, FAQ content, and a **coming soon** App Store action that opens an availability dialog.
 - A pausable sponsor-logo ribbon links to the selected hackathon track ideas: GoDaddy's creative domain, planned Vultr deployment, planned Solana devnet challenges, and Chert video/vision exploration.
 - A peek-out leaderboard at the top shows teams and rolling weekly demo SOL immediately. It folds toward the edge and fades as the phone enters, reversing when scrolling up. It opens a keyboard-accessible standings drawer and shares one feed with the Club section.
@@ -48,7 +49,7 @@ npx --no-install playwright install --with-deps chromium
 npm run ci
 ```
 
-Every pull request and push to `main` runs the same checks in GitHub Actions. Successful builds are available as downloadable artifacts; failed browser tests include reports/traces. Public deployment is deliberately disabled until `DEMO_DEPLOY_TARGET=github-pages` and Pages settings are configured. See [CI/CD](docs/ci-cd.md) for setup, required checks, and rollback. GitHub pushes do not automatically republish the existing private Site.
+Every pull request and push to `main` runs the same checks in GitHub Actions. Successful builds are available as downloadable artifacts; failed browser tests include reports/traces. Public deployment is deliberately disabled until `DEMO_DEPLOY_TARGET=github-pages` and Pages settings are configured. See [CI/CD](docs/ci-cd.md) for setup, required checks, and rollback. GitHub pushes do not automatically republish the existing public Site.
 
 `npm run check` checks JavaScript syntax; `npm run check:build` validates assets, imports, anchors, and build boundaries; Playwright tests the actual browser interactions. `npm run build` recreates `dist/` from `apps/web/`. Edit source files, rebuild, and refresh the preview.
 

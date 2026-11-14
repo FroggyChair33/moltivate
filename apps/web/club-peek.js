@@ -1,4 +1,5 @@
 import './rolling-amount.js';
+import { subscribeCurrency, updateMoney } from './currency.js';
 
 const arrow = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>';
 const trophy = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v3a4 4 0 0 0 4 4m8-7h4v3a4 4 0 0 1-4 4m-4 1v5m-4 3h8m-6-3h4"/></svg>';
@@ -17,6 +18,7 @@ const styles = `
 .drawer-top{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:25px}.drawer-brand{display:flex;align-items:center;gap:9px;font-size:10px;letter-spacing:1.6px;color:#c4c6c4}.drawer-brand>svg{color:#e1bf71}.close{width:34px;height:34px;display:grid;place-items:center;border:1px solid #36383d;border-radius:50%;background:transparent;color:#b9bdc4}.close:hover{background:#25272b;color:#fff}
 h2{font:600 29px/1.15 'DM Sans',Arial,sans-serif;letter-spacing:-1px;margin:0 0 9px}.intro{font-size:12px;line-height:1.65;color:#a9adb5;margin:0 0 23px;max-width:290px}.drawer-meta{display:flex;justify-content:space-between;align-items:center;gap:9px;font-size:10px;border-top:1px solid #292c30;border-bottom:1px solid #292c30;padding:13px 0;color:#c8cacf}.sample{display:flex;align-items:center;gap:6px;font-size:9px;color:#9a9ea7;white-space:nowrap}.sample i{width:5px;height:5px;display:block;border-radius:50%;background:#e17b56}.column-labels{display:flex;justify-content:space-between;color:#6f7580;font:8px ui-monospace,monospace;letter-spacing:1px;padding:17px 0 2px}
 ol{list-style:none;padding:0;margin:0 0 22px}.team{display:grid;grid-template-columns:18px 34px minmax(0,1fr) auto;align-items:center;gap:10px;padding:18px 0;border-bottom:1px solid #24262b}.rank{font:11px ui-monospace,monospace;color:#707781}.avatar{height:34px;width:34px;display:grid;place-items:center;border:2px solid #ffffff26;border-radius:50%;font:600 11px 'Fraunces',Georgia,serif;background:var(--avatar-bg);color:var(--avatar-ink)}.team-name{display:block;font-size:12px;font-weight:500;line-height:1.35}.members{display:block;font-size:9px;color:#797f8a;margin-top:4px}.amount{font:600 16px ui-monospace,SFMono-Regular,Consolas,monospace;text-align:right;white-space:nowrap}.trend{display:block;margin:5px 0 0 auto;width:42px;height:12px;opacity:.75}
+.drawer-currency{padding:14px 0 0}.drawer-currency currency-switch{--currency-muted:#a3a7af}.column-labels{text-transform:uppercase}
 .drawer-bottom{margin-top:auto;padding-top:10px}.full-board{display:flex;justify-content:space-between;align-items:center;min-height:47px;padding:12px 15px;border:1px solid #555b51;border-radius:7px;background:#eef1e4;color:#183b2b;font-size:12px;font-weight:600;text-decoration:none;transition:background .2s}.full-board:hover{background:#fff}.note{font-size:9px;line-height:1.65;color:#797f8b;margin:14px 0 0}.drawer-signoff{font:25px 'La Belle Aurore',cursive;color:#d99c77;margin:21px 0 12px;transform:rotate(-3deg)}
 @keyframes drawer-enter{from{transform:translateX(100%)}to{transform:translateX(0)}}
 @media(max-width:1200px){
@@ -48,8 +50,8 @@ class ClubPeek extends HTMLElement {
     this.shadowRoot.innerHTML = `<style>${styles}</style>
       <div class="peek-motion">
       <button class="peek" aria-label="Open leaderboard" aria-haspopup="dialog" aria-controls="club-drawer" aria-expanded="false">
-        <span class="peek-heading">${trophy}<span class="peek-overline">THE CLUB</span><span class="compact-demo">DEMO SOL</span></span>
-        <span class="peek-title">Leaderboard</span><span class="peek-live">Simulated feed · demo SOL</span>
+        <span class="peek-heading">${trophy}<span class="peek-overline">THE CLUB</span><span class="compact-demo" data-currency-unit>demo SOL</span></span>
+        <span class="peek-title">Leaderboard</span><span class="peek-live">Simulated feed · <span data-currency-unit>demo SOL</span></span>
         <span class="peek-rows">${snapshot.slice(0,2).map(club=>`<span class="peek-row"><span class="peek-name">${club.name}</span><span class="peek-value up" data-amount="${club.id}"><rolling-amount value="${club.value.toFixed(3)}"></rolling-amount></span></span>`).join('')}</span>
         <span class="peek-cta"><span class="cta-text">Open leaderboard</span><span class="compact-open">Open</span>${arrow}</span>
       </button>
@@ -58,9 +60,10 @@ class ClubPeek extends HTMLElement {
         <div class="drawer-top"><span class="drawer-brand">${trophy}THE CLUB</span><button class="close" aria-label="Close leaderboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
         <h2 id="drawer-title">Stronger together.</h2><p class="intro" id="drawer-intro">The crews showing up. The commitments adding up.</p>
         <div class="drawer-meta"><span>Weekly net rewards</span><span class="sample"><i></i>Simulated feed</span></div>
-        <div class="column-labels"><span>TEAM STANDINGS</span><span>DEMO SOL</span></div>
+        <div class="drawer-currency"><currency-switch dark></currency-switch></div>
+        <div class="column-labels"><span>TEAM STANDINGS</span><span data-currency-unit>demo SOL</span></div>
         <ol aria-label="Teams ranked by weekly net rewards">${snapshot.map((club,index)=>`<li class="team" data-team="${club.id}"><span class="rank">${String(index+1).padStart(2,'0')}</span><span class="avatar" style="--avatar-bg:${club.color};--avatar-ink:${club.ink}" aria-hidden="true">${club.initials}</span><span><span class="team-name">${club.name}</span><span class="members">${club.members.length} members · ${club.movement>0?'↑':'↓'} ${Math.abs(club.movement)} places</span></span><span class="amount ${club.value<0?'down':'up'}" data-amount="${club.id}"><rolling-amount value="${club.value.toFixed(3)}"></rolling-amount><svg class="trend" viewBox="0 0 48 24" fill="none" aria-hidden="true"><polyline points="${club.trend.map((p,i)=>`${i*6.7},${p}`).join(' ')}" stroke="currentColor" stroke-width="1.7"/></svg></span></li>`).join('')}</ol>
-        <div class="drawer-bottom"><p class="drawer-signoff">a little skin in the game.</p><a class="full-board" href="#club">Explore the club ${arrow}</a><p class="note">Sample teams and rolling demo SOL, refreshed every 4.5 seconds. No live balances or real money movements.</p></div>
+        <div class="drawer-bottom"><p class="drawer-signoff">a little skin in the game.</p><a class="full-board" href="#club">Explore the club ${arrow}</a><p class="note">Sample teams and demo amounts, refreshed every 4.5 seconds. USD estimates use the displayed SOL price and exclude fees. No live balances or real money movements.</p></div>
       </dialog>`;
     this.trigger = this.shadowRoot.querySelector('.peek');
     this.motion = this.shadowRoot.querySelector('.peek-motion');
@@ -99,10 +102,13 @@ class ClubPeek extends HTMLElement {
     });
     this.board.addEventListener('moltivate:club-feed',this.onFeed);
     document.addEventListener('visibilitychange',this.onHidden);
+    updateMoney(this.shadowRoot);
+    this.unsubscribeCurrency = subscribeCurrency(() => updateMoney(this.shadowRoot));
     this.updateVisibility();
   }
 
   disconnectedCallback() {
+    this.unsubscribeCurrency?.();
     this.board?.removeEventListener('moltivate:club-feed',this.onFeed);
     this.board?.setExternalVisible(false);
     document.removeEventListener('visibilitychange',this.onHidden);

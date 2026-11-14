@@ -1,3 +1,5 @@
+import { money, subscribeCurrency, updateMoney } from './currency.js';
+
 /* A browser-only product tour. All activity and SOL amounts are illustrative. */
 const icon = (name, size = 20) => {
   const paths = {
@@ -37,6 +39,8 @@ const css = `
 
 const productCss = `
 .tab-number{display:none}
+.app-top{align-items:flex-start;padding-bottom:9px;min-height:65px}.wordmark{margin-top:5px}.app-top currency-switch{flex-shrink:0}.view{overflow-y:auto;scrollbar-width:none;padding-bottom:4px}
+@media(min-width:901px) and (max-height:880px){.workout-stage{height:180px}.pose{height:160px}}
 :host([scroll-story]) .phone{height:650px;transform:perspective(1100px) rotateX(var(--phone-pitch,0deg)) rotateY(var(--phone-yaw,0deg)) rotateZ(var(--phone-roll,0deg));transform-origin:50% 45%;transition:transform .28s cubic-bezier(.2,.7,.2,1);box-shadow:0 34px 45px -25px #173e2c48,4px 2px 0 -1px #69715f,inset 0 0 0 1px #969d8b}
 :host([scroll-story]) .screen:after{content:'';position:absolute;inset:0;pointer-events:none;z-index:6;background:linear-gradient(115deg,transparent 32%,#ffffff20 45%,#ffffff04 47%,transparent 58%);background-size:180% 100%;background-position:var(--glass-position,50%) 0;border-radius:39px}
 :host([scroll-story]) .selectors{margin:0 -53px 24px;gap:0;border-bottom:1px solid #cbd3c1;justify-content:space-between}
@@ -84,12 +88,19 @@ class MoltivateDemo extends HTMLElement {
       if (this.motionQuery.matches) { this.pauseTour(); this.render(); }
     };
     this.boundVisibility = () => this.scheduleTour();
+    this.onCurrencyInteract = event => {
+      this.pauseTour();
+      this.render();
+      this.shadowRoot.querySelector('currency-switch').focusCurrency(event.detail);
+    };
   }
 
   connectedCallback() {
     this.shadowRoot.addEventListener('click', this.boundClick);
     this.shadowRoot.addEventListener('keydown', this.boundKey);
     this.render();
+    this.unsubscribeCurrency = subscribeCurrency(() => updateMoney(this.shadowRoot));
+    this.addEventListener('moltivate:currency-interact', this.onCurrencyInteract);
     this.motionQuery.addEventListener('change', this.boundMotion);
     document.addEventListener('visibilitychange', this.boundVisibility);
     this.visibilityObserver = new IntersectionObserver(([entry]) => {
@@ -100,6 +111,8 @@ class MoltivateDemo extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.unsubscribeCurrency?.();
+    this.removeEventListener('moltivate:currency-interact', this.onCurrencyInteract);
     this.shadowRoot.removeEventListener('click', this.boundClick);
     this.shadowRoot.removeEventListener('keydown', this.boundKey);
     this.clearTimers();
@@ -272,14 +285,14 @@ class MoltivateDemo extends HTMLElement {
       <div class="card challenge">
         <div class="row"><span class="tiny white-muted">YOUR NEXT CHALLENGE</span><span class="pill">2 vs 2</span></div>
         <h4>The morning crew</h4><p>10 squats. One small promise.</p>
-        <div class="row"><span class="tiny white-muted">Total demo pool</span><strong>0.20 <span class="tiny white-muted">SOL</span></strong></div>
+        <div class="row"><span class="tiny white-muted">Total demo pool</span><strong>${money(.20, { decimals: 2 })} <span class="tiny white-muted" data-currency-unit>demo SOL</span></strong></div>
       </div>
       <div class="team-row">
         <div class="team-group"><div class="avatars"><span class="avatar yellow">YOU</span><span class="avatar green">AJ</span></div><span class="team-name">Early birds</span></div>
         <span class="vs">vs.</span>
         <div class="team-group"><span class="team-name">Night owls</span><div class="avatars"><span class="avatar orange">MK</span><span class="avatar lilac">JS</span></div></div>
       </div>
-      <div class="metrics"><div class="metric"><span class="label">YOUR COMMITMENT</span><b>0.05 <small>demo SOL</small></b></div><div class="metric"><span class="label">THE GOAL</span><b>10 <small>squats each</small></b></div></div>
+      <div class="metrics"><div class="metric"><span class="label">YOUR COMMITMENT</span><b>${money(.05, { decimals: 2 })} <small data-currency-unit>demo SOL</small></b></div><div class="metric"><span class="label">THE GOAL</span><b>10 <small>squats each</small></b></div></div>
       <button class="main-action ${this.joined ? 'done' : ''}" data-action="join">${this.joined ? 'You’re in. Let’s move.' : 'Count me in'} ${icon(this.joined ? 'check' : 'arrow', 15)}</button>
       <button class="text-action" data-action="rules">The rules, before you commit</button>`;
   }
@@ -312,9 +325,9 @@ class MoltivateDemo extends HTMLElement {
 
   progressView() {
     return `<p class="eyebrow">Showing up looks good on you</p><h3>You kept<br><em>your promise.</em></h3>
-      <div class="reward"><div class="trophy">${icon('trophy', 24)}</div><span class="reward-label">YOUR SAMPLE PAYOUT</span><strong>0.075 <span class="unit">demo SOL</span></strong><small>0.05 returned + 0.025 team bonus</small></div>
+      <div class="reward"><div class="trophy">${icon('trophy', 24)}</div><span class="reward-label">YOUR SAMPLE PAYOUT</span><strong>${money(.075)} <span class="unit" data-currency-unit>demo SOL</span></strong><small>${money(.05, { decimals: 2 })} returned + ${money(.025)} team bonus</small></div>
       <div class="result-score"><span>Early birds</span><strong>2 <span class="muted">–</span> 1</strong><span class="muted">Night owls</span></div>
-      <div class="breakdown"><div class="row"><span class="muted">Your original commitment</span><b>0.050</b></div><div class="row"><span class="muted">Your share of the bonus</span><b class="positive">+0.025</b></div></div>
+      <div class="breakdown"><div class="row"><span class="muted">Your original commitment</span><b>${money(.05)}</b></div><div class="row"><span class="muted">Your share of the bonus</span><b class="positive">${money(.025, { signed: true })}</b></div></div>
       <p class="result-note">Three people met their goal. The remaining stake is shared by the winning completers.</p>
       <button class="main-action ${this.claimed ? 'done' : ''}" data-action="claim">${this.claimed ? 'View demo receipt' : 'Try claiming your reward'} ${icon(this.claimed ? 'check' : 'arrow', 15)}</button>
       <p class="footnote">Illustrative outcome. No funds are moved.</p>`;
@@ -322,8 +335,8 @@ class MoltivateDemo extends HTMLElement {
 
   overlayView() {
     if (!this.overlay) return '';
-    if (this.overlay === 'receipt') return `<div class="overlay"><section class="sheet center" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><button class="close" data-action="close" aria-label="Close demo receipt">${icon('close', 18)}</button><div class="success">${icon('check', 29)}</div><span class="topline">Demo receipt</span><h4 id="sheet-title">A win for showing up.</h4><p class="receipt"><b>0.075 demo SOL</b><br>0.05 principal + 0.025 bonus</p><p>This is an interactive preview. No wallet was connected and no transaction was sent.</p><button class="main-action" data-action="close">Got it ${icon('check', 15)}</button></section></div>`;
-    return `<div class="overlay"><section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><button class="close" data-action="close" aria-label="Close challenge rules">${icon('close', 18)}</button><span class="topline">Example challenge · demo only</span><h4 id="sheet-title">Small stake.<br>Clear rules.</h4><ul><li>Two teams of two. 10 squats per person.</li><li>Each person commits 0.05 demo SOL.</li><li>Finish within the challenge window to recover your stake.</li><li>The winning completers share non-completers’ stakes. Extra reps don’t add points.</li><li>Ties, incomplete teams and settlement timeouts refund the original stakes.</li></ul><p>No real wallet, recording or payment is used in this preview.</p><button class="main-action" data-action="${this.overlay === 'join' ? 'confirm-join' : 'close'}">${this.overlay === 'join' ? 'Join the demo challenge' : 'Sounds good'} ${icon('arrow', 15)}</button></section></div>`;
+    if (this.overlay === 'receipt') return `<div class="overlay"><section class="sheet center" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><button class="close" data-action="close" aria-label="Close demo receipt">${icon('close', 18)}</button><div class="success">${icon('check', 29)}</div><span class="topline">Demo receipt</span><h4 id="sheet-title">A win for showing up.</h4><p class="receipt"><b>${money(.075)} <span data-currency-unit>demo SOL</span></b><br>${money(.05, { decimals: 2 })} principal + ${money(.025)} bonus</p><p>This is an interactive preview. No wallet was connected and no transaction was sent.</p><button class="main-action" data-action="close">Got it ${icon('check', 15)}</button></section></div>`;
+    return `<div class="overlay"><section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"><button class="close" data-action="close" aria-label="Close challenge rules">${icon('close', 18)}</button><span class="topline">Example challenge · demo only</span><h4 id="sheet-title">Small stake.<br>Clear rules.</h4><ul><li>Two teams of two. 10 squats per person.</li><li>Each person commits ${money(.05, { decimals: 2 })} <span data-currency-unit>demo SOL</span>.</li><li>Finish within the challenge window to recover your stake.</li><li>The winning completers share non-completers’ stakes. Extra reps don’t add points.</li><li>Ties, incomplete teams and settlement timeouts refund the original stakes.</li></ul><p>No real wallet, recording or payment is used in this preview.</p><button class="main-action" data-action="${this.overlay === 'join' ? 'confirm-join' : 'close'}">${this.overlay === 'join' ? 'Join the demo challenge' : 'Sounds good'} ${icon('arrow', 15)}</button></section></div>`;
   }
 
   render(focusAction = null) {
@@ -335,7 +348,7 @@ class MoltivateDemo extends HTMLElement {
       ${this.hasAttribute('scroll-story') ? selectors : ''}
       <div class="phone"><div class="screen">
         <div class="status" aria-hidden="true"><span>9:41</span><span class="island"></span><span class="status-icons"><span class="signal"><i></i><i></i><i></i><i></i></span><svg width="12" height="10" viewBox="0 0 16 12" fill="none"><path d="M1 3a11 11 0 0 1 14 0M4 6a6 6 0 0 1 8 0m-5 3a2 2 0 0 1 2 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><i class="battery"></i></span></div>
-        <div class="app-top"><div class="wordmark"><svg width="27" height="27" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect width="48" height="48" rx="12" fill="#173e2c"/><g transform="translate(6 7) scale(.85)"><path d="M8 26V15a4 4 0 0 1 8 0v8l8-11a4.5 4.5 0 0 1 8 3v11" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="5" r="3" fill="#e66b3d"/></g></svg>moltivate</div><span class="you" aria-label="Demo profile">YOU</span></div>
+        <div class="app-top"><div class="wordmark"><svg width="27" height="27" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect width="48" height="48" rx="12" fill="#173e2c"/><g transform="translate(6 7) scale(.85)"><path d="M8 26V15a4 4 0 0 1 8 0v8l8-11a4.5 4.5 0 0 1 8 3v11" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="31" cy="5" r="3" fill="#e66b3d"/></g></svg>moltivate</div><currency-switch compact></currency-switch></div>
         <div class="view" id="demo-view" role="tabpanel" aria-labelledby="tab-${this.stage}">${views[this.stage]}</div>
         <nav class="bottom-nav" aria-label="Demo screens">${['Crew', 'Workout', 'Progress'].map((label, i) => `<button class="${this.stage === i ? 'active' : ''}" data-stage="${i}" aria-label="Show ${label.toLowerCase()} demo" ${this.stage === i ? 'aria-current="page"' : ''}>${icon(['people', 'activity', 'trophy'][i], 17)}${label}</button>`).join('')}</nav>
         <span class="homebar" aria-hidden="true"></span>${this.overlayView()}
@@ -344,8 +357,9 @@ class MoltivateDemo extends HTMLElement {
       <div class="tour-bottom">${this.playing ? '' : `<button class="tour-control" data-action="toggle" aria-label="${controlLabel}">${icon('play', 12)}${controlText}</button>`}<button class="tour-control" data-action="replay" aria-label="Restart app demo">${icon('replay', 11)}Replay</button></div>
       <p class="demo-caption">Interactive preview · sample data</p>`;
     if (this.overlay) {
-      for (const el of this.shadowRoot.querySelectorAll('.view,.bottom-nav,.selectors,.tour-bottom')) el.inert = true;
+      for (const el of this.shadowRoot.querySelectorAll('.view,.app-top,.bottom-nav,.selectors,.tour-bottom')) el.inert = true;
     }
+    updateMoney(this.shadowRoot);
     if (focusAction) this.shadowRoot.querySelector(`[data-action="${focusAction}"]`)?.focus({ preventScroll: true });
     this.dispatchEvent(new CustomEvent('moltivate:demo-state', {bubbles:true,detail:{stage:this.stage,playing:this.playing}}));
   }

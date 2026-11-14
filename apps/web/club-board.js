@@ -1,4 +1,5 @@
 import './rolling-amount.js';
+import { money, subscribeCurrency, updateMoney } from './currency.js';
 import { clubTheme } from './club-theme.js';
 
 const icon = (name, size = 18) => {
@@ -48,6 +49,7 @@ class ClubBoard extends HTMLElement {
   }
 
   connectedCallback() {
+    this.unsubscribeCurrency = subscribeCurrency(() => updateMoney(this.shadowRoot));
     if (this.initialized) { this.observeVisibility(); return; }
     this.initialized = true;
     this.shadowRoot.innerHTML = `<style>${styles}${clubTheme}</style>
@@ -65,7 +67,8 @@ class ClubBoard extends HTMLElement {
                 <label class="select-wrap"><span class="screen-reader">Leaderboard period</span><select name="period"><option value="week">This week</option><option value="month">This month</option></select></label>
               </div>
             </div>
-            <div class="update-meta"><p class="table-caption">Latest challenge progress · <span class="feed-label">demo SOL refreshes every 4.5s</span></p></div>
+            <div class="currency-row"><currency-switch dark></currency-switch></div>
+            <div class="update-meta"><p class="table-caption">Latest challenge progress · <span class="feed-label">demo amounts refresh every 4.5s</span></p></div>
             <div class="results"></div>
             <div class="board-bottom"><span class="rank-count" role="status" aria-live="polite"></span><button class="reset">Reset filters ↗</button></div>
           </div>
@@ -80,7 +83,7 @@ class ClubBoard extends HTMLElement {
           </aside>
         </div>
       </section>
-      <p class="footnote">Simulated leaderboard · SOL values cycle through sample data. No live wallet data or money movements.</p>
+      <p class="footnote">Simulated leaderboard · amounts cycle through sample data. USD estimates use the displayed SOL price and exclude fees. No live balances or money movements.</p>
       <dialog class="dialog" aria-labelledby="club-title"></dialog>`;
     this.shadowRoot.querySelector('input').addEventListener('input', (event) => {
       this.filters.query = event.target.value;
@@ -116,6 +119,7 @@ class ClubBoard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.unsubscribeCurrency?.();
     clearInterval(this.updateTimer);
     this.updateTimer = null;
     this.visibilityObserver?.disconnect();
@@ -221,8 +225,9 @@ class ClubBoard extends HTMLElement {
       const reward = this.reward(club);
       const rank = sorted.findIndex(item => item.id === club.id) + 1;
       const points = club.trend.map((point, index) => `${index * 6.7},${point}`).join(' ');
-      return `<tr class="club-row" data-row="${club.id}"><td class="${rank === 1 ? 'leader' : ''}">${String(rank).padStart(2, '0')}</td><td><button class="name-button" data-team="${club.id}" aria-label="View ${club.name} demo details">${this.avatar(club)}<span class="team-text"><span class="team-name">${club.name}</span><span class="team-members"><span class="member-stack" aria-hidden="true">${club.members.map(member => `<span class="mini-avatar">${member[0]}</span>`).join('')}</span>2 members <span class="moving ${club.movement > 0 ? 'up' : 'down'}" aria-label="${club.movement > 0 ? 'Up' : 'Down'} ${Math.abs(club.movement)} places">${club.movement > 0 ? '↗' : '↘'} ${Math.abs(club.movement)}</span></span></span></button></td><td><div class="progress-top"><span>${completed}<span class="completion-total"> / 2</span></span><span>${percent}%</span></div><div class="track" role="meter" aria-label="${club.name} latest challenge progress" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${percent}%"></div></div></td><td><span class="money ${reward < 0 ? 'down' : 'up'}" data-reward="${club.id}"><rolling-amount value="${reward.toFixed(3)}"></rolling-amount></span><span class="submoney"><svg class="sparkline ${reward < 0 ? 'down' : 'up'}" viewBox="0 0 48 24" fill="none" aria-hidden="true"><polyline points="${points}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>demo SOL</span></td></tr>`;
+      return `<tr class="club-row" data-row="${club.id}"><td class="${rank === 1 ? 'leader' : ''}">${String(rank).padStart(2, '0')}</td><td><button class="name-button" data-team="${club.id}" aria-label="View ${club.name} demo details">${this.avatar(club)}<span class="team-text"><span class="team-name">${club.name}</span><span class="team-members"><span class="member-stack" aria-hidden="true">${club.members.map(member => `<span class="mini-avatar">${member[0]}</span>`).join('')}</span>2 members <span class="moving ${club.movement > 0 ? 'up' : 'down'}" aria-label="${club.movement > 0 ? 'Up' : 'Down'} ${Math.abs(club.movement)} places">${club.movement > 0 ? '↗' : '↘'} ${Math.abs(club.movement)}</span></span></span></button></td><td><div class="progress-top"><span>${completed}<span class="completion-total"> / 2</span></span><span>${percent}%</span></div><div class="track" role="meter" aria-label="${club.name} latest challenge progress" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${percent}%"></div></div></td><td><span class="money ${reward < 0 ? 'down' : 'up'}" data-reward="${club.id}"><rolling-amount value="${reward.toFixed(3)}"></rolling-amount></span><span class="submoney"><svg class="sparkline ${reward < 0 ? 'down' : 'up'}" viewBox="0 0 48 24" fill="none" aria-hidden="true"><polyline points="${points}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-currency-unit>demo SOL</span></span></td></tr>`;
     }).join('')}</tbody></table>`;
+    updateMoney(this.shadowRoot);
     this.syncUpdates();
   }
 
@@ -240,7 +245,8 @@ class ClubBoard extends HTMLElement {
     const { reps, completed } = this.progress(club);
     const amount = this.reward(club);
     const dialog = this.shadowRoot.querySelector('dialog');
-    dialog.innerHTML = `<div class="dialog-head">${this.avatar(club)}<button class="close" data-close aria-label="Close crew details">${icon('close', 18)}</button></div><h3 id="club-title">${club.name}</h3><p class="motto">${club.motto}</p><div class="dialog-meta"><span class="demo">Sample crew</span><span>2 members · 2v2 challenges</span></div><div class="dialog-stats"><div><div class="stat-label">Latest challenge goals</div><div class="stat-value">${completed} / 2</div></div><div><div class="stat-label">${this.filters.period === 'week' ? 'Weekly' : 'Monthly'} net · demo SOL</div><div class="stat-value ${amount < 0 ? 'down' : 'up'}">${this.amount(amount)}</div></div></div><h4 class="members-title">Every teammate's effort counts.</h4>${club.members.map((member, index) => `<div class="member"><span class="mini-avatar">${member[0]}</span><div class="member-name">${member}<div class="track"><div class="fill" style="width:${reps[index] * 10}%"></div></div></div><span class="member-count">${reps[index]} / 10 reps ${reps[index] >= 10 ? '✓' : ''}</span></div>`).join('')}<p class="detail-note">This is illustrative activity, not a real team or account. Completion reflects the latest sample challenge. Net rewards summarize the selected sample period and are not that challenge's payout.</p><button class="start-crew" data-get-app>Make showing up your thing ${icon('arrow', 17)}</button>`;
+    dialog.innerHTML = `<div class="dialog-head">${this.avatar(club)}<button class="close" data-close aria-label="Close crew details">${icon('close', 18)}</button></div><h3 id="club-title">${club.name}</h3><p class="motto">${club.motto}</p><div class="dialog-meta"><span class="demo">Sample crew</span><span>2 members · 2v2 challenges</span></div><div class="dialog-stats"><div><div class="stat-label">Latest challenge goals</div><div class="stat-value">${completed} / 2</div></div><div><div class="stat-label">${this.filters.period === 'week' ? 'Weekly' : 'Monthly'} net · <span data-currency-unit>demo SOL</span></div><div class="stat-value ${amount < 0 ? 'down' : 'up'}">${money(amount, { signed: true })}</div></div></div><h4 class="members-title">Every teammate's effort counts.</h4>${club.members.map((member, index) => `<div class="member"><span class="mini-avatar">${member[0]}</span><div class="member-name">${member}<div class="track"><div class="fill" style="width:${reps[index] * 10}%"></div></div></div><span class="member-count">${reps[index]} / 10 reps ${reps[index] >= 10 ? '✓' : ''}</span></div>`).join('')}<p class="detail-note">This is illustrative activity, not a real team or account. Completion reflects the latest sample challenge. Net rewards summarize the selected sample period and are not that challenge's payout.</p><button class="start-crew" data-get-app>Make showing up your thing ${icon('arrow', 17)}</button>`;
+    updateMoney(this.shadowRoot);
     dialog.showModal();
     this.syncUpdates();
   }

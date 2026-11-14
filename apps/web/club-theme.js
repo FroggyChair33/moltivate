@@ -68,6 +68,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .select-wrap select:hover { border-color: #5a5e68; }
 .select-wrap option { background: #151619; color: #f1f2f4; }
+.currency-row{padding:0 24px 16px}.currency-row currency-switch{max-width:455px}.currency-row .label{white-space:nowrap}
+@media(max-width:760px){.currency-row{padding:0 14px 15px}}
 .table-caption { color: var(--muted); padding: 0 24px 16px; font-size: 10px; }
 .update-meta {
   padding: 0 24px 16px;
