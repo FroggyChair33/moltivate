@@ -14,10 +14,14 @@ The website combines a clear landing page with an interactive phone preview and 
 
 - Phone preview: three selectable views, looping playback with pause/replay, and a simulated workout and reward flow.
 - Club: sample teams, search, progress/reward sorting, weekly/monthly filters, and individual crew details.
-- Responsive navigation, FAQ content, and a **coming soon** App Store action that opens an availability dialog.
+- Green app icon with a white **m** and orange dot, feature navigation, FAQ content, and a **coming soon** App Store action that opens an availability dialog.
+- A pausable sponsor-logo ribbon links to the selected hackathon track ideas: GoDaddy's creative domain, planned Vultr deployment, planned Solana devnet challenges, and Chert video/vision exploration.
+- A retro teammate-chat illustration, a sourced gym-photo Polaroid, and the **molt + motivate** origin story. Numbered image slots make personal photos easy to substitute; see [the image-slot guide](apps/web/IMAGE-SLOTS.md).
 - Self-hosted Fraunces, DM Sans, and La Belle Aurore fonts; font sources and licenses are included with the assets.
 
 The preview makes no wallet requests, camera requests, application API calls, or payments. Its SOL figures are illustrative display data, **not devnet balances or real payouts**. It does not create accounts, save workout results, or register visitors for a waitlist.
+
+The sponsor marks describe the team's selected hackathon tracks, not customers, endorsements, or completed integrations. Chert supplies messaging/video infrastructure; its potential vision role is exploratory and does not replace the separate workout-verification plan. [Brand asset sources](apps/web/assets/sponsors/ASSET-SOURCES.md) and [photography sources](apps/web/assets/photos/ASSET-SOURCES.md) are recorded alongside the assets.
 
 ### Run locally
 

@@ -12,15 +12,21 @@ The current website is a presentation and interaction prototype for the mobile p
 | --- | --- |
 | `apps/web/index.html` | Landing-page content, navigation, sections, and app-availability dialog |
 | `apps/web/styles.css` / `fonts.css` | Responsive page design and local font declarations |
-| `apps/web/app.js` | Navigation and dialog behavior; imports the custom elements |
+| `apps/web/editorial.css` | App-icon and navigation treatment, sponsor ribbon, retro chat, Polaroids, and origin-story layout |
+| `apps/web/app.js` | Navigation, dialog behavior, and sponsor-ribbon playback; imports the custom elements |
 | `apps/web/phone-demo.js` | `<moltivate-demo>` with scoped styles and simulated mobile interaction states |
 | `apps/web/club-board.js` | `<club-board>` with scoped styles, fixture data, search, filters, sorting, and crew details |
-| `apps/web/assets/` | Original favicon and self-hosted fonts, with font license/source records |
+| `apps/web/assets/` | Original app icon, self-hosted fonts, official sponsor marks, and illustrative photography, with source/license records |
+| `apps/web/IMAGE-SLOTS.md` | Numbered photo locations and replacement guidance |
 | `scripts/build.mjs` | Recreates `dist/` from the source directory using Node's standard library |
 
 State lives in the current browser session. The components do not connect to a wallet, camera, API, database, or Solana network. Reps, teams, rankings, and reward figures are illustrative; clicking a simulated claim does not submit a transaction. The App Store action opens a coming-soon dialog instead of implying that a store listing exists.
 
 The page loads Fraunces, DM Sans, and La Belle Aurore from local assets. Components use native custom elements and scoped Shadow DOM styles. The Club CTA dispatches `moltivate:get-app`, which the page handles by opening the availability dialog.
+
+The sponsor ribbon repeats one decorative logo group for continuous movement. Its duplicate is hidden from assistive technology and removed from keyboard focus; playback can be paused and reduced-motion settings stop it. Each original logo links to its track's explanation. These sections describe planned work: Vultr backend deployment, Solana devnet commitments, and exploration of Chert video/messaging infrastructure. They do not establish live integrations, customers, or endorsement. Chert is not the rep-counting verifier; the MediaPipe plan below remains separate.
+
+The retro chat is an illustrative conversation, and photo slot **1** uses credited Unsplash photography rather than an image of Moltivate customers or the team. Slot **2** is an explicit placeholder for a future personal day-one/hackathon photo. Maintain accurate captions and provenance when replacing either slot; see [IMAGE-SLOTS.md](apps/web/IMAGE-SLOTS.md), [sponsor sources](apps/web/assets/sponsors/ASSET-SOURCES.md), and [photo sources](apps/web/assets/photos/ASSET-SOURCES.md).
 
 From the repository root, use `npm run check` for JavaScript syntax checks, `npm run build` to create `dist/`, and `python3 -m http.server 5173 --directory dist` for local HTTP preview. Node.js 20+ and Python 3 are the only required runtimes for those commands; no dependency installation or application secrets are required. Browser QA is separate from the syntax check.
 

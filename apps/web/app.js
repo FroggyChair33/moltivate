@@ -45,3 +45,21 @@ document.querySelector('#dialog-demo').addEventListener('click', () => {
 document.addEventListener('visibilitychange', () => {
   document.querySelector('.ethos-track').style.animationPlayState = document.hidden ? 'paused' : 'running';
 });
+
+// Duplicate decorative sponsor marks for a seamless loop; only the first group is focusable.
+const sponsorSection = document.querySelector('.sponsor-section');
+const sponsorTrack = document.querySelector('.sponsor-track');
+const sponsorCopy = sponsorTrack.querySelector('.sponsor-group').cloneNode(true);
+sponsorCopy.setAttribute('aria-hidden', 'true');
+sponsorCopy.querySelectorAll('a').forEach(link => link.tabIndex = -1);
+sponsorTrack.append(sponsorCopy);
+const sponsorToggle = document.querySelector('.marquee-toggle');
+sponsorToggle.addEventListener('click', () => {
+  const paused = sponsorSection.classList.toggle('paused');
+  sponsorToggle.setAttribute('aria-pressed', String(paused));
+  sponsorToggle.setAttribute('aria-label', paused ? 'Play sponsor logos' : 'Pause sponsor logos');
+  sponsorToggle.querySelector('span').textContent = paused ? '▷' : 'Ⅱ';
+});
+document.addEventListener('visibilitychange', () => {
+  sponsorTrack.style.animationPlayState = document.hidden ? 'paused' : '';
+});
