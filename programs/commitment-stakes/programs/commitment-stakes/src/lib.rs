@@ -4,7 +4,7 @@ pub mod math;
 
 // Development placeholder, NOT a deployment address. Replace and synchronize
 // with the generated local program identity before any future deployment.
-declare_id!("Fg6PaFpoGXkYsidMpWxTWqkZq9p3qY3r1E5hJ1tqU2W");
+declare_id!("DhWeNpUmpxjSXdZ6iN1VCbP1WJVAYg9Yrprtx1LBPDum");
 
 #[program]
 pub mod commitment_stakes {

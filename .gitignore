@@ -12,6 +12,7 @@ test-results/
 
 # Local recovery/checkouts and Rust/Anchor output are never project source.
 /.isolated/
+/.claude/
 target/
 .anchor/
 test-ledger/

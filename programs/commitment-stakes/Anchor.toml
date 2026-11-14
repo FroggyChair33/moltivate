@@ -1,0 +1,19 @@
+[toolchain]
+anchor_version = "0.32.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+"commitment-stakes" = "DhWeNpUmpxjSXdZ6iN1VCbP1WJVAYg9Yrprtx1LBPDum"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/devnet-throwaway.json"
+
+[scripts]
+test = "echo \"no integration tests yet\""
