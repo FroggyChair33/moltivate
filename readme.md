@@ -10,10 +10,10 @@ Moltivate is a mobile fitness competition app where friends form teams, put mone
 
 ## Current frontend
 
-The website combines a clear landing page with an interactive phone preview and a searchable Club leaderboard. It is built with HTML, CSS, vanilla JavaScript ES modules, and two custom elements: `<moltivate-demo>` and `<club-board>`.
+The website combines a clear landing page with an interactive phone preview and a searchable Club leaderboard. It is built with HTML, CSS, vanilla JavaScript ES modules, and three custom elements: `<moltivate-demo>`, `<club-board>`, and `<rolling-amount>`.
 
 - Phone preview: three selectable views, looping playback with pause/replay, and a simulated workout and reward flow.
-- Club: sample teams, search, progress/reward sorting, weekly/monthly filters, and individual crew details.
+- Club: a neutral black leaderboard with green gains/red losses, sample teams, search, progress/reward sorting, weekly/monthly filters, and individual crew details. Demo SOL totals update every 4.5 seconds while visible; rolling digits settle on each exact sample value. Updates can be paused, and reduced-motion preferences disable the rolling effect.
 - Green app icon with a white **m** and orange dot, feature navigation, FAQ content, and a **coming soon** App Store action that opens an availability dialog.
 - A pausable sponsor-logo ribbon links to the selected hackathon track ideas: GoDaddy's creative domain, planned Vultr deployment, planned Solana devnet challenges, and Chert video/vision exploration.
 - A retro teammate-chat illustration, a sourced gym-photo Polaroid, and the **molt + motivate** origin story. Numbered image slots make personal photos easy to substitute; see [the image-slot guide](apps/web/IMAGE-SLOTS.md).

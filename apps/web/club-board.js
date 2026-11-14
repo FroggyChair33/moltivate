@@ -1,5 +1,9 @@
+import './rolling-amount.js';
+import { clubTheme } from './club-theme.js';
+
 const icon = (name, size = 18) => {
   const paths = {
+    trophy: '<path d="M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v3a4 4 0 0 0 4 4m8-7h4v3a4 4 0 0 1-4 4m-4 1v5m-4 3h8m-6-3h4"/>',
     search: '<circle cx="10.7" cy="10.7" r="6.2"/><path d="m15.5 15.5 4.2 4.2"/>',
     arrow: '<path d="M5 12h14m-6-6 6 6-6 6"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
@@ -33,15 +37,23 @@ class ClubBoard extends HTMLElement {
     super();
     this.attachShadow({ mode: 'open' });
     this.filters = { query: '', crew: 'all', period: 'week', sort: 'progress' };
+    this.feedTick = 0;
+    this.updatesPaused = false;
+    this.inView = false;
+    // Integer thousandths of SOL are display fixtures, never wallet balances.
+    this.displayUnits = Object.fromEntries(['week', 'month'].map(period => [period,
+      Object.fromEntries(clubs.map(club => [club.id, Math.round(club[period] * 1000)]))
+    ]));
+    this.onVisibility = () => this.syncUpdates();
   }
 
   connectedCallback() {
-    if (this.initialized) return;
+    if (this.initialized) { this.observeVisibility(); return; }
     this.initialized = true;
-    this.shadowRoot.innerHTML = `<style>${styles}</style>
+    this.shadowRoot.innerHTML = `<style>${styles}${clubTheme}</style>
       <section class="board" aria-label="Illustrative club leaderboard">
         <div class="top">
-          <div class="identity">${icon('flag', 20)}<strong>The club board</strong><span class="demo">Demo data</span></div>
+          <div class="identity">${icon('trophy', 20)}<strong>Leaderboard</strong><span class="demo"><i class="dot"></i>Simulated feed</span></div>
           <label class="search">${icon('search', 16)}<span class="screen-reader">Search teams</span><input type="search" placeholder="Find your kind of people…" autocomplete="off" maxlength="70"></label>
         </div>
         <div class="layout">
@@ -53,7 +65,7 @@ class ClubBoard extends HTMLElement {
                 <label class="select-wrap"><span class="screen-reader">Leaderboard period</span><select name="period"><option value="week">This week</option><option value="month">This month</option></select></label>
               </div>
             </div>
-            <p class="table-caption">Latest challenge rep progress · rewards across selected period</p>
+            <div class="update-meta"><p class="table-caption">Latest challenge progress · <span class="feed-label">demo SOL refreshes every 4.5s</span></p><button class="updates-control" aria-pressed="false">Pause updates <span aria-hidden="true">Ⅱ</span></button></div>
             <div class="results"></div>
             <div class="board-bottom"><span class="rank-count" role="status" aria-live="polite"></span><button class="reset">Reset filters ↗</button></div>
           </div>
@@ -68,7 +80,7 @@ class ClubBoard extends HTMLElement {
           </aside>
         </div>
       </section>
-      <p class="footnote">Demo leaderboard · Net rewards use illustrative SOL amounts. No money moves in this preview.</p>
+      <p class="footnote">Simulated leaderboard · SOL values cycle through sample data. No live wallet data or money movements.</p>
       <dialog class="dialog" aria-labelledby="club-title"></dialog>`;
     this.shadowRoot.querySelector('input').addEventListener('input', (event) => {
       this.filters.query = event.target.value;
@@ -81,6 +93,10 @@ class ClubBoard extends HTMLElement {
     this.shadowRoot.addEventListener('click', (event) => {
       const filter = event.target.closest('[data-filter]');
       const team = event.target.closest('[data-team]');
+      if (event.target.closest('.updates-control')) {
+        this.updatesPaused = !this.updatesPaused;
+        this.syncUpdates();
+      }
       if (filter) { this.filters.crew = filter.dataset.filter; this.updateRows(); }
       if (team) this.showTeam(team.dataset.team);
       if (event.target.closest('.reset, [data-reset]')) this.reset();
@@ -92,6 +108,7 @@ class ClubBoard extends HTMLElement {
       }
     });
     const dialog = this.shadowRoot.querySelector('dialog');
+    dialog.addEventListener('close', () => this.syncUpdates());
     dialog.addEventListener('click', (event) => {
       if (event.target === dialog) {
         const rect = dialog.getBoundingClientRect();
@@ -99,6 +116,73 @@ class ClubBoard extends HTMLElement {
       }
     });
     this.updateRows();
+    this.observeVisibility();
+  }
+
+  disconnectedCallback() {
+    clearInterval(this.updateTimer);
+    this.updateTimer = null;
+    this.visibilityObserver?.disconnect();
+    document.removeEventListener('visibilitychange', this.onVisibility);
+  }
+
+  observeVisibility() {
+    document.addEventListener('visibilitychange', this.onVisibility);
+    this.visibilityObserver?.disconnect();
+    this.visibilityObserver = new IntersectionObserver(entries => {
+      this.inView = entries[0].isIntersecting;
+      this.syncUpdates();
+    }, { threshold: 0 });
+    this.visibilityObserver.observe(this);
+  }
+
+  syncUpdates() {
+    clearInterval(this.updateTimer);
+    this.updateTimer = null;
+    const button = this.shadowRoot.querySelector('.updates-control');
+    if (!button) return;
+    button.setAttribute('aria-pressed', String(this.updatesPaused));
+    button.innerHTML = this.updatesPaused ? 'Resume updates <span aria-hidden="true">▷</span>' : 'Pause updates <span aria-hidden="true">Ⅱ</span>';
+    this.shadowRoot.querySelector('.feed-label').textContent = this.updatesPaused ? 'demo feed paused' : 'demo SOL refreshes every 4.5s';
+    if (!this.isConnected || this.updatesPaused || !this.inView || document.hidden || this.shadowRoot.querySelector('dialog').open || !this.shadowRoot.querySelector('rolling-amount')) {
+      this.shadowRoot.querySelectorAll('rolling-amount').forEach(amount => amount.settle?.());
+      return;
+    }
+    this.updateTimer = setInterval(() => this.advanceFeed(), 4500);
+  }
+
+  advanceFeed() {
+    // Bounded, repeatable sample changes. Each reel settles on this model's exact value.
+    const offsets = [0, 3, 7, 4, 9, 5, 1, -3, -7, -2, 2];
+    this.feedTick += 1;
+    for (const period of ['week', 'month']) {
+      clubs.forEach((club, index) => {
+        const offset = offsets[(this.feedTick + index * 2) % offsets.length];
+        this.displayUnits[period][club.id] = Math.round(club[period] * 1000) + offset * (period === 'month' ? 2 : 1);
+      });
+    }
+    // Patch figures in place so search focus, row buttons, and scroll position remain stable.
+    this.shadowRoot.querySelectorAll('[data-reward]').forEach(node => {
+      const club = clubs.find(item => item.id === node.dataset.reward);
+      const value = this.reward(club);
+      node.classList.toggle('down', value < 0);
+      node.classList.toggle('up', value >= 0);
+      node.querySelector('rolling-amount').setAttribute('value', value.toFixed(3));
+    });
+    // The small bounded changes preserve this fixture's order; always derive rank from current data.
+    const sorted = this.sortedClubs();
+    const tbody = this.shadowRoot.querySelector('tbody');
+    const visibleRows = sorted.map((club, index) => {
+      const row = this.shadowRoot.querySelector(`[data-row="${club.id}"]`);
+      if (row) {
+        row.querySelector('td').textContent = String(index + 1).padStart(2, '0');
+        row.querySelector('td').classList.toggle('leader', index === 0);
+      }
+      return row;
+    }).filter(Boolean);
+    visibleRows.forEach((row, index) => {
+      if (tbody.children[index] !== row) tbody.insertBefore(row, tbody.children[index] || null);
+    });
   }
 
   progress(club) {
@@ -106,7 +190,7 @@ class ClubBoard extends HTMLElement {
     return { reps, completed: reps.filter(count => count >= 10).length, percent: Math.round(reps.reduce((sum, count) => sum + Math.min(count, 10), 0) / 20 * 100) };
   }
 
-  reward(club) { return club[this.filters.period]; }
+  reward(club) { return this.displayUnits[this.filters.period][club.id] / 1000; }
 
   amount(value) { return `${value < 0 ? '−' : '+'}${Math.abs(value).toFixed(3)}`; }
 
@@ -126,6 +210,7 @@ class ClubBoard extends HTMLElement {
     const result = this.shadowRoot.querySelector('.results');
     if (!filtered.length) {
       result.innerHTML = `<div class="empty"><strong>No crew found. Yet.</strong><p>Try another name or explore all six demo crews.</p><button data-reset>Show all crews</button></div>`;
+      this.syncUpdates();
       return;
     }
     result.innerHTML = `<table><caption class="screen-reader">Demo crews ranked by ${this.filters.sort === 'progress' ? 'workout progress' : 'net rewards'} for ${this.filters.period === 'week' ? 'this week' : 'this month'}. Completion shows the latest challenge; rewards are totals for the selected period.</caption><thead><tr><th scope="col">#</th><th scope="col">Crew</th><th scope="col"><span class="completion-full">Completion</span><span class="completion-short" aria-label="Completion">Done</span></th><th scope="col">Net rewards</th></tr></thead><tbody>${filtered.map(club => {
@@ -133,8 +218,9 @@ class ClubBoard extends HTMLElement {
       const reward = this.reward(club);
       const rank = sorted.findIndex(item => item.id === club.id) + 1;
       const points = club.trend.map((point, index) => `${index * 6.7},${point}`).join(' ');
-      return `<tr class="club-row"><td class="${rank === 1 ? 'leader' : ''}">${String(rank).padStart(2, '0')}</td><td><button class="name-button" data-team="${club.id}" aria-label="View ${club.name} demo details">${this.avatar(club)}<span class="team-text"><span class="team-name">${club.name}</span><span class="team-members"><span class="member-stack" aria-hidden="true">${club.members.map(member => `<span class="mini-avatar">${member[0]}</span>`).join('')}</span>2 members <span class="moving ${club.movement > 0 ? 'up' : 'down'}" aria-label="${club.movement > 0 ? 'Up' : 'Down'} ${Math.abs(club.movement)} places">${club.movement > 0 ? '↗' : '↘'} ${Math.abs(club.movement)}</span></span></span></button></td><td><div class="progress-top"><span>${completed}<span style="color:#8ca38c"> / 2</span></span><span>${percent}%</span></div><div class="track" role="meter" aria-label="${club.name} latest challenge progress" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${percent}%"></div></div></td><td><span class="money ${reward < 0 ? 'down' : 'up'}">${this.amount(reward)}</span><span class="submoney"><svg class="sparkline ${reward < 0 ? 'down' : 'up'}" viewBox="0 0 48 24" fill="none" aria-hidden="true"><polyline points="${points}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>demo SOL</span></td></tr>`;
+      return `<tr class="club-row" data-row="${club.id}"><td class="${rank === 1 ? 'leader' : ''}">${String(rank).padStart(2, '0')}</td><td><button class="name-button" data-team="${club.id}" aria-label="View ${club.name} demo details">${this.avatar(club)}<span class="team-text"><span class="team-name">${club.name}</span><span class="team-members"><span class="member-stack" aria-hidden="true">${club.members.map(member => `<span class="mini-avatar">${member[0]}</span>`).join('')}</span>2 members <span class="moving ${club.movement > 0 ? 'up' : 'down'}" aria-label="${club.movement > 0 ? 'Up' : 'Down'} ${Math.abs(club.movement)} places">${club.movement > 0 ? '↗' : '↘'} ${Math.abs(club.movement)}</span></span></span></button></td><td><div class="progress-top"><span>${completed}<span class="completion-total"> / 2</span></span><span>${percent}%</span></div><div class="track" role="meter" aria-label="${club.name} latest challenge progress" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${percent}%"></div></div></td><td><span class="money ${reward < 0 ? 'down' : 'up'}" data-reward="${club.id}"><rolling-amount value="${reward.toFixed(3)}"></rolling-amount></span><span class="submoney"><svg class="sparkline ${reward < 0 ? 'down' : 'up'}" viewBox="0 0 48 24" fill="none" aria-hidden="true"><polyline points="${points}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>demo SOL</span></td></tr>`;
     }).join('')}</tbody></table>`;
+    this.syncUpdates();
   }
 
   reset() {
@@ -153,6 +239,7 @@ class ClubBoard extends HTMLElement {
     const dialog = this.shadowRoot.querySelector('dialog');
     dialog.innerHTML = `<div class="dialog-head">${this.avatar(club)}<button class="close" data-close aria-label="Close crew details">${icon('close', 18)}</button></div><h3 id="club-title">${club.name}</h3><p class="motto">${club.motto}</p><div class="dialog-meta"><span class="demo">Sample crew</span><span>2 members · 2v2 challenges</span></div><div class="dialog-stats"><div><div class="stat-label">Latest challenge goals</div><div class="stat-value">${completed} / 2</div></div><div><div class="stat-label">${this.filters.period === 'week' ? 'Weekly' : 'Monthly'} net · demo SOL</div><div class="stat-value ${amount < 0 ? 'down' : 'up'}">${this.amount(amount)}</div></div></div><h4 class="members-title">Every teammate's effort counts.</h4>${club.members.map((member, index) => `<div class="member"><span class="mini-avatar">${member[0]}</span><div class="member-name">${member}<div class="track"><div class="fill" style="width:${reps[index] * 10}%"></div></div></div><span class="member-count">${reps[index]} / 10 reps ${reps[index] >= 10 ? '✓' : ''}</span></div>`).join('')}<p class="detail-note">This is illustrative activity, not a real team or account. Completion reflects the latest sample challenge. Net rewards summarize the selected sample period and are not that challenge's payout.</p><button class="start-crew" data-get-app>Make showing up your thing ${icon('arrow', 17)}</button>`;
     dialog.showModal();
+    this.syncUpdates();
   }
 }
 

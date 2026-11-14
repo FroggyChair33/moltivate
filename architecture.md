@@ -15,14 +15,18 @@ The current website is a presentation and interaction prototype for the mobile p
 | `apps/web/editorial.css` | App-icon and navigation treatment, sponsor ribbon, retro chat, Polaroids, and origin-story layout |
 | `apps/web/app.js` | Navigation, dialog behavior, and sponsor-ribbon playback; imports the custom elements |
 | `apps/web/phone-demo.js` | `<moltivate-demo>` with scoped styles and simulated mobile interaction states |
-| `apps/web/club-board.js` | `<club-board>` with scoped styles, fixture data, search, filters, sorting, and crew details |
+| `apps/web/club-board.js` | `<club-board>` with scoped styles, bounded simulated SOL feed, search, filters, sorting, and crew details |
+| `apps/web/club-theme.js` | Neutral black leaderboard and dialog styles; green/red performance figures |
+| `apps/web/rolling-amount.js` | Accessible signed fixed-decimal digit reels, exact settled values, and reduced-motion behavior |
 | `apps/web/assets/` | Original app icon, self-hosted fonts, official sponsor marks, and illustrative photography, with source/license records |
 | `apps/web/IMAGE-SLOTS.md` | Numbered photo locations and replacement guidance |
 | `scripts/build.mjs` | Recreates `dist/` from the source directory using Node's standard library |
 
 State lives in the current browser session. The components do not connect to a wallet, camera, API, database, or Solana network. Reps, teams, rankings, and reward figures are illustrative; clicking a simulated claim does not submit a transaction. The App Store action opens a coming-soon dialog instead of implying that a store listing exists.
 
-The page loads Fraunces, DM Sans, and La Belle Aurore from local assets. Components use native custom elements and scoped Shadow DOM styles. The Club CTA dispatches `moltivate:get-app`, which the page handles by opening the availability dialog.
+The page loads Fraunces, DM Sans, and La Belle Aurore from local assets. Components use native custom elements and scoped Shadow DOM styles. The Club feed advances deterministic display fixtures every 4.5 seconds while visible. It updates figures in place to preserve search focus and pauses when offscreen, hidden, explicitly paused, or a crew dialog is open. Digits use cancellable Web Animations; no live financial data is fetched.
+
+The Club CTA dispatches `moltivate:get-app`, which the page handles by opening the availability dialog.
 
 The sponsor ribbon repeats one decorative logo group for continuous movement. Its duplicate is hidden from assistive technology and removed from keyboard focus; playback can be paused and reduced-motion settings stop it. Each original logo links to its track's explanation. These sections describe planned work: Vultr backend deployment, Solana devnet commitments, and exploration of Chert video/messaging infrastructure. They do not establish live integrations, customers, or endorsement. Chert is not the rep-counting verifier; the MediaPipe plan below remains separate.
 

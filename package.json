@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "check": "node --check apps/web/app.js && node --check apps/web/phone-demo.js && node --check apps/web/club-board.js && node --check scripts/build.mjs"
+    "check": "node --check apps/web/app.js && node --check apps/web/phone-demo.js && node --check apps/web/club-board.js && node --check apps/web/rolling-amount.js && node --check apps/web/club-theme.js && node --check scripts/build.mjs"
   },
   "engines": { "node": ">=20" }
 }
