@@ -4,14 +4,16 @@
 
 This repository belongs to **Moltivate**, a mobile social fitness competition app. Read [readme.md](readme.md) for product intent and [architecture.md](architecture.md) for the proposed technical design before implementing changes.
 
-The repository contains an implemented static browser frontend in `apps/web/` and planning documents for the native product. The Expo app, backend, verification service, and Solana program remain unimplemented. Distinguish decisions, proposals, implemented behavior, and verified behavior. Never describe a proposed service, unrun test, or simulated transaction as working production functionality.
+The repository contains an implemented static landing/preview site in `apps/web/` and planning documents for the real product. The functional app (wallet, challenges, workouts, scoreboard, settlement), its API, the verification worker, and the Solana program remain unimplemented. Distinguish decisions, proposals, implemented behavior, and verified behavior. Never describe a proposed service, unrun test, or simulated transaction as working production functionality.
+
+**Source of truth for product rules:** the "Commitment Stakes — Team Workout Accountability MVP" doc supersedes any conflicting plan previously described in this file or in readme.md/architecture.md - including the settlement math, the challenge lifecycle, the MVP feature list, and the tech stack below. If anything elsewhere in this repo still describes a different stack or different financial rules, that other reference is stale; this file (now aligned with the MVP doc) wins.
 
 Keep this filename as `AGENTS.md` so compatible coding agents can discover it. Add narrower instructions only when a component needs them; keep project-wide rules here.
 
 ## Product direction
 
 - Use **Moltivate** as the product name and `moltivate` as the repository name.
-- The product is a **mobile app**, targeting iPhone and Android. The separately requested website introduces it and offers an interactive browser preview; do not treat that preview as an implementation of the native app.
+- The product is a **mobile-first web app** - there is no native iOS/Android app. The existing `apps/web/` site is a separate marketing/landing page that introduces the product; it is not where the functional app lives, and is not being replaced by it - the two coexist.
 - The chosen hackathon track is **Entertainment**. Lead with social fitness competition and self-improvement.
 - Preserve the brand line **“Put your money where your muscles are.”** Supporting copy includes “Are you Moltivated?” and “Stay Moltivated.”
 - Keep the experience about showing up, contributing to a team, and keeping commitments. Avoid casino styling, promises of returns, and pressure to increase stakes.
@@ -20,26 +22,32 @@ Keep this filename as `AGENTS.md` so compatible coding agents can discover it. A
 
 ## Technical direction
 
-The current website uses **HTML, CSS, and vanilla JavaScript ES modules** without runtime package dependencies. `<moltivate-demo>` and `<club-board>` are custom elements with scoped styles. The planned native/backend stack below remains unchanged.
+The existing landing/preview site (`apps/web/`) uses **HTML, CSS, and vanilla JavaScript ES modules** without runtime package dependencies, and stays that way - it is not being migrated to the stack below. `<moltivate-demo>` and `<club-board>` are custom elements with scoped styles.
 
-| Component | Planned approach |
+The functional app is a separate Next.js project. Planned stack for it:
+
+| Component | Chosen approach |
 | --- | --- |
-| Mobile | Expo + React Native + TypeScript |
-| API | Python + FastAPI |
-| Verification | A separate Python/MediaPipe worker |
-| Hosting | Docker services on a Vultr CPU VM initially |
-| Records | Supabase PostgreSQL |
-| Media | Private object storage with temporary access |
-| Escrow | Rust/Anchor program on Solana devnet |
-| Settlement integration | A compatible TypeScript Anchor/Solana client in a dedicated service |
+| Workout capture (primary) | Chert FaceTime agent - users call the app's number; the agent gives liveness prompts, counts out loud, and coaches |
+| Server CV (primary) | Python worker running MediaPipe Pose on the call's frames; reps are counted server-side, never reported by the user's device |
+| Workout CV (fallback) | MediaPipe Pose (Tasks Vision, JS) in-browser, no Chert needed; counts marked lower trust |
+| Frontend | Next.js (React, TypeScript), mobile-first web app - create/join/scoreboard/results screens plus the fallback session |
+| Wallet | Phantom via `@solana/wallet-adapter`; devnet faucet for test SOL |
+| Smart contract | Anchor (Rust) program on Solana devnet - escrow, settlement math, payouts |
+| Backend / oracle | Next.js API routes + an oracle keypair - receives sessions from both capture paths, signs `settle()` |
+| Database | Supabase (Postgres) - users, challenges, workout sessions |
+| Hosting | Vercel (web + API); the CV worker runs on Railway or Render, since serverless functions aren't built for long-running video processing |
+| Stake token | Devnet SOL for the MVP; USDC on Solana is a later production step |
 
-Keep video processing out of API request handlers. The mobile app captures evidence; the backend verifies and reports results; the Solana program controls deposited funds and enforces the financial rules.
+Keep video processing out of Next.js API route handlers - that's the separate CV worker's job. The capture path (Chert call or in-browser fallback) produces a verified rep count; the backend records it and reports it at settlement; the Solana program controls deposited funds and enforces the financial rules.
 
 Consult the [official Solana quick start](https://solana.com/docs/intro/quick-start) and relevant primary documentation when implementing blockchain features. Recheck current package names and compatibility; do not mix incompatible Solana client generations. Pin compatible dependencies in lockfiles and record the reason for that choice.
 
-Validate wallet and camera behavior on physical devices. Handle Android and iOS wallet flows separately. An emulator, mocked signature, or Expo Go preview does not establish that the full mobile integration works.
+Validate the wallet connection and both capture paths on a physical phone, not just desktop browser devtools' mobile emulation - a devtools viewport resize does not establish that camera/FaceTime/wallet-extension behavior actually works on a phone.
 
-## Working on the current frontend
+## Working on the landing/preview site (apps/web)
+
+This section is only about the existing marketing site, not the functional app (see "Technical direction" above for where that lives: a separate Next.js project, `apps/app/`).
 
 - Edit `apps/web/` as the source of truth. `dist/` is generated; rebuild it rather than editing it directly.
 - Use Node.js 24 from `.node-version`. `npm run check` checks syntax; `npm run build` recreates `dist/`; `npm run check:build` validates static references; `npm run preview` serves a local preview. For the full browser suite, use `npm ci --ignore-scripts`, install Playwright Chromium, then `npm run ci`. Runtime secrets are not required. Keep `package-lock.json` committed and do not claim syntax checks alone cover interactions.
@@ -50,6 +58,12 @@ Validate wallet and camera behavior on physical devices. Handle Android and iOS 
 - Preserve keyboard navigation, focus states, modal Escape behavior, responsive layouts, and reduced-motion behavior. Verify the phone's playback controls and Club search/filter/sort/detail flows after relevant changes.
 - The website's completion bars show fixture workout progress; Club reward totals reflect the selected sample period. Keep that distinction visible rather than implying a current challenge payout.
 - A successful `npm run check` establishes syntax only. Report browser interaction checks separately, and do not substitute frontend simulation for native-device or devnet verification.
+
+## Working on the functional app (apps/app)
+
+- The real product - wallet connect, challenge create/join, workout sessions, scoreboard, settlement, claim - lives in `apps/app/`, a Next.js (React, TypeScript) project. It does not share code or deployment with `apps/web/`.
+- API routes under `apps/app/` are the backend; there is no separate FastAPI/Python service. The only separate service is the CV worker (MediaPipe on Chert call frames), which the API routes call out to, not the other way around.
+- Supabase (Postgres) holds users/challenges/teams/sessions. Keep the schema's settlement-relevant fields (payouts, forfeits, house cut, group pot) in sync with whatever the Anchor program actually records on-chain - the database is a convenience index, never the authority on fund movement.
 
 ## Implementation workflow
 
