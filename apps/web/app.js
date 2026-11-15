@@ -28,7 +28,14 @@ function openAppDialog() {
   closeMenu();
   if (!dialog.open) dialog.showModal();
 }
-document.querySelectorAll('[data-get-app]').forEach(button => button.addEventListener('click', openAppDialog));
+const demoLink = document.querySelector('#dialog-demo');
+document.querySelectorAll('[data-get-app]').forEach(button => button.addEventListener('click', () => {
+  if (button.matches('.store-button') || demoLink.getAttribute('href') === '#demo') {
+    openAppDialog();
+  } else {
+    location.assign(demoLink.href);
+  }
+}));
 document.addEventListener('moltivate:get-app', openAppDialog);
 dialog.querySelector('.dialog-close').addEventListener('click', () => dialog.close());
 dialog.addEventListener('click', event => {
@@ -36,8 +43,10 @@ dialog.addEventListener('click', event => {
   const rect = dialog.getBoundingClientRect();
   if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
 });
-document.querySelector('#dialog-demo').addEventListener('click', () => {
+demoLink.addEventListener('click', event => {
   dialog.close();
+  if (demoLink.getAttribute('href') !== '#demo') return;
+  event.preventDefault();
   demo.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block:'start'});
   const phone = document.querySelector('moltivate-demo');
   phone?.focusDemo?.();
