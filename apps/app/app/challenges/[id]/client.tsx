@@ -56,14 +56,30 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
         ]);
         if (cancelled) return;
 
-        const members: MemberRow[] = memberAccs.map((m) => ({
-          pubkey: m.publicKey.toBase58(),
-          owner: m.account.owner.toBase58(),
-          teamIndex: (m.account.team as PublicKey).equals(teamAPk) ? 0 : 1,
-          // Settle hasn't necessarily run yet - counted_units is 0 until it does.
-          countedUnits: m.account.countedUnits.toNumber(),
-          claimed: m.account.claimed,
-        }));
+        let liveTotals: Record<string, number> = {};
+        if (!challengeAcc.settled) {
+          // On-chain counted_units is 0 until settle() runs, so before that
+          // the only way to show any progress at all is this live,
+          // unverified preview read straight from logged sessions -- never
+          // authoritative, settle() alone decides what actually gets paid.
+          const res = await fetch(`/api/workout-sessions/totals?challengePubkey=${id}`);
+          const data = await res.json().catch(() => ({}));
+          liveTotals = data.totals ?? {};
+        }
+
+        const members: MemberRow[] = memberAccs.map((m) => {
+          const pubkey = m.publicKey.toBase58();
+          // Same cap as math::capped_workout_units, so the live preview
+          // reads in the same units as the real post-settlement bar.
+          const liveUnits = Math.min((liveTotals[pubkey] ?? 0) * 2, challengeAcc.target * 3);
+          return {
+            pubkey,
+            owner: m.account.owner.toBase58(),
+            teamIndex: (m.account.team as PublicKey).equals(teamAPk) ? 0 : 1,
+            countedUnits: challengeAcc.settled ? m.account.countedUnits.toNumber() : liveUnits,
+            claimed: m.account.claimed,
+          };
+        });
 
         setState({
           title: `${teamA.name} vs ${teamB.name}`,
@@ -111,7 +127,7 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
       <h1 className="mb-1 text-2xl font-semibold tracking-tight">{state.title}</h1>
       <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
         Goal: {state.target} workouts per member
-        {state.settled && " · settled"}
+        {state.settled ? " · settled" : " · progress below is live/unverified until settled"}
       </p>
 
       <div className="mb-8 flex items-center gap-2 rounded-lg bg-black/[.03] p-3 text-sm dark:bg-white/[.06]">
