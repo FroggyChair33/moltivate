@@ -1,5 +1,11 @@
 # Demo CI/CD
 
+After deploying the mobile web app, set the public HTTPS app URL in
+`MOLTIVATE_DEMO_URL` for the marketing site's build. For GitHub Actions, set it
+as a repository variable. Run `npm run build` and publish the resulting
+`dist/` through the marketing site's existing deployment. With the variable
+unset, demo entry links open the embedded phone preview.
+
 The complete demo source is in `apps/web/`, including the phone interaction, Club leaderboard, logo, photography, and self-hosted fonts. `scripts/build.mjs` creates `dist/`; generated output is never committed. The native app and financial integrations remain separate future work.
 
 ## Current delivery and hosting

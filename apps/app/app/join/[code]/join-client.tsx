@@ -28,6 +28,11 @@ type ChallengeView = {
 };
 
 export function JoinClient({ code }: { code: string }) {
+  const { publicKey } = useWallet();
+  return <JoinClientView key={code + (publicKey?.toBase58() ?? "disconnected")} code={code} />;
+}
+
+function JoinClientView({ code }: { code: string }) {
   const { connected, publicKey } = useWallet();
   const program = useProgram();
 
@@ -93,6 +98,7 @@ export function JoinClient({ code }: { code: string }) {
         })
         .rpc();
       setDeposited(true);
+      window.dispatchEvent(new Event("moltivate:updated"));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // The deadline could have passed in the gap between loading this page
@@ -113,7 +119,7 @@ export function JoinClient({ code }: { code: string }) {
 
   if (!challengePk) {
     return (
-      <div className="mx-auto w-full max-w-md px-6 py-12">
+      <div className="app-page form-page">
         <p className="text-sm text-red-700 dark:text-red-300">
           That invite link doesn&apos;t look like a valid challenge address.
         </p>
@@ -123,15 +129,19 @@ export function JoinClient({ code }: { code: string }) {
 
   if (loadError) {
     return (
-      <div className="mx-auto w-full max-w-md px-6 py-12">
+      <div className="app-page form-page">
         <p className="text-sm text-red-700 dark:text-red-300">{loadError}</p>
       </div>
     );
   }
 
+  if (!program) {
+    return <section className="app-page form-page"><Eyebrow>Your people are waiting</Eyebrow><h1>You’re invited.<br /><em>Come on in.</em></h1><p className="page-intro">Connect your wallet to review the teams, goal, and devnet stake before joining.</p><WalletButton /><blockquote className="motivation">“Good things start with showing up.”</blockquote></section>;
+  }
+
   if (!view) {
     return (
-      <div className="mx-auto w-full max-w-md px-6 py-12">
+      <div className="app-page form-page">
         <p className="text-sm text-zinc-500">Loading challenge from devnet...</p>
       </div>
     );
@@ -142,9 +152,9 @@ export function JoinClient({ code }: { code: string }) {
   const closed = view.settled || deadlinePassed;
 
   return (
-    <div className="mx-auto w-full max-w-md px-6 py-12">
+    <div className="app-page form-page">
       <Eyebrow>You&apos;re invited</Eyebrow>
-      <h1 className="sr-only">{view.title}</h1>
+      <h1 className="mb-8">Pick your people.<br /><em>Keep your word.</em></h1>
       <CommitmentSlip
         label="The challenge"
         value={view.title}
@@ -179,8 +189,9 @@ export function JoinClient({ code }: { code: string }) {
                 key={idx}
                 type="button"
                 onClick={() => setTeamIndex(idx)}
-                className={`rounded-lg border px-4 py-2 text-left text-sm ${
-                  teamIndex === idx ? "border-foreground" : "border-black/10 dark:border-white/15"
+                aria-pressed={teamIndex === idx}
+                className={`rounded-2xl border px-5 py-5 text-left text-sm ${
+                  teamIndex === idx ? "border-foreground bg-[#e8ecd9]" : "border-black/10 dark:border-white/15"
                 }`}
               >
                 {idx === 0 ? view.teamAName : view.teamBName}
@@ -216,6 +227,7 @@ export function JoinClient({ code }: { code: string }) {
           )}
         </div>
       )}
+      <blockquote className="motivation">“A promise feels better when you keep it together.”</blockquote>
     </div>
   );
 }

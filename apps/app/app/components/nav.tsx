@@ -1,22 +1,31 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { WalletButton } from "./wallet-button";
-import { DisplayNameEditor } from "./display-name-editor";
-import { CurrentChallengeLink } from "./current-challenge-link";
+import { ClubIcon } from "./club-art";
+
+const links = [
+  { href: "/", label: "Home", icon: "home" },
+  { href: "/coach", label: "Coach", icon: "coach" },
+  { href: "/club", label: "Your club", icon: "club" },
+  { href: "/challenges/new", label: "Create", icon: "plus" },
+] as const;
 
 export function Nav() {
-  return (
-    <header className="flex items-center justify-between border-b border-black/10 px-6 py-4 dark:border-white/10">
-      <Link href="/" className="text-lg font-semibold tracking-tight">
-        Moltivate
-      </Link>
-      <nav className="flex items-center gap-4 text-sm">
-        <Link href="/challenges/new" className="hover:underline">
-          Create
-        </Link>
-        <CurrentChallengeLink />
-        <DisplayNameEditor />
-        <WalletButton />
-      </nav>
+  const pathname = usePathname();
+  return <>
+    <a href="#main-content" className="skip-link">Skip to content</a>
+    <header className="app-header">
+      <Link href="/" className="brand-wordmark" aria-label="Moltivate home">moltivate<span>.</span></Link>
+      <span className="network-label"><i /> Devnet · Test SOL</span>
+      <WalletButton />
     </header>
-  );
+    <nav aria-label="Main navigation" className="app-nav">
+      {links.map(({ href, label, icon }) => {
+        const active = pathname === href || (href === "/club" && pathname.startsWith("/challenges/") && pathname !== "/challenges/new");
+        return <Link key={href} href={href} aria-current={active ? "page" : undefined}><ClubIcon kind={icon} /><span>{label}</span></Link>;
+      })}
+    </nav>
+  </>;
 }

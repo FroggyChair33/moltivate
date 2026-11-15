@@ -10,6 +10,11 @@ import { displayNameMessage } from "@/lib/display-name-message";
 // comment and AGENTS.md "a supplied wallet address alone is not
 // authentication".
 export function DisplayNameEditor() {
+  const { publicKey } = useWallet();
+  return publicKey ? <DisplayNameEditorView key={publicKey.toBase58()} /> : null;
+}
+
+function DisplayNameEditorView() {
   const { publicKey, signMessage } = useWallet();
   const [currentName, setCurrentName] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);

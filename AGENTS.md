@@ -1,5 +1,17 @@
 # Moltivate contributor instructions
 
+## Latest user direction (2026-11-15)
+
+Read `HANDOFF.md` and `docs/live/CODEX_START.md` first. They supersede older
+implementation-status, hosting and native-client assumptions below. App and Anchor
+source now exist; the vision CLI/countdown source is included in this branch.
+The user chose Expo for the eventual native client, Vercel for the general/Web3
+backend and Vultr for the long-lived Chert-connected MediaPipe/voice agent.
+Preserve `apps/app` and the other agent's work. Chert hosts the managed FaceTime
+bridge; Vultr hosts our agent. A narrow Python worker-control API is allowed, not
+a second accounts/payments backend. Signed worker callbacks to Vercel are planned.
+Live counts remain experimental; do not promote them to financial acceptance.
+
 ## Start here
 
 **If `HANDOFF.md` exists at the repo root, read it before anything else in this file.** It's a mid-session handoff note - current work-in-progress state, exact next steps, secrets/credentials handling, and environment gotchas that took real time to discover. It is not always present (it's written ad hoc when work hands off between agents/sessions, and isn't guaranteed to be committed) - if it's missing, proceed with the rest of this file as normal.

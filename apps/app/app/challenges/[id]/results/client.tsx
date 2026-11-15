@@ -38,6 +38,11 @@ type Loaded = {
 };
 
 export function ResultsClient({ id }: { id: string }) {
+  const { publicKey } = useWallet();
+  return <ResultsClientView key={id + (publicKey?.toBase58() ?? "disconnected")} id={id} />;
+}
+
+function ResultsClientView({ id }: { id: string }) {
   const program = useProgram();
   const { publicKey } = useWallet();
   const [state, setState] = useState<Loaded | null>(null);
@@ -47,6 +52,12 @@ export function ResultsClient({ id }: { id: string }) {
   const [settleSignature, setSettleSignature] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [closed, setClosed] = useState(false);
+  useEffect(() => {
+    const refresh = () => setReloadKey((key) => key + 1);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("moltivate:updated", refresh);
+    return () => { window.removeEventListener("focus", refresh); window.removeEventListener("moltivate:updated", refresh); };
+  }, []);
   const [closing, setClosing] = useState(false);
   const [closeError, setCloseError] = useState<string | null>(null);
   const names = useDisplayNames(state?.members.map((m) => m.owner) ?? []);
@@ -67,6 +78,7 @@ export function ResultsClient({ id }: { id: string }) {
         ]);
         if (cancelled) return;
 
+        setError(null);
         setState({
           teamAName: teamA.name,
           teamBName: teamB.name,
@@ -98,9 +110,17 @@ export function ResultsClient({ id }: { id: string }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await fetch(`/api/challenges/close?challenges=${id}`);
-      const data = await res.json().catch(() => ({}));
-      if (!cancelled) setClosed((data.closed ?? []).includes(id));
+      try {
+        const res = await fetch(`/api/challenges/close?challenges=${id}`);
+        if (!res.ok) throw new Error("Could not load challenge dismissal status.");
+        const data = await res.json();
+        if (!cancelled) {
+          setClosed((data.closed ?? []).includes(id));
+          setCloseError(null);
+        }
+      } catch {
+        if (!cancelled) setCloseError("Could not refresh dismissal status. Retry to check it.");
+      }
     })();
     return () => {
       cancelled = true;
@@ -120,6 +140,7 @@ export function ResultsClient({ id }: { id: string }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       setClosed(true);
+      window.dispatchEvent(new Event("moltivate:updated"));
     } catch (err) {
       setCloseError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -158,17 +179,26 @@ export function ResultsClient({ id }: { id: string }) {
     }
   }
 
-  if (error) {
+  if (!program) {
+    return <section className="mx-auto w-full max-w-lg space-y-4 px-5 py-12">
+      <h1 className="text-3xl">Connect to your challenge</h1>
+      <p className="text-muted">Connect the wallet you created or joined with to load your devnet challenge.</p>
+      <Link href="/" className="underline">Return to your challenges</Link>
+    </section>;
+  }
+
+  if (error && !state) {
     return (
-      <div className="mx-auto w-full max-w-2xl px-6 py-12">
-        <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+      <div className="app-page form-page">
+        <p role="alert" className="text-sm text-red-700">{error}</p>
+        <button className="mt-4 underline" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>
       </div>
     );
   }
 
   if (!state) {
     return (
-      <div className="mx-auto w-full max-w-2xl px-6 py-12">
+      <div className="app-page form-page">
         <p className="text-sm text-zinc-500">Loading results from devnet...</p>
       </div>
     );
@@ -181,20 +211,19 @@ export function ResultsClient({ id }: { id: string }) {
       : `Settled: ${state.winningTeam === 0 ? state.teamAName : state.teamBName} won.`;
 
   const isCreator = publicKey?.toBase58() === state.creator;
-  const isMember = state.members.some((m) => m.owner === publicKey?.toBase58());
   const allClaimed = state.members.length > 0 && state.members.every((m) => m.claimed);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-12">
+    <div className="app-page form-page">
       <Eyebrow>{state.settled ? "Final results" : "Awaiting settlement"}</Eyebrow>
       <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
       </p>
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        {state.teamAName} vs {state.teamBName} -- results
+        {state.settled ? <>The effort.<br /><em>The outcome.</em></> : <>Every rep matters.<br /><em>Results to come.</em></>}
       </h1>
 
-      <p className="mb-4 rounded-lg bg-black/[.03] p-4 text-sm dark:bg-white/[.06]">{outcomeLabel}</p>
+      <p className="mb-4 result-panel text-sm">{outcomeLabel}</p>
 
       {state.settled && closed && (
         <p className="mb-8 rounded-lg border border-black/10 p-3 text-sm text-zinc-500 dark:border-white/15">
@@ -227,7 +256,7 @@ export function ResultsClient({ id }: { id: string }) {
         </div>
       )}
 
-      {state.settled && !closed && (isCreator || isMember) && (
+      {state.settled && !closed && isCreator && (
         <div className="mb-8">
           {allClaimed ? (
             <>
@@ -290,7 +319,7 @@ export function ResultsClient({ id }: { id: string }) {
 
       <div className="flex flex-col gap-6">
         {[0, 1].map((idx) => (
-          <div key={idx}>
+          <div key={idx} className="result-panel">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
               {idx === 0 ? state.teamAName : state.teamBName}
             </h2>
@@ -321,6 +350,7 @@ export function ResultsClient({ id }: { id: string }) {
           </div>
         ))}
       </div>
+      <blockquote className="motivation">“Look at you. Keeping promises to yourself.”</blockquote>
     </div>
   );
 }

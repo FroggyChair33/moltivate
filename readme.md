@@ -10,7 +10,20 @@ Moltivate is a mobile fitness competition app where friends form teams, put mone
 
 The complete demo source lives in `apps/web/`. The demo is public at staymoltivated.club; GitHub Actions produces tested build artifacts, with optional GitHub Pages deployment when a public host is selected.
 
-> Status: an interactive browser frontend is implemented in `apps/web/`. It introduces Moltivate and previews the planned mobile experience with sample data. The native mobile app, backend, verification worker, and smart contract have not been implemented or deployed. A future end-to-end blockchain demo will use Solana devnet and test SOL only.
+> Status (2026-11-15): the marketing demo is in `apps/web`; the Next.js app and Anchor source are now present. This branch also contains the experimental CPU vision CLI and Expo preparation component. Live Chert coaching, a deployed VM API, and an end-to-end accepted workout remain unfinished. See [the current Codex handoff](docs/live/CODEX_START.md). Devnet/test SOL only.
+
+## Live coaching handoff
+
+The planned split is **Vercel for the general/Web3 backend**, **Vultr for the long-running MediaPipe/voice agent**, and **Chert's managed FaceTime bridge connected through LiveKit**. Expo is the intended native client; keep the existing Next.js app intact while that client develops.
+
+- [Start here / Codex prompt and checkpoints](docs/live/CODEX_START.md)
+- [Live architecture and countdown ownership](docs/live/ARCHITECTURE.md)
+- [Proposed endpoint contract](docs/live/ENDPOINT_CONTRACT.md)
+- [Vultr deployment runbook and remaining prerequisites](docs/live/VULTR_DEPLOYMENT.md)
+- [Worker README](services/vision-worker/README.md) and [Expo countdown](packages/workout-prep/README.md)
+
+The file worker supports squat, pushup, situp and jumping-jack experiments. Flexible pushup tops use 145 degrees; tracking/posture checks remain. Candidate cycles are not verified form, identity, liveness or payout evidence. Live deployment is pending implementation and authenticated local SSH execution.
+
 
 ## Current frontend
 
