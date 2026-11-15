@@ -1,0 +1,21 @@
+Moltivate self-hosted fonts
+Retrieved from the official Google Fonts repository, 2026-11-14.
+
+Files converted to WOFF2 without glyph subsetting. Variable weight ranges are narrowed to the supplied interface weights; optical-size and Fraunces SOFT/WONK axes are preserved.
+Original family names are retained. Each family is distributed under its bundled SIL Open Font License 1.1.
+
+dm-sans.woff2 — DM Sans, normal, weights 400 700
+https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/DMSans%5Bopsz%2Cwght%5D.ttf
+
+fraunces.woff2 — Fraunces, normal, weights 500 700
+https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/Fraunces%5BSOFT%2CWONK%2Copsz%2Cwght%5D.ttf
+
+fraunces-italic.woff2 — Fraunces, italic, weights 500 600
+https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/Fraunces-Italic%5BSOFT%2CWONK%2Copsz%2Cwght%5D.ttf
+
+la-belle-aurore.woff2 — La Belle Aurore, normal, weights 400
+https://raw.githubusercontent.com/google/fonts/main/ofl/labelleaurore/LaBelleAurore.ttf
+
+dmsans-OFL.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/OFL.txt
+fraunces-OFL.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/OFL.txt
+labelleaurore-OFL.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/labelleaurore/OFL.txt
