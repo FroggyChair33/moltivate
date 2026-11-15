@@ -4,6 +4,15 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
 
 ## Current checkpoint
 
+- Natural voice phone test counted 7 of the caller's 8 squats. Active processing
+  averaged 7.4 fps with 46 rejected frames. Detected rep cues reached speech
+  readiness in 22–38 ms, excluding generated silence and network playback.
+  Audio now trims leading/trailing silence and speeds number clips by 1.25x.
+  Countdown clips 1–7 measure 0.19–0.38 seconds. Sampling admits frames at
+  55 ms source intervals. Confidence flicker up to 200 ms preserves only the
+  standing baseline; pending descents still reset. All 67 worker tests passed
+  on Vultr. Retest fast squats and countdown before app integration.
+
 - The caller reported six actual squats and six counted at `4358d02`, with
   delayed, robotic speech when moving quickly. Speech now caches the first
   30 numbers before the call and uses AudioSource pacing without an extra

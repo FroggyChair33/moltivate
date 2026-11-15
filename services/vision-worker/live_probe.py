@@ -27,7 +27,7 @@ async def speech(text):
         cache.mkdir(parents=True, exist_ok=True, mode=0o700)
         path = cache / (hashlib.sha256(text.encode()).hexdigest() + ".pcm")
         if path.exists():
-            SPEECH_CACHE[text] = path.read_bytes()
+            SPEECH_CACHE[text] = await compact_speech(path.read_bytes(), text)
             return SPEECH_CACHE[text]
         async with ClientSession(timeout=ClientTimeout(total=20)) as client:
             async with client.post(
@@ -58,8 +58,8 @@ async def speech(text):
         temporary = path.with_suffix(f".{os.getpid()}.tmp")
         temporary.write_bytes(pcm)
         temporary.replace(path)
-        SPEECH_CACHE[text] = pcm
-        return pcm
+        SPEECH_CACHE[text] = await compact_speech(pcm, text)
+        return SPEECH_CACHE[text]
     # Prompts and counts come only from this probe's state machine.
     process = await asyncio.create_subprocess_exec(
         "ffmpeg", "-nostdin", "-loglevel", "error", "-f", "lavfi", "-i",
@@ -73,6 +73,29 @@ async def speech(text):
             raise RuntimeError("Offline speech generation failed")
         SPEECH_CACHE[text] = pcm
         return pcm
+    finally:
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
+
+
+async def compact_speech(pcm, text):
+    # Remove generated leading/trailing silence before putting audio on LiveKit.
+    filters = "silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.015,areverse,silenceremove=start_periods=1:start_threshold=-40dB:start_silence=0.03,areverse"
+    if text.isdigit():
+        filters += ",atempo=1.25"
+    process = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-nostdin", "-loglevel", "error", "-f", "s16le", "-ar", str(SAMPLE_RATE),
+        "-ac", "1", "-i", "pipe:0", "-af", filters, "-f", "s16le", "pipe:1",
+        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    try:
+        async with asyncio.timeout(3):
+            trimmed, _ = await process.communicate(pcm)
+        if process.returncode or not trimmed:
+            raise RuntimeError("Speech trimming failed")
+        return trimmed
     finally:
         if process.returncode is None:
             process.kill()
@@ -149,7 +172,7 @@ class LiveProbe:
                     continue
                 stamp = event.timestamp_us // 1000
                 now = time.monotonic_ns() // 1_000_000
-                if source_ms is not None and (stamp - source_ms < 90 or now - received_ms < 80):
+                if source_ms is not None and (stamp - source_ms < 55 or now - received_ms < 50):
                     self.dropped += 1
                     continue
                 source_ms, received_ms = stamp, now

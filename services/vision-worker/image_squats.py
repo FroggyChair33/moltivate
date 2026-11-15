@@ -98,6 +98,7 @@ class ImageSquatSession:
         self.complete_cycles = self.frames = self.usable = self.interruptions = 0
         self.in_gap = False
         self.reasons = Counter()
+        self.last_valid_seconds = None
 
     def interrupt(self):
         self.state = None
@@ -105,13 +106,20 @@ class ImageSquatSession:
             self.interruptions += 1
         self.in_gap = True
 
-    def update(self, _seconds, poses):
+    def update(self, seconds, poses):
         self.frames += 1
         state, reason = squat_state(poses)
         if state is None:
             self.reasons[reason] += 1
+            # Brief confidence flicker may preserve a standing baseline only.
+            # A pending descent still resets, so unseen motion cannot finish a rep.
+            if (reason == "low_landmark_confidence" and self.state == "up"
+                    and self.last_valid_seconds is not None
+                    and 0 <= seconds - self.last_valid_seconds <= 0.2):
+                return
             self.interrupt()
             return
+        self.last_valid_seconds = seconds
         self.usable += 1
         self.in_gap = False
         if self.state == "up" and state == "active":

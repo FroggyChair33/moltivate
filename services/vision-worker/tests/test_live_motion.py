@@ -85,6 +85,17 @@ class LiveSetTests(unittest.TestCase):
         self.assertEqual(session.result()["complete_cycles"], 0)
         self.assertEqual(session.result()["tracking_interruptions"], 1)
 
+    def test_confidence_flicker_preserves_only_standing_baseline(self):
+        up = fixture("squats", yaw=90)
+        down = fixture("squats", active=True, yaw=90)
+        uncertain = replace(up, visibility=[0.1] * 33)
+        for poses, expected in (((up, uncertain, down, up), 1),
+                                ((up, down, uncertain, up), 0)):
+            session = ImageSquatSession()
+            for i, pose in enumerate(poses):
+                session.update(i * 0.1, [pose])
+            self.assertEqual(session.result()["complete_cycles"], expected)
+
     def test_squats_ignore_preview_even_if_detection_order_changes(self):
         session = LiveSet("squats", prep_seconds=1, set_seconds=15)
         up = fixture("squats", yaw=90)
