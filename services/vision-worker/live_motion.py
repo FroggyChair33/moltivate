@@ -6,6 +6,7 @@ import struct
 import sys
 from pathlib import Path
 
+from image_squats import ImageSquatSession, squat_state
 from motion_core import MotionSession, extract
 
 FRAME_HEADER = struct.Struct("!QIIIII")  # monotonic ms, epoch, width, height, rotation, sender gap ms
@@ -17,7 +18,7 @@ EXERCISES = ("squats", "pushups")
 
 class LiveSet:
     def __init__(self, exercise, prep_seconds, set_seconds):
-        self.motion = MotionSession(exercise)
+        self.motion = ImageSquatSession() if exercise == "squats" else MotionSession(exercise)
         self.prep_ms = prep_seconds * 1000
         self.set_ms = set_seconds * 1000
         self.phase = "preparing"
@@ -30,11 +31,14 @@ class LiveSet:
             self.phase = "preparing"
             self.neutral_since = self.countdown_at = self.last_cue = self.last_visible = None
         elif self.phase == "active":
-            self.motion.counter.reset()
-            self.motion.side = None
-            if not self.motion.in_gap:
-                self.motion.in_gap = True
-                self.motion.interruptions += 1
+            if isinstance(self.motion, ImageSquatSession):
+                self.motion.interrupt()
+            else:
+                self.motion.counter.reset()
+                self.motion.side = None
+                if not self.motion.in_gap:
+                    self.motion.in_gap = True
+                    self.motion.interruptions += 1
 
     def observe(self, ms, epoch, poses, sender_gap_ms=0):
         if self.last_ms is not None and ms <= self.last_ms:
@@ -49,8 +53,11 @@ class LiveSet:
             return None
 
         if self.phase != "active":
-            states = [extract(poses[0], self.motion.exercise, side).state
-                      for side in ("left", "right")] if len(poses) == 1 else []
+            if isinstance(self.motion, ImageSquatSession):
+                states = [squat_state(poses)[0]]
+            else:
+                states = [extract(poses[0], self.motion.exercise, side).state
+                          for side in ("left", "right")] if len(poses) == 1 else []
             neutral = "neutral" in states
             if any(state is not None for state in states):
                 self.last_visible = ms
@@ -88,17 +95,16 @@ class LiveSet:
             unit = "repetition" if self.count == 1 else "repetitions"
             return f"Nice work. I counted {self.count} {unit}"
         self.motion.update((ms - self.active_at) / 1000, poses)
-        events = self.motion.counter.events
-        if events and events[-1]["type"] == "complete_cycle":
-            count = len(events) - (events[0]["type"] == "initial_partial")
-            if count > self.count:
-                self.count = count
-                return str(count)
+        count = self.motion.result()["complete_cycles"]
+        if count > self.count:
+            self.count = count
+            return str(count)
         return None
 
     def snapshot(self):
         result = self.motion.result()
-        return {"phase": self.phase, "count": self.count, **{
+        policy = "claude-2d-left-squat-v1" if isinstance(self.motion, ImageSquatSession) else "flexible-pushup"
+        return {"phase": self.phase, "count": self.count, "policy": policy, **{
             key: result[key] for key in (
                 "status", "payout_eligible", "frames_analyzed", "usable_fraction",
                 "tracking_interruptions", "retry_reasons", "rejected_frame_reasons",

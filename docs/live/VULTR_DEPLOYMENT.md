@@ -132,6 +132,11 @@ preparation delay is seven seconds and the active set is 35 seconds. Optional
 operator settings are `MOLTIVATE_PREP_SECONDS` (1–60) and `MOLTIVATE_SET_SECONDS`
 (15–60), both whole seconds.
 
+Live squats use the normalized 2D left hip–knee–ankle angle from Claude
+co-authored commit `cc16424`. The angle must go below 110° and return above
+160°. The live adapter requires observable joints and clears an unfinished
+rep after lost tracking. Stand side-on with your left side toward the camera.
+
 Wait for Chert’s waiting-room message, then call with FaceTime Video. Prop the
 phone level and side-on with the whole body visible. Hold upright for squats,
 or hold the top position for pushups. Wait for “Go”, perform three controlled

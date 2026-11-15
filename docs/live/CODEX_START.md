@@ -34,6 +34,11 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
   loss and checks the starting position again before “Go”. During a set,
   the existing 350 ms continuity limit still applies. The next phone test
   also uses Flite's female `slt` voice and updated coaching prompts.
+- The retry reached the active set and counted one squat. The user reported
+  that only one rep registered. The new live squat path ports the 2D left-knee
+  rule from Claude co-authored commit `cc16424` on Stephen's branch. It keeps
+  the original below-110° / above-160° transitions and resets on lost tracking.
+  Pushups still use the flexible 3D tracker.
 - **Next action:** test three controlled squats, then three pushups, by
   FaceTime Video and compare the spoken counts with the manual count.
   Check the waiting-room message before each call. Follow the
