@@ -5,11 +5,13 @@ import logging
 import hashlib
 import os
 import time
+from contextlib import closing
 from pathlib import Path
 
 from livekit import rtc
 
 from live_motion import FRAME_HEADER, MAX_PIXELS
+from result_sender import enqueue_final, open_outbox
 
 log = logging.getLogger("moltivate.live")
 SAMPLE_RATE = 16_000
@@ -129,7 +131,7 @@ class LiveProbe:
             await speech(str(number))
         await speech("Go")
 
-    async def close(self):
+    async def close(self, *, paired_session_id=None, termination_reason="disconnected"):
         if self.last_result is not None:
             log.info("experimental set result: exercise=%s dropped=%s %s",
                      self.exercise, self.dropped, json.dumps(self.last_result, sort_keys=True))
@@ -140,6 +142,17 @@ class LiveProbe:
             except TimeoutError:
                 self.worker.kill()
                 await self.worker.wait()
+        if paired_session_id is not None:
+            result = self.last_result or {"phase": "preparing", "count": 0,
+                                          "policy": "claude-2d-primary-squat-v2"}
+            if result["phase"] != "ended":
+                result = {**result, "status": "aborted"}
+            with closing(open_outbox(Path(os.environ["MOLTIVATE_STATE_DIR"]))) as outbox:
+                enqueue_final(
+                    outbox, paired_session_id, {**result, "dropped_frames": self.dropped},
+                    exercise=self.exercise, termination_reason=termination_reason,
+                    worker_release=os.environ.get("MOLTIVATE_WORKER_RELEASE", "unknown"),
+                )
 
     def say(self, cue):
         if self.cues.full():
