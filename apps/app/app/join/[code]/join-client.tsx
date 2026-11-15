@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton } from "@/app/components/wallet-button";
@@ -169,9 +170,18 @@ export function JoinClient({ code }: { code: string }) {
           >
             {deposited ? "Deposited" : depositing ? "Depositing..." : `Deposit ${stakeSol} SOL`}
           </button>
-          <p className="text-xs text-zinc-500">
-            Sends a real devnet transaction via your connected wallet.
-          </p>
+          {deposited ? (
+            <Link
+              href={`/challenges/${code}`}
+              className="rounded-full border border-black/10 px-5 py-2.5 text-center text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
+            >
+              Go to scoreboard
+            </Link>
+          ) : (
+            <p className="text-xs text-zinc-500">
+              Sends a real devnet transaction via your connected wallet.
+            </p>
+          )}
         </div>
       )}
     </div>
