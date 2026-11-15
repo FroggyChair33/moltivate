@@ -155,9 +155,10 @@ async def run_call(ctx: JobContext) -> None:
 
     @room.on("track_muted")
     @room.on("track_unmuted")
-    def mute_changed(publication, participant):
-        if live and participant.identity == bridge_identity:
+    def mute_changed(participant, publication):
+        if live and participant.identity == bridge_identity and publication.kind == rtc.TrackKind.KIND_VIDEO:
             live.track_changed(publication.sid)
+            log.info("caller video mute state changed")
 
     @room.on("participant_disconnected")
     def left(participant):

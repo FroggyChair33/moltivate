@@ -152,6 +152,14 @@ It reports aggregate counts and tracking reasons without recording media.
 The manual test produces no accepted workouts or payouts. Skeleton overlay and
 service/API deployment are separate milestones.
 
+On 2026-11-15, the FaceTime test with `827ad0f` counted seven squats and the
+caller confirmed seven. The active set analyzed 259 frames, with 83.8% usable
+coverage and one tracking interruption. MediaPipe reported multiple poses in
+nine frames, so the result was `needs_retry` and payout-ineligible. The call
+ended and the agent logged cleanup. A LiveKit mute event exposed an argument
+order error. The corrected handler passed a synthetic mute and unmute test
+on Vultr. Real-phone pushups and end-to-end latency remain unmeasured.
+
 ## Finish deployment after the live agent is implemented
 
 Local Codex must carry out these steps, not merely mark this checklist complete:

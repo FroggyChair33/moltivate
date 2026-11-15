@@ -39,9 +39,13 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
   rule from Claude co-authored commit `cc16424` on Stephen's branch. It keeps
   the original below-110° / above-160° transitions and resets on lost tracking.
   Pushups still use the flexible 3D tracker.
-- **Next action:** test three controlled squats, then three pushups, by
-  FaceTime Video and compare the spoken counts with the manual count.
-  Check the waiting-room message before each call. Follow the
+- The subsequent FaceTime squat call at `827ad0f` matched the user's manual
+  count of seven. Its result was still `needs_retry` because nine frames
+  contained multiple detected poses. The call also exposed a swapped
+  argument order in LiveKit's mute callback, corrected in the next revision.
+- **Next action:** validate flexible pushups on a physical phone. Repeat a
+  squat call with the camera framed to isolate one person. Compare spoken
+  counts with the manual count and check the evidence flags. Follow the
   [manual live rep test](VULTR_DEPLOYMENT.md#manual-live-rep-test).
 
 
