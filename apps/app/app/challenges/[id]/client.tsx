@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { LogSessionStub } from "@/app/components/log-session-stub";
 import { MediaPipeSquatSession } from "@/app/components/mediapipe-squat-session";
 import { Eyebrow } from "@/app/components/eyebrow";
 import { CommitmentSlip } from "@/app/components/commitment-slip";
@@ -234,10 +233,7 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
 
       <div className="mt-10 flex flex-col gap-6">
         {myMember ? (
-          <>
-            <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
-            <LogSessionStub challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
-          </>
+          <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
         ) : (
           <p className="text-sm text-muted">Connect the wallet you joined with to log a workout.</p>
         )}

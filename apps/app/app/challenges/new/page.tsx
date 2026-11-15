@@ -46,16 +46,11 @@ function NewChallengeForm() {
   const [title, setTitle] = useState(params.get("title") ?? "Push-up Pact");
   const [stakeSol, setStakeSol] = useState(params.get("stakeSol") ?? "0.25");
   const [goalReps, setGoalReps] = useState(params.get("goalReps") ?? "150");
-  // 7 days is the real default; a small fraction (e.g. 0.002 ~= 3 minutes) is
-  // useful for devnet demo/testing -- see MVP doc "For the demo, set the
-  // challenge length to a few minutes."
+  // 7 days is the real default; a short fraction is supported too (see the
+  // MVP doc's own "a few minutes" demo guidance) -- min/step below allow it.
   const [durationDays, setDurationDays] = useState("7");
   const [teamAName, setTeamAName] = useState(params.get("teamAName") ?? "Sunrise Squad");
   const [teamBName, setTeamBName] = useState(params.get("teamBName") ?? "Night Owls");
-  // Defaults to the backend oracle (app/api/oracle/settle) - only that
-  // service actually calls settle() automatically. Overriding this to your
-  // own wallet is still useful for manually testing settle() yourself.
-  const [oracle, setOracle] = useState(params.get("oracle") ?? process.env.NEXT_PUBLIC_ORACLE_PUBKEY ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,7 +62,13 @@ function NewChallengeForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const oracleKey = new PublicKey(oracle || publicKey.toBase58());
+      // Always the real backend oracle (app/api/oracle/settle) -- only that
+      // service's key can actually sign settle(), so there's no real
+      // self-settle path for a creator-chosen oracle to support in the UI.
+      if (!process.env.NEXT_PUBLIC_ORACLE_PUBKEY) {
+        throw new Error("NEXT_PUBLIC_ORACLE_PUBKEY is not configured");
+      }
+      const oracleKey = new PublicKey(process.env.NEXT_PUBLIC_ORACLE_PUBKEY);
 
       const pot = potPda(publicKey, DEFAULT_GROUP_ID);
       const potAccount = await program.provider.connection.getAccountInfo(pot);
@@ -178,7 +179,7 @@ function NewChallengeForm() {
           />
         </Field>
 
-        <Field label="Duration (days) -- use a small fraction like 0.002 (~3 min) for a devnet demo">
+        <Field label="Duration (days)">
           <input
             required
             type="number"
@@ -208,15 +209,6 @@ function NewChallengeForm() {
             />
           </Field>
         </div>
-
-        <Field label="Oracle address (defaults to the backend oracle; change only to self-settle manually)">
-          <input
-            value={oracle}
-            onChange={(e) => setOracle(e.target.value)}
-            placeholder={publicKey.toBase58()}
-            className="input"
-          />
-        </Field>
 
         {error && (
           <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
