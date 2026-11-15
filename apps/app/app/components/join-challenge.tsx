@@ -8,7 +8,7 @@ export function JoinChallenge() {
   const router = useRouter();
   const [invite, setInvite] = useState("");
   const [error, setError] = useState("");
-  return <form className="space-y-3 rounded-2xl border border-line p-5" onSubmit={(event) => {
+  return <form className="paper-panel space-y-3" onSubmit={(event) => {
     event.preventDefault();
     try {
       const value = invite.trim();
@@ -19,10 +19,11 @@ export function JoinChallenge() {
       setError("Paste a valid challenge address or invite link.");
     }
   }}>
+    <p className="kicker">There’s room for you</p>
     <h2 className="text-2xl">Got an invite?</h2>
     <label htmlFor="challenge-invite" className="block text-sm">Challenge address or invite link</label>
     <input id="challenge-invite" className="input w-full" value={invite} onChange={(event) => setInvite(event.target.value)} required aria-describedby={error ? "invite-error" : undefined} />
     {error && <p id="invite-error" role="alert" className="text-sm text-red-700">{error}</p>}
-    <button className="rounded-full border border-foreground px-5 py-3 font-medium" type="submit">Review invitation</button>
+    <button className="button-primary" type="submit">Review invitation <span aria-hidden="true">↗</span></button>
   </form>;
 }

@@ -4,6 +4,14 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
 
 ## Current checkpoint
 
+- Mobile app design increment is on `codex/pwa-functional-flow`. See
+  [the design checkpoint](../APP_DESIGN.md) for the new Coach/Club pages,
+  marketing-style UI, photo placeholders, and backend-fed rolling leaderboard.
+  Lint/build and browser checks passed using simulated wallet/RPC data. No
+  Web3/backend/worker logic changed. Next: user review of the local preview,
+  supplied photographs, and a separate deployment/integration review with the
+  app owner. App-linked FaceTime remains pending in this checkout.
+
 - Latest real-phone test of `6ba0f17` matched the caller's six squats.
   All seven countdown cues were emitted with 22–36 ms speech-ready delay;
   rep cues took 20–37 ms. These exclude phone/network playback latency.

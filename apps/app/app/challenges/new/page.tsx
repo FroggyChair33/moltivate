@@ -120,22 +120,24 @@ function NewChallengeForm() {
 
   if (!publicKey) {
     return (
-      <div className="mx-auto w-full max-w-lg px-6 py-12">
+      <div className="app-page form-page">
         <Eyebrow>New challenge</Eyebrow>
-        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Create a challenge</h1>
+        <h1>Make a pact.<br /><em>Make it happen.</em></h1>
+        <p className="page-intro">Bring your friends, pick a goal, and give yourselves a reason to show up.</p>
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
           Connect your Phantom wallet (devnet) to create a challenge.
         </p>
         <WalletButton />
+        <blockquote className="motivation">“The first step counts, too.”</blockquote>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-lg px-6 py-12">
+    <div className="app-page form-page">
       <Eyebrow>{isRematch ? "Run it back" : "New challenge"}</Eyebrow>
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        {isRematch ? "Start a rematch" : "Create a challenge"}
+        {isRematch ? "One more round?" : <>Make a pact.<br /><em>Make it happen.</em></>}
       </h1>
       {isRematch && (
         <p className="mb-6 rounded-lg bg-black/[.03] p-3 text-sm text-zinc-600 dark:bg-white/[.06] dark:text-zinc-400">
@@ -145,6 +147,7 @@ function NewChallengeForm() {
           invite link, same as before.
         </p>
       )}
+      <p className="page-intro">A goal, a little accountability, and your favorite people. Let’s set it up.</p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Field label="Title">
           <input
@@ -228,7 +231,7 @@ function NewChallengeForm() {
         <button
           type="submit"
           disabled={submitting}
-          className="mt-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
+          className="button-primary mt-2 disabled:opacity-50"
         >
           {submitting ? "Creating on devnet..." : isRematch ? "Start rematch" : "Create"}
         </button>
@@ -240,6 +243,7 @@ function NewChallengeForm() {
           teams pass).
         </p>
       </form>
+      <blockquote className="motivation">“Small promises. Kept daily. That’s where it starts.”</blockquote>
     </div>
   );
 }

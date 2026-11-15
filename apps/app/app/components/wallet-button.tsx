@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { useWallet } from "@solana/wallet-adapter-react";
+
+function SolanaLabel() {
+  return <><svg width="26" height="26" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="m8 5-5 5h21l5-5H8Zm-5 8 5 5h21l-5-5H3Zm5 8-5 5h21l5-5H8Z" /></svg><span className="solana-label"><small>CONNECT WITH</small><strong>Solana</strong></span></>;
+}
 
 // Injected Phantom can connect directly. Other mobile browsers get explicit
 // recovery guidance until the physical-device deep-link flow is verified.
@@ -17,6 +22,7 @@ function isMobileBrowser(): boolean {
 // #418) that can leave the button unresponsive. Gating the real button
 // behind a post-mount check means it never participates in SSR at all.
 export function WalletButton() {
+  const { connected, connecting } = useWallet();
   const [mounted, setMounted] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -37,21 +43,21 @@ export function WalletButton() {
       <button
         type="button"
         disabled
-        className="!h-9 rounded-full border border-black/10 px-4 text-sm opacity-50 dark:border-white/15"
+        className="solana-button"
       >
-        Select Wallet
+        <SolanaLabel />
       </button>
     );
   }
 
   if (isMobile) {
     return (
-      <details className="max-w-xs rounded-xl border border-line px-3 text-sm">
-        <summary className="flex cursor-pointer items-center">Connect on mobile</summary>
-        <p className="pb-3 text-muted">Open this site in Phantom’s browser to try connecting. If it opens blank, return to Safari to browse, or connect from a desktop browser. iPhone wallet support is still being tested.</p>
+      <details className="mobile-wallet">
+        <summary className="solana-button" aria-label="Connect Solana wallet on mobile"><SolanaLabel /></summary>
+        <p>Open this site in Phantom’s browser to try connecting. If it opens blank, return to Safari to browse, or connect from a desktop browser. iPhone wallet support is still being tested.</p>
       </details>
     );
   }
 
-  return <WalletMultiButton className="!h-9 !rounded-full !text-sm" />;
+  return <WalletMultiButton className="solana-button">{!connected && !connecting ? <SolanaLabel /> : undefined}</WalletMultiButton>;
 }

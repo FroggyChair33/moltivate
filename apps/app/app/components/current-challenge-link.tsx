@@ -13,7 +13,7 @@ export function CurrentChallengeLink() {
   const { publicKey } = useWallet();
   const wallet = publicKey?.toBase58();
   return wallet ? <ChallengeList key={wallet} /> : (
-    <p className="text-muted">Connect your wallet to see your challenges and results.</p>
+    <div className="rounded-xl border border-dashed border-line p-5"><p className="text-sm font-medium">Your next chapter starts here.</p><p className="mt-2 text-sm leading-relaxed text-muted">Connect your Solana wallet to find your teams, progress, and results.</p></div>
   );
 }
 

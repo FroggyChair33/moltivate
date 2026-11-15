@@ -191,7 +191,7 @@ function ResultsClientView({ id }: { id: string }) {
 
   if (error && !state) {
     return (
-      <div className="mx-auto w-full max-w-2xl px-6 py-12">
+      <div className="app-page form-page">
         <p role="alert" className="text-sm text-red-700">{error}</p>
         <button className="mt-4 underline" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>
       </div>
@@ -200,7 +200,7 @@ function ResultsClientView({ id }: { id: string }) {
 
   if (!state) {
     return (
-      <div className="mx-auto w-full max-w-2xl px-6 py-12">
+      <div className="app-page form-page">
         <p className="text-sm text-zinc-500">Loading results from devnet...</p>
       </div>
     );
@@ -216,16 +216,16 @@ function ResultsClientView({ id }: { id: string }) {
   const allClaimed = state.members.length > 0 && state.members.every((m) => m.claimed);
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-12">
+    <div className="app-page form-page">
       <Eyebrow>{state.settled ? "Final results" : "Awaiting settlement"}</Eyebrow>
       <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
       </p>
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        {state.teamAName} vs {state.teamBName} -- results
+        {state.settled ? <>The effort.<br /><em>The outcome.</em></> : <>Every rep matters.<br /><em>Results to come.</em></>}
       </h1>
 
-      <p className="mb-4 rounded-lg bg-black/[.03] p-4 text-sm dark:bg-white/[.06]">{outcomeLabel}</p>
+      <p className="mb-4 result-panel text-sm">{outcomeLabel}</p>
 
       {state.settled && closed && (
         <p className="mb-8 rounded-lg border border-black/10 p-3 text-sm text-zinc-500 dark:border-white/15">
@@ -322,7 +322,7 @@ function ResultsClientView({ id }: { id: string }) {
 
       <div className="flex flex-col gap-6">
         {[0, 1].map((idx) => (
-          <div key={idx}>
+          <div key={idx} className="result-panel">
             <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
               {idx === 0 ? state.teamAName : state.teamBName}
             </h2>
@@ -353,6 +353,7 @@ function ResultsClientView({ id }: { id: string }) {
           </div>
         ))}
       </div>
+      <blockquote className="motivation">“Look at you. Keeping promises to yourself.”</blockquote>
     </div>
   );
 }

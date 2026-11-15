@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CoachMark } from "./club-art";
+import { RollingNumber } from "./rolling-number";
 import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
 import {
   SquatCounter,
@@ -204,51 +206,25 @@ export function MediaPipeSquatSession({
     }
   }
 
+  const cameraActive = phase === "loading" || phase === "running";
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-black/15 p-4 text-sm dark:border-white/20">
-      <p className="font-medium">Squat workout</p>
-
-      <p className="text-muted">Browser camera · Unverified counts. Keep your whole body visible, turn sideways, and allow camera access. This result is not payout verification.</p>
-      {(phase === "idle" || (phase === "error" && !submitFailed)) && (
-        <button
-          type="button"
-          onClick={start}
-          className="w-fit rounded-full border border-black/10 px-4 py-1.5 dark:border-white/15"
-        >
-          Start squat session
-        </button>
-      )}
-
-      {(phase === "loading" || phase === "running") && (
-        <div className="flex flex-col gap-2">
-          <video ref={videoRef} muted playsInline className="w-full max-w-xs rounded-lg -scale-x-100" />
-          {phase === "loading" && <p className="text-xs text-zinc-500">Loading camera and pose model...</p>}
-          {phase === "running" && (
-            <>
-              <p className="font-serif text-5xl" aria-live="polite">{reps} <span className="font-sans text-sm">squats</span></p>
-              {prompt && (
-                <p className="text-xs text-zinc-500">
-                  Liveness prompt: {prompt.text}{" "}
-                  {livenessPassed === true && "Detected"}
-                  {livenessPassed === false && "Not detected in time"}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={finish}
-                className="w-fit rounded-full bg-foreground px-4 py-1.5 text-background"
-              >
-                Finish & submit
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {phase === "submitting" && <p className="text-xs text-zinc-500">Submitting...</p>}
-      {submitFailed && phase === "error" && <button onClick={finish} className="underline">Retry saving this workout</button>}
-      {result && <p className="text-xs text-zinc-500">{result}</p>}
-      {error && <p className="text-xs text-red-700 dark:text-red-300">{error}</p>}
-    </div>
+    <section className="camera-room" aria-label="Browser squat workout">
+      <div className="section-topline"><span className="tag tag-light">Browser camera · Squats</span><span className="coach-state">{phase === "running" ? "Counting locally" : phase === "loading" ? "Setting up" : phase === "done" ? "Session saved" : "Your next set"}</span></div>
+      <h2>One rep at a time.</h2>
+      <div className="camera-stage">
+        <video ref={videoRef} muted playsInline hidden={!cameraActive} />
+        {!cameraActive && <div className="camera-placeholder"><CoachMark /><p>{phase === "done" ? "You showed up. That matters." : "Your camera stays off until you start. Find good light and keep your whole body in frame."}</p></div>}
+        {(phase === "running" || phase === "done" || submitFailed || phase === "submitting") && <div className="rep-overlay" aria-live="polite"><RollingNumber value={reps} /><span>squats · experimental</span></div>}
+      </div>
+      {phase === "loading" && <p className="session-status" role="status">Opening your camera and loading the pose model…</p>}
+      {phase === "running" && prompt && <p className="session-status">{prompt.text} {livenessPassed === true && "Detected."}{livenessPassed === false && "Not detected in time."}</p>}
+      {(phase === "idle" || phase === "done" || (phase === "error" && !submitFailed)) && <button type="button" onClick={start} className="button-primary">{phase === "done" ? "Start another set" : "Start squat session"} <span aria-hidden="true">↗</span></button>}
+      {phase === "running" && <button type="button" onClick={finish} className="button-primary">Finish &amp; submit</button>}
+      {phase === "submitting" && <p className="session-status" role="status">Saving your workout…</p>}
+      {submitFailed && phase === "error" && <button onClick={finish} className="button-primary">Retry saving this workout</button>}
+      {result && <p className="session-status mt-4" role="status">{result}</p>}
+      {error && <p className="session-error" role="alert">{error}</p>}
+      <p className="session-status mt-4">Turn sideways and keep your whole body visible. Counts run in your browser and are unverified. This session is not payout verification.</p>
+    </section>
   );
 }
