@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
@@ -13,28 +13,44 @@ import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
 // first time it's needed, then calls `initialize`, which atomically creates
 // the Challenge and both Team accounts. Devnet only -- see AGENTS.md
 // "Financial correctness".
+//
+// useSearchParams() needs a Suspense boundary under the App Router (it
+// opts the page out of static rendering) -- this is also what lets the
+// results page's "Rematch" button prefill this form via query params
+// instead of needing its own duplicate create flow.
 export default function NewChallengePage() {
+  return (
+    <Suspense>
+      <NewChallengeForm />
+    </Suspense>
+  );
+}
+
+function NewChallengeForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const { publicKey } = useWallet();
   const program = useProgram();
 
-  const [title, setTitle] = useState("Push-up Pact");
-  const [stakeSol, setStakeSol] = useState("0.25");
-  const [goalReps, setGoalReps] = useState("150");
-  const [alphaPercent, setAlphaPercent] = useState("20");
-  const [rakePercent, setRakePercent] = useState("3");
+  const [title, setTitle] = useState(params.get("title") ?? "Push-up Pact");
+  const [stakeSol, setStakeSol] = useState(params.get("stakeSol") ?? "0.25");
+  const [goalReps, setGoalReps] = useState(params.get("goalReps") ?? "150");
+  const [alphaPercent, setAlphaPercent] = useState(params.get("alphaPercent") ?? "20");
+  const [rakePercent, setRakePercent] = useState(params.get("rakePercent") ?? "3");
   // 7 days is the real default; a small fraction (e.g. 0.002 ~= 3 minutes) is
   // useful for devnet demo/testing -- see MVP doc "For the demo, set the
   // challenge length to a few minutes."
   const [durationDays, setDurationDays] = useState("7");
-  const [teamAName, setTeamAName] = useState("Sunrise Squad");
-  const [teamBName, setTeamBName] = useState("Night Owls");
+  const [teamAName, setTeamAName] = useState(params.get("teamAName") ?? "Sunrise Squad");
+  const [teamBName, setTeamBName] = useState(params.get("teamBName") ?? "Night Owls");
   // Defaults to the backend oracle (app/api/oracle/settle) - only that
   // service actually calls settle() automatically. Overriding this to your
   // own wallet is still useful for manually testing settle() yourself.
-  const [oracle, setOracle] = useState(process.env.NEXT_PUBLIC_ORACLE_PUBKEY ?? "");
+  const [oracle, setOracle] = useState(params.get("oracle") ?? process.env.NEXT_PUBLIC_ORACLE_PUBKEY ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isRematch = params.get("rematchOf") !== null;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,8 +123,16 @@ export default function NewChallengePage() {
   return (
     <div className="mx-auto w-full max-w-lg px-6 py-12">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        Create a challenge
+        {isRematch ? "Start a rematch" : "Create a challenge"}
       </h1>
+      {isRematch && (
+        <p className="mb-6 rounded-lg bg-black/[.03] p-3 text-sm text-zinc-600 dark:bg-white/[.06] dark:text-zinc-400">
+          Prefilled from the challenge you just settled -- the group pot carries
+          forward automatically since it&apos;s tied to your wallet, not to any one
+          challenge. Pick a new duration and everyone rejoins via the new
+          invite link, same as before.
+        </p>
+      )}
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Field label="Title">
           <input
@@ -218,7 +242,7 @@ export default function NewChallengePage() {
           disabled={submitting}
           className="mt-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
         >
-          {submitting ? "Creating on devnet..." : "Create"}
+          {submitting ? "Creating on devnet..." : isRematch ? "Start rematch" : "Create"}
         </button>
       </form>
     </div>

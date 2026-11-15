@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { ClaimButton } from "@/app/components/claim-button";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda, NO_WINNER } from "@/lib/anchor";
@@ -27,10 +29,19 @@ type Loaded = {
   // Captured when this load resolved, purely to render a "deadline hasn't
   // passed yet" hint - not used for anything that needs to be live/ticking.
   loadedAtMs: number;
+  // Everything below is only used to prefill the "Rematch" button's link to
+  // /challenges/new -- not otherwise displayed on this page.
+  creator: string;
+  oracle: string;
+  stakeLamports: number;
+  target: number;
+  alphaBps: number;
+  rakeBps: number;
 };
 
 export function ResultsClient({ id }: { id: string }) {
   const program = useProgram();
+  const { publicKey } = useWallet();
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settling, setSettling] = useState(false);
@@ -62,6 +73,12 @@ export function ResultsClient({ id }: { id: string }) {
           winningTeam: challengeAcc.winningTeam,
           deadlineUnix: challengeAcc.deadlineUnix.toNumber(),
           loadedAtMs: Date.now(),
+          creator: challengeAcc.creator.toBase58(),
+          oracle: challengeAcc.oracle.toBase58(),
+          stakeLamports: challengeAcc.stakeLamports.toNumber(),
+          target: challengeAcc.target,
+          alphaBps: challengeAcc.alphaBps,
+          rakeBps: challengeAcc.rakeBps,
           members: memberAccs.map((m) => ({
             pubkey: m.publicKey.toBase58(),
             owner: m.account.owner.toBase58(),
@@ -143,6 +160,32 @@ export function ResultsClient({ id }: { id: string }) {
       </h1>
 
       <p className="mb-4 rounded-lg bg-black/[.03] p-4 text-sm dark:bg-white/[.06]">{outcomeLabel}</p>
+
+      {state.settled && publicKey?.toBase58() === state.creator && (
+        <div className="mb-8">
+          <Link
+            href={`/challenges/new?${new URLSearchParams({
+              rematchOf: id,
+              teamAName: state.teamAName,
+              teamBName: state.teamBName,
+              stakeSol: String(state.stakeLamports / 1_000_000_000),
+              goalReps: String(state.target),
+              alphaPercent: String(state.alphaBps / 100),
+              rakePercent: String(state.rakeBps / 100),
+              oracle: state.oracle,
+            }).toString()}`}
+            className="w-fit rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
+          >
+            Rematch -- same group, new challenge
+          </Link>
+          <p className="mt-1 text-xs text-zinc-500">
+            Only you (the creator) see this -- it prefills a new challenge with the same
+            teams, stake, and goal. The group pot carries forward automatically since
+            it&apos;s tied to your wallet. Make sure you&apos;ve claimed your own payout first
+            if you need it to fund the new stake.
+          </p>
+        </div>
+      )}
 
       {!state.settled && (
         <div className="mb-8 flex flex-col gap-2">
