@@ -1,5 +1,33 @@
 # Vision worker handoff
 
+## Latest: flexible push-up policy, 0.3.2
+
+The user reviewed two missed push-up top positions and explicitly requested
+that they count without requiring full elbow lockout. `flexible` is now the
+default push-up profile: top >=145 degrees held for >=0.10 seconds. The `strict`
+profile retains >=155 degrees for >=0.15 seconds. Bottom <=100 degrees for
+>=0.15 seconds, cycle duration >=0.5 seconds, side locking, confidence, posture,
+coverage and trust flags are unchanged. This is a versioned product-policy
+change, not automatic calibration to a requested repetition count.
+
+Use `--pushup-profile flexible` or `--pushup-profile strict` only with pushups.
+The output's `rules` records the profile and dwell times. Missing frames still
+reset an unfinished cycle. The shorter top hold reacquires readiness from
+fresh frames after a brief glitch; it does not bridge an unobserved movement.
+
+The uploaded pushups2 feature CSV was replayed locally through the updated
+session/counter using stored per-side confidence and rejection reasons: strict
+0, flexible 5 candidate cycles (ends 7.3, 8.9, 10.4, 11.9, 13.4 seconds).
+No fresh model inference was performed on that video here. Whole-clip coverage
+stays 118/181 and status stays `needs_retry`; do not claim accepted workouts.
+Do not commit the private CSV or screenshots. 55 automated tests passed locally;
+the new profile still needs a video rerun on Vultr and broader labeled footage.
+
+Current root documentation is in PR #19 on `codex/workout-prep-countdown`.
+Read that handoff as well: the intended mobile target is Expo, the preparation
+countdown runs on the phone, and app/backend work stays with the app agent.
+Existing Next.js work must be preserved during the native transition.
+
 ## Scope and ownership
 
 This increment adds the isolated Python worker under `services/vision-worker/`
@@ -82,7 +110,10 @@ folded into complete cycles.
    update accepted workout totals. The current worker must remain unverified
    under the database acceptance constraint described in the root handoff.
 
-The user currently runs v0.2 in `~/moltivate-vision` on the Vultr VM. Install
-v0.3 alongside it using this folder's README. Re-run `squats.mp4` and inspect
-the overlay, then `squats2.mov` and the standing negative control. Do not claim
-the VM was upgraded until those commands have actually run there.
+The user has run v0.3.1 in the separate
+`~/moltivate-worker-v03/services/vision-worker` checkout on Vultr; preserve the
+earlier `~/moltivate-vision` directory and its media. Pull this branch in the
+worker checkout, rerun `videos/pushups2.mov` with the flexible profile, and
+compare events and the overlay. Four squats on the second squat clip were
+previously reported matching the manual count. Other exercise video accuracy
+and the 0.3.2 VM rerun remain to verify.

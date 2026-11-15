@@ -1,4 +1,4 @@
-# Moltivate vision worker — experiment 0.3.1
+# Moltivate vision worker — experiment 0.3.2
 
 An isolated **local-video CPU worker** for squats, push-ups, sit-ups and jumping
 jacks. It counts candidate movement cycles and writes diagnostics. It does not
@@ -7,6 +7,53 @@ connect to the app, Chert, Supabase, wallets, an oracle or a payout service.
 Read the repository's root `HANDOFF.md` first and then
 [INTEGRATION_HANDOFF.md](INTEGRATION_HANDOFF.md). The app agent owns `apps/app/`,
 its API and migrations. This worker owns only this folder and its scoped CI job.
+
+## Flexible push-up counting (0.3.2)
+
+The user selected a more forgiving return-to-top definition after reviewing
+missed top positions in a second push-up recording. Push-ups now default to
+`--pushup-profile flexible`; `strict` preserves the previous counting rule.
+These are explicit counting policies, not automatic per-video calibration.
+
+| Rule | Flexible (default) | Strict (previous behavior) |
+| --- | --- | --- |
+| Estimated elbow angle at top | At least 145 degrees | At least 155 degrees |
+| Consecutive observed top span | At least 0.10 seconds | At least 0.15 seconds |
+| Bottom elbow angle and hold | At most 100 degrees for 0.15 seconds | Same |
+| Minimum cycle duration | 0.5 seconds | Same |
+| Body/knee posture and confidence gates | Unchanged | Unchanged |
+
+At 10 sampled fps, flexible still needs two consecutive top samples and three
+bottom samples. A single top spike, shallow bend, static hold or initial partial
+is not a full cycle. Tracking gaps still reset unfinished cycles; after a gap
+the shorter top hold allows reacquisition from fresh observed frames. No missing
+frames are interpolated, credited, or silently treated as valid.
+
+```bash
+git pull --ff-only
+source .venv/bin/activate
+python moltivate_motion.py videos/pushups2.mov --exercise pushups \
+  --pushup-profile flexible --output-dir "results/pushups2-flexible-$(date +%Y%m%d-%H%M%S)" --overlay
+```
+
+Use `--pushup-profile strict` and a different output directory for a comparison.
+The option is rejected for other exercises; squat calibration is unchanged.
+The result records the chosen profile, thresholds and dwell times in `rules`.
+
+Local replay of the user's saved **feature CSV**, using its existing confidence
+and posture rejections, produced **5 candidate cycles** with flexible and **0**
+with strict. Flexible completions were at 7.3, 8.9, 10.4, 11.9 and 13.4 seconds.
+This replays stored measurements, not video/model inference; a VM rerun is still
+needed. The user's trace and screenshots are not committed as test fixtures.
+The 55-test suite passes, including synthetic profiles, partials, brief spikes,
+shallow movements, tracking gaps and regressions for the other exercises.
+
+Whole-clip coverage remains 118/181 (65.2%) on that replay, so **`needs_retry`
+remains despite the five candidate cycles**. Setup/exit footage contributes to
+this coverage result. Do not silently crop to the best-tracked portion or credit
+these counts as verified results. Future app capture should start after its
+preparation/framing step; any explicit analysis interval needs its own policy.
+All form, identity, liveness, exercise-identity and payout flags remain false.
 
 ## What changed from the Vultr v0.2 script
 
@@ -206,8 +253,11 @@ The rule/geometry tests use synthetic landmarks. There is not yet a labeled
 real-video evaluation across people, camera views and all four exercises.
 Record several known-count clips plus standing, arm-only and incomplete-motion
 controls. Compare the result, CSV and overlay before changing thresholds.
-Neither the original nor newer user workout footage was available on the
-implementation machine. Deployment and accuracy on the Vultr VM remain to test.
+User-reported Vultr runs of v0.3.1 on the second squat recording found four
+candidate cycles matching the user's manual count, in 5.754 seconds without
+overlay (15.798 seconds of footage). These were not independently replayed from
+video here. Push-up feature replay and the newer v0.3.2 policy are described
+above; real-video validation of sit-ups and jumping jacks remains pending.
 
 References: [MediaPipe Pose Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/python),
 [MediaPipe 0.10.21](https://pypi.org/project/mediapipe/0.10.21/),

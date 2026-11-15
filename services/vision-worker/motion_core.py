@@ -3,18 +3,34 @@ from collections import Counter
 from dataclasses import dataclass, field
 import math
 
-VERSION = "motion-experiment-0.3.1"
+VERSION = "motion-experiment-0.3.2"
 EXERCISES = ("squats", "pushups", "situps", "jumping_jacks")
 SIDES = {"left": (11, 13, 15, 23, 25, 27), "right": (12, 14, 16, 24, 26, 28)}
 RULES = {
     "squats": {"knee_bent_max": 110, "knee_extended_min": 160},
-    "pushups": {"elbow_bent_max": 100, "elbow_extended_min": 155,
+    "pushups": {"elbow_bent_max": 100, "elbow_extended_min": 145,
                 "body_alignment_min": 150, "knee_extended_min": 150},
     "situps": {"torso_raised_min": 0.70, "torso_lowered_max": 0.30,
                "knee_bent_min": 35, "knee_bent_max": 140},
     "jumping_jacks": {"arm_open_min": 135, "arm_closed_max": 35,
                       "feet_open_min": 0.85, "feet_closed_max": 0.50},
 }
+
+# Product counting profiles, not medical/form standards or per-clip calibration.
+# Keep a 45-degree minimum separation between the flexible top and bottom.
+PUSHUP_PROFILES = {
+    "flexible": {"elbow_extended_min": 145, "top_dwell_seconds": 0.10},
+    "strict": {"elbow_extended_min": 155, "top_dwell_seconds": 0.15},
+}
+
+
+def pushup_state(elbow, profile="flexible"):
+    if profile not in PUSHUP_PROFILES:
+        raise ValueError("Unknown push-up profile")
+    if not math.isfinite(elbow) or not 0 <= elbow <= 180:
+        raise ValueError("Invalid elbow angle")
+    return ("neutral" if elbow >= PUSHUP_PROFILES[profile]["elbow_extended_min"]
+            else "active" if elbow <= RULES["pushups"]["elbow_bent_max"] else "middle")
 
 
 def sub(a, b):
@@ -70,7 +86,7 @@ def check_points(pose, indices, minimum=0.65):
     return ("low_landmark_confidence" if score < minimum else None), score
 
 
-def extract(pose, exercise, side="left", squat_standing=160):
+def extract(pose, exercise, side="left", squat_standing=160, pushup_profile="flexible"):
     """World joint angles + conservative image posture gates. Requires a level camera.
 
     Posture gates are movement filters, NOT biomechanical form assessment.
@@ -78,6 +94,8 @@ def extract(pose, exercise, side="left", squat_standing=160):
     """
     if exercise not in EXERCISES or side not in SIDES:
         raise ValueError("Unsupported exercise or side")
+    if pushup_profile not in PUSHUP_PROFILES:
+        raise ValueError("Unknown push-up profile")
     s, e, w, h, k, a = SIDES[side]
     indices = (s, h, k, a) if exercise in ("squats", "situps") else (s, e, w, h, k, a)
     if exercise == "jumping_jacks":
@@ -111,7 +129,7 @@ def extract(pose, exercise, side="left", squat_standing=160):
             values.update(elbow_degrees=elbow, body_alignment_degrees=body)
             if abs(elevation) > 0.70 or body < 150 or knee < 150:
                 return Feature(confidence=confidence, reason="pushup_posture_not_visible", values=values)
-            state = "neutral" if elbow >= 155 else "active" if elbow <= 100 else "middle"
+            state = pushup_state(elbow, pushup_profile)
         elif exercise == "situps":
             projected_leg = distance((*p[h][:2], 0), (*p[k][:2], 0)) + distance((*p[k][:2], 0), (*p[a][:2], 0))
             values["hip_degrees"] = angle(q[s], q[h], q[k])
@@ -139,8 +157,9 @@ def extract(pose, exercise, side="left", squat_standing=160):
 
 
 class CycleCounter:
-    def __init__(self, dwell=0.15, min_seconds=0.5, max_seconds=12.0):
+    def __init__(self, dwell=0.15, min_seconds=0.5, max_seconds=12.0, neutral_dwell=None):
         self.dwell, self.min_seconds, self.max_seconds = dwell, min_seconds, max_seconds
+        self.neutral_dwell = dwell if neutral_dwell is None else neutral_dwell
         self.phase = "seeking_neutral"
         self.initial = True
         self.last_t = self.neutral_since = self.active_since = self.started = self.last_neutral = None
@@ -166,7 +185,7 @@ class CycleCounter:
             return
         self.neutral_since = (t if self.neutral_since is None else self.neutral_since) if state == "neutral" else None
         self.active_since = (t if self.active_since is None else self.active_since) if state == "active" else None
-        neutral = self.neutral_since is not None and t - self.neutral_since >= self.dwell - 1e-8
+        neutral = self.neutral_since is not None and t - self.neutral_since >= self.neutral_dwell - 1e-8
         active = self.active_since is not None and t - self.active_since >= self.dwell - 1e-8
         if neutral and not self.was_neutral:
             self.neutral_holds += 1
@@ -203,16 +222,21 @@ class CycleCounter:
 
 
 class MotionSession:
-    def __init__(self, exercise, side="auto", squat_standing=160):
+    def __init__(self, exercise, side="auto", squat_standing=160, pushup_profile=None):
         if exercise not in EXERCISES or side not in ("auto", "left", "right"):
             raise ValueError("Unsupported exercise or side")
         if exercise == "jumping_jacks" and side != "auto":
             raise ValueError("Jumping jacks require both sides; use --side auto")
         if not math.isfinite(squat_standing) or not 140 <= squat_standing <= 175:
             raise ValueError("Squat standing threshold must be between 140 and 175 degrees")
+        if pushup_profile is not None and (exercise != "pushups" or pushup_profile not in PUSHUP_PROFILES):
+            raise ValueError("Push-up profiles apply only to pushups: flexible or strict")
+        self.pushup_profile = (pushup_profile or "flexible") if exercise == "pushups" else None
         self.squat_standing = squat_standing
         self.exercise, self.preference = exercise, side
-        self.counter = CycleCounter(min_seconds=0.4 if exercise == "jumping_jacks" else 0.5)
+        neutral_dwell = PUSHUP_PROFILES[self.pushup_profile]["top_dwell_seconds"] if self.pushup_profile else None
+        self.counter = CycleCounter(min_seconds=0.4 if exercise == "jumping_jacks" else 0.5,
+                                    neutral_dwell=neutral_dwell)
         self.side = None
         self.lost_since = None
         self.frames = self.detected = self.usable = self.interruptions = 0
@@ -234,7 +258,8 @@ class MotionSession:
             feature = Feature(reason="no_person_detected" if not poses else "multiple_people_detected")
         else:
             self.detected += 1
-            candidates = {s: extract(poses[0], self.exercise, s, self.squat_standing) for s in SIDES}
+            candidates = {s: extract(poses[0], self.exercise, s, self.squat_standing,
+                                     self.pushup_profile or "flexible") for s in SIDES}
             row.update({s + "_confidence": round(f.confidence, 3) for s, f in candidates.items()})
             row.update({s + "_reason": f.reason for s, f in candidates.items()})
             for s, f in candidates.items():
@@ -287,6 +312,10 @@ class MotionSession:
         rules = dict(RULES[self.exercise])
         if self.exercise == "squats":
             rules["knee_extended_min"] = self.squat_standing
+        elif self.exercise == "pushups":
+            rules.update(PUSHUP_PROFILES[self.pushup_profile], profile=self.pushup_profile,
+                         bottom_dwell_seconds=self.counter.dwell,
+                         min_cycle_seconds=self.counter.min_seconds)
         return {
             "verifier_version": VERSION, "exercise": self.exercise,
             "status": "needs_retry" if reasons else "experimental_only",

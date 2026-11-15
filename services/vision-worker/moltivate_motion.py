@@ -124,8 +124,11 @@ def analyze(args):
         raise ValueError("Invalid model file")
     metadata = probe_video(video)
     reference_window = getattr(args, "squat_standing_window", None)
+    pushup_profile = getattr(args, "pushup_profile", None)
     if reference_window and args.exercise != "squats":
         raise ValueError("Standing-window calibration is only supported for squats")
+    if pushup_profile is not None and args.exercise != "pushups":
+        raise ValueError("--pushup-profile applies only to pushups")
     directory = Path(args.output_dir).resolve()
     directory.mkdir(parents=True, mode=0o700, exist_ok=False)
     os.chmod(directory, 0o700)
@@ -133,7 +136,7 @@ def analyze(args):
     alarm_before = signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm(JOB_TIMEOUT)
     started = time.perf_counter()
-    session, rows, pose_frames = MotionSession(args.exercise, args.side), [], []
+    session, rows, pose_frames = MotionSession(args.exercise, args.side, pushup_profile=pushup_profile), [], []
     calibration = None
     try:
         import numpy as np
@@ -237,6 +240,8 @@ def main():
     parser.add_argument("--side", choices=("auto", "left", "right"), default="auto")
     parser.add_argument("--output-dir", required=True, help="New private directory; never overwrites an existing run")
     parser.add_argument("--overlay", action="store_true", help="Save a 10-fps skeleton video for inspection")
+    parser.add_argument("--pushup-profile", choices=("flexible", "strict"),
+                        help="Pushups only: flexible (default) 145-degree top / 0.10s; strict 155 / 0.15s")
     parser.add_argument("--squat-standing-window", type=float, nargs=2, metavar=("START", "END"),
                         help="Experimental calibration: seconds visibly held fully standing in this clip")
     args = parser.parse_args()
