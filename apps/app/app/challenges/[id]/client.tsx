@@ -8,6 +8,7 @@ import { LogSessionStub } from "@/app/components/log-session-stub";
 import { MediaPipeSquatSession } from "@/app/components/mediapipe-squat-session";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda } from "@/lib/anchor";
+import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 type MemberRow = {
   pubkey: string;
@@ -36,6 +37,7 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
   // disagrees with the server-rendered markup.
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
+  const names = useDisplayNames(state?.members.map((m) => m.owner) ?? []);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setOrigin(window.location.origin), []);
@@ -203,7 +205,7 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
                           {member.owner.slice(0, 1).toUpperCase()}
                         </span>
                         <span className="min-w-0 flex-1 truncate text-xs text-[#dce7d5]">
-                          {member.owner.slice(0, 4)}...{member.owner.slice(-4)}
+                          {displayNameOrShort(member.owner, names)}
                           {member.owner === publicKey?.toBase58() && <span className="text-[#91a993]"> (you)</span>}
                         </span>
                         <span className="w-24 shrink-0 text-right text-xs text-[#91a993]">

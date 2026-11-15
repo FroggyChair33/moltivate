@@ -7,6 +7,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton } from "@/app/components/wallet-button";
 import { useProgram } from "@/lib/use-program";
 import { teamPda } from "@/lib/anchor";
+import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 // The invite "code" is the challenge account's own base58 address -- every
 // other account (vault, teams, members) derives from it, so no separate
@@ -34,6 +35,7 @@ export function JoinClient({ code }: { code: string }) {
   const [depositing, setDepositing] = useState(false);
   const [deposited, setDeposited] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const myName = useDisplayNames(publicKey ? [publicKey.toBase58()] : []);
 
   const challengePk = useMemo(() => {
     try {
@@ -161,8 +163,7 @@ export function JoinClient({ code }: { code: string }) {
       ) : (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Connected as {publicKey?.toBase58().slice(0, 4)}...
-            {publicKey?.toBase58().slice(-4)}
+            Connected as {publicKey ? displayNameOrShort(publicKey.toBase58(), myName) : ""}
           </p>
 
           <div className="flex flex-col gap-2">

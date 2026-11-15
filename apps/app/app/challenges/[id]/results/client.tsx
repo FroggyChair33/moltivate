@@ -6,6 +6,7 @@ import { ClaimButton } from "@/app/components/claim-button";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda, NO_WINNER } from "@/lib/anchor";
 import { explorerTxUrl } from "@/lib/explorer";
+import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 type MemberRow = {
   pubkey: string;
@@ -36,6 +37,7 @@ export function ResultsClient({ id }: { id: string }) {
   const [settleMessage, setSettleMessage] = useState<string | null>(null);
   const [settleSignature, setSettleSignature] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const names = useDisplayNames(state?.members.map((m) => m.owner) ?? []);
 
   useEffect(() => {
     if (!program) return;
@@ -189,9 +191,7 @@ export function ResultsClient({ id }: { id: string }) {
                 .map((member) => (
                   <div key={member.pubkey} className="flex items-center justify-between py-3">
                     <div>
-                      <p className="text-sm font-medium">
-                        {member.owner.slice(0, 4)}...{member.owner.slice(-4)}
-                      </p>
+                      <p className="text-sm font-medium">{displayNameOrShort(member.owner, names)}</p>
                       <p className="text-xs text-zinc-500">
                         {state.settled
                           ? `payout ${(member.payoutLamports / 1_000_000_000).toFixed(4)} SOL (staked ${(member.stakeLamports / 1_000_000_000).toFixed(4)})`
