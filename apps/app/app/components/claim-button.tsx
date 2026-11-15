@@ -29,19 +29,20 @@ export function ClaimButton({
     setClaiming(true);
     setError(null);
     try {
-      // Anchor's generated ResolvedAccounts<...> type for `claim` rejects
-      // an inline object literal with all four of these keys (a type
-      // generation quirk from mixing a `relations` account with `pda`
-      // accounts in the same instruction - excess-property checking only
-      // applies to inline literals, so building the object as its own
-      // const first sidesteps it without weakening any other type safety).
-      const claimAccounts = {
-        memberAuthority: publicKey,
-        challenge: new PublicKey(challenge),
-        vault: vaultPda(new PublicKey(challenge)),
-        teamMember: new PublicKey(teamMember),
-      };
-      await program.methods.claim().accounts(claimAccounts).rpc();
+      // .accountsPartial(), not .accounts(): the generated type for `claim`
+      // mixes a `relations` account with `pda` accounts on the same
+      // instruction, which the strict variant rejects for every valid key
+      // combination (confirmed empirically). accountsPartial skips that
+      // check so these can be supplied by hand.
+      await program.methods
+        .claim()
+        .accountsPartial({
+          memberAuthority: publicKey,
+          challenge: new PublicKey(challenge),
+          vault: vaultPda(new PublicKey(challenge)),
+          teamMember: new PublicKey(teamMember),
+        })
+        .rpc();
       setClaimed(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

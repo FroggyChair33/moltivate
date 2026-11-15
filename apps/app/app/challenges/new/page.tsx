@@ -26,7 +26,10 @@ export default function NewChallengePage() {
   const [durationDays, setDurationDays] = useState("7");
   const [teamAName, setTeamAName] = useState("Sunrise Squad");
   const [teamBName, setTeamBName] = useState("Night Owls");
-  const [oracle, setOracle] = useState("");
+  // Defaults to the backend oracle (app/api/oracle/settle) - only that
+  // service actually calls settle() automatically. Overriding this to your
+  // own wallet is still useful for manually testing settle() yourself.
+  const [oracle, setOracle] = useState(process.env.NEXT_PUBLIC_ORACLE_PUBKEY ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -63,7 +66,16 @@ export default function NewChallengePage() {
           teamAName,
           teamBName,
         })
-        .accounts({
+        // .accountsPartial(), not .accounts(): `pot` doesn't actually
+        // resolve automatically at runtime here even though the generated
+        // type claims it's derivable (its real seeds need the group id,
+        // which isn't an `initialize` instruction arg - only an
+        // `initializeGroup` one). Confirmed via a real browser run against
+        // a local validator: create-challenge fails without passing it
+        // explicitly. accountsPartial skips the strict "all PDAs must be
+        // auto-resolvable" type check so this one can be supplied by hand.
+        .accountsPartial({
+          pot,
           teamA: teamPda(challenge, 0),
           teamB: teamPda(challenge, 1),
         })
@@ -182,7 +194,7 @@ export default function NewChallengePage() {
           </Field>
         </div>
 
-        <Field label="Oracle address (leave blank to use your own wallet for now)">
+        <Field label="Oracle address (defaults to the backend oracle; change only to self-settle manually)">
           <input
             value={oracle}
             onChange={(e) => setOracle(e.target.value)}

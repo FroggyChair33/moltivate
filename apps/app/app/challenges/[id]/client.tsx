@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { LogSessionStub } from "@/app/components/log-session-stub";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda } from "@/lib/anchor";
@@ -26,6 +27,7 @@ type Loaded = {
 
 export function ChallengeScoreboardClient({ id }: { id: string }) {
   const program = useProgram();
+  const { publicKey } = useWallet();
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -109,7 +111,16 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
       </div>
 
       <div className="mt-10 flex flex-col gap-6">
-        {state.members[0] && <LogSessionStub teamMemberId={state.members[0].pubkey} />}
+        {(() => {
+          const myMember = state.members.find((m) => m.owner === publicKey?.toBase58());
+          return myMember ? (
+            <LogSessionStub challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
+          ) : (
+            <p className="text-sm text-zinc-500">
+              Connect the wallet you joined with to log a workout.
+            </p>
+          );
+        })()}
         <div>
           <Link
             href={`/challenges/${id}/results`}
