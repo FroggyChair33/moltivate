@@ -113,6 +113,38 @@ room was deleted.
   pending.
 
 
+## Manual live rep test
+
+On Vultr, bootstrap `services/vision-worker` so its `.venv` and checksum-verified
+lite model are installed. The transport environment and pose environment stay
+separate. FFmpeg must include its `flite` filter for offline speech.
+
+Use the transport test commands above, adding this setting in terminal A
+before starting the probe:
+
+```bash
+export MOLTIVATE_LIVE_EXERCISE=squats
+```
+
+Alternatively set the value to `pushups` and restart the manual probe before
+opening a new call window. Pushups use the existing flexible policy. The default
+preparation delay is seven seconds and the active set is 35 seconds. Optional
+operator settings are `MOLTIVATE_PREP_SECONDS` (1–60) and `MOLTIVATE_SET_SECONDS`
+(15–60), both whole seconds.
+
+Wait for Chert’s waiting-room message, then call with FaceTime Video. Prop the
+phone level and side-on with the whole body visible. Hold upright for squats,
+or hold the top position for pushups. Wait for “Go”, perform three controlled
+reps with a brief hold at both endpoints, and compare the spoken numbers with
+your manual count. End by hanging up. Read the experimental result and confirm
+media cleanup and release of the line. The spoken cues use offline FFmpeg/Flite.
+
+The probe samples fresh frames, preserves aspect ratio, applies RTC rotation,
+and resets unfinished movement when video is muted, replaced, or interrupted.
+It reports aggregate counts and tracking reasons without recording media.
+The manual test produces no accepted workouts or payouts. Skeleton overlay and
+service/API deployment are separate milestones.
+
 ## Finish deployment after the live agent is implemented
 
 Local Codex must carry out these steps, not merely mark this checklist complete:

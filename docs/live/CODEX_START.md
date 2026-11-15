@@ -22,12 +22,17 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
   Video call delivered changing 1280×720 frames and 48 kHz mono caller audio.
   The caller heard the generated tone. The bridge disconnected and the
   probe logged cleanup after hangup.
-- **Next action:** build the live frame adapter around the existing warm
-  MediaPipe model and rep tracker. Start with squats and flexible-profile
-  pushups, and count only during the active set. Check that the next room is
-  warm before each call. Chert briefly reported no warm agent after hangup,
-  then confirmed a replacement waiting room.
-  See the [deployment record](VULTR_DEPLOYMENT.md#transport-evidence).
+- **Live adapter is ready for manual phone validation.** The Python worker
+  reuses the existing MediaPipe model and `MotionSession` for squats and
+  flexible pushups. It receives the latest frame, resets unfinished motion
+  on a tracking gap or track change, and counts during the timed active set.
+  Offline speech gives framing, countdown and count cues. The 58-test suite
+  and both loopback RTC smoke tests passed on Vultr. The synthetic RTC tests
+  carried no actual reps.
+- **Next action:** test three controlled squats, then three pushups, by
+  FaceTime Video and compare the spoken counts with the manual count.
+  Check the waiting-room message before each call. Follow the
+  [manual live rep test](VULTR_DEPLOYMENT.md#manual-live-rep-test).
 
 
 ## Checkout and model

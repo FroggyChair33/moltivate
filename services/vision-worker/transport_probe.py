@@ -1,4 +1,4 @@
-"""One-call Chert/LiveKit transport diagnostic. No recording or rep counting."""
+"""One-call Chert/LiveKit diagnostic with an opt-in experimental rep test."""
 from __future__ import annotations
 
 import asyncio
@@ -6,11 +6,14 @@ import fcntl
 import hashlib
 import logging
 import math
+import os
 import struct
 from pathlib import Path
 
 from livekit import rtc
 from livekit.agents import AgentServer, AutoSubscribe, JobContext, cli
+
+from live_probe import LiveProbe
 
 AGENT_NAME = "moltivate-transport"
 BRIDGE_PREFIX = "chert-bridge-"
@@ -105,6 +108,9 @@ async def run_call(ctx: JobContext) -> None:
     stopped = asyncio.Event()
     consumers: dict[str, asyncio.Task[None]] = {}
     bridge_identity = None
+    exercise = os.environ.get("MOLTIVATE_LIVE_EXERCISE")
+    live = LiveProbe(exercise, int(os.environ.get("MOLTIVATE_PREP_SECONDS", "7")),
+                     int(os.environ.get("MOLTIVATE_SET_SECONDS", "35"))) if exercise else None
 
     def watch_task(task: asyncio.Task[None]) -> None:
         if not task.cancelled() and task.exception() is not None:
@@ -129,13 +135,16 @@ async def run_call(ctx: JobContext) -> None:
                 or TRACK_KINDS.get(publication.name) != track.kind
                 or publication.sid in consumers):
             return
-        task = asyncio.create_task(observe(track, publication))
+        observer = live.video if live and track.kind == rtc.TrackKind.KIND_VIDEO else observe
+        task = asyncio.create_task(observer(track, publication))
         consumers[publication.sid] = task
         task.add_done_callback(watch_task)
 
     @room.on("track_unsubscribed")
     def unsubscribed(_track, publication, participant):
         if participant.identity == bridge_identity:
+            if live:
+                live.track_changed(publication.sid)
             task = consumers.get(publication.sid)
             if task and not task.done():
                 task.cancel()
@@ -143,6 +152,12 @@ async def run_call(ctx: JobContext) -> None:
             else:
                 consumers.pop(publication.sid, None)
             log.info("caller track unsubscribed")
+
+    @room.on("track_muted")
+    @room.on("track_unmuted")
+    def mute_changed(publication, participant):
+        if live and participant.identity == bridge_identity:
+            live.track_changed(publication.sid)
 
     @room.on("participant_disconnected")
     def left(participant):
@@ -155,9 +170,12 @@ async def run_call(ctx: JobContext) -> None:
         stopped.set()
 
     source = rtc.AudioSource(SAMPLE_RATE, 1, queue_size_ms=100)
-    cue_task = None
+    background = []
     try:
         async with asyncio.timeout(120):
+            if live:
+                await live.start()
+                background.append(asyncio.create_task(live.infer()))
             await ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_NONE)
             for participant in room.remote_participants.values():
                 for publication in participant.track_publications.values():
@@ -167,18 +185,20 @@ async def run_call(ctx: JobContext) -> None:
                 source=rtc.TrackSource.SOURCE_MICROPHONE,
             ))
             log.info("transport ready: agent audio published")
-            cue_task = asyncio.create_task(publish_cues(source, bridge_seen))
-            cue_task.add_done_callback(watch_task)
+            audio_loop = live.audio if live else publish_cues
+            background.append(asyncio.create_task(audio_loop(source, bridge_seen)))
+            for task in background:
+                task.add_done_callback(watch_task)
             await stopped.wait()
     except TimeoutError:
         log.info("transport test window expired")
     finally:
-        tasks = list(consumers.values())
-        if cue_task is not None:
-            tasks.append(cue_task)
+        tasks = list(consumers.values()) + background
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        if live:
+            await live.close()
         await source.aclose()
         ctx.shutdown(reason="transport diagnostic finished")
         log.info("transport media cleanup complete")
