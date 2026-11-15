@@ -78,4 +78,27 @@ export async function fetchMemberships(program: Program<CommitmentStakes>, owner
   return program.account.teamMember.all([{ memcmp: { offset: 72, bytes: owner.toBase58() } }]);
 }
 
+// Challenge.creator is the first field after its eight-byte discriminator.
+// Anchor's account namespace retains the account-type discriminator filter.
+export async function fetchWalletChallenges(program: Program<CommitmentStakes>, owner: PublicKey) {
+  const [created, memberships] = await Promise.all([
+    program.account.challenge.all([{ memcmp: { offset: 8, bytes: owner.toBase58() } }]),
+    fetchMemberships(program, owner),
+  ]);
+  const challenges = new Map(created.map((entry) => [entry.publicKey.toBase58(), entry]));
+  const joinedIds = [...new Set(memberships.map((entry) => entry.account.challenge.toBase58()))];
+  const missing = joinedIds.filter((id) => !challenges.has(id));
+  const accounts = await program.account.challenge.fetchMultiple(missing.map((id) => new PublicKey(id)));
+  accounts.forEach((account, index) => {
+    if (account) challenges.set(missing[index], { publicKey: new PublicKey(missing[index]), account });
+  });
+  return [...challenges.values()].map((entry) => ({
+    id: entry.publicKey.toBase58(),
+    settled: entry.account.settled,
+    creator: entry.account.creator.equals(owner),
+    claimPending: entry.account.settled && memberships.some((member) =>
+      member.account.challenge.equals(entry.publicKey) && !member.account.claimed),
+  }));
+}
+
 export const NO_WINNER = 2;
