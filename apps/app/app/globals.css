@@ -57,4 +57,23 @@ h3 {
     background: var(--background);
     color: var(--foreground);
   }
+
+  /* Same approach as apps/web's .ethos-strip/.ethos-track: the track holds
+     the content twice back-to-back and scrolls exactly one copy's width,
+     so the loop point is invisible. */
+  .marquee-track {
+    animation: marquee 28s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
+      animation: none;
+    }
+  }
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
 }
