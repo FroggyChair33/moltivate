@@ -47,6 +47,7 @@ export function ClaimButton({
         .rpc();
       setSignature(sig);
       setClaimed(true);
+      window.dispatchEvent(new Event("moltivate:updated"));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -58,12 +59,12 @@ export function ClaimButton({
     <div className="flex flex-col items-end gap-1">
       <button
         type="button"
-        disabled={!isOwner || claimed || claiming}
+        disabled={!isOwner || claimed || alreadyClaimed || claiming}
         onClick={handleClaim}
         className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-medium disabled:opacity-40 dark:border-white/15"
         title={isOwner ? undefined : "Only this member's own wallet can claim their payout"}
       >
-        {claimed ? "Claimed" : claiming ? "Claiming..." : "Claim"}
+        {claimed || alreadyClaimed ? "Claimed" : claiming ? "Awaiting wallet / confirmation…" : "Claim"}
       </button>
       {error && <p className="text-xs text-red-700 dark:text-red-300">{error}</p>}
       {signature && (

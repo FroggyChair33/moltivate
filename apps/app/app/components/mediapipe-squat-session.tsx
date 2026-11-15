@@ -120,7 +120,13 @@ export function MediaPipeSquatSession({
     };
   }, []);
 
+  const submissionKey = useRef<string | null>(null);
+  const [submitFailed, setSubmitFailed] = useState(false);
+
   async function start() {
+    submissionKey.current = crypto.randomUUID();
+    setSubmitFailed(false);
+    setResult(null);
     setPhase("loading");
     setError(null);
     setReps(0);
@@ -162,6 +168,7 @@ export function MediaPipeSquatSession({
         onLivenessPassed: setLivenessPassed,
       });
     } catch (err) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
       setError(err instanceof Error ? err.message : String(err));
       setPhase("error");
     }
@@ -171,6 +178,7 @@ export function MediaPipeSquatSession({
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     setPhase("submitting");
+    setError(null);
     try {
       const res = await fetch("/api/workout-sessions", {
         method: "POST",
@@ -180,13 +188,17 @@ export function MediaPipeSquatSession({
           teamMemberPubkey,
           source: "browser_mediapipe",
           reps,
-          idempotencyKey: `browser-${Date.now()}`,
+          idempotencyKey: submissionKey.current,
         }),
       });
       const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Could not save your workout. Retry submission.");
+      window.dispatchEvent(new Event("moltivate:updated"));
+      setSubmitFailed(false);
       setResult(data.status ? `${data.status} (reps: ${reps}, unverified)` : `HTTP ${res.status}`);
       setPhase("done");
     } catch (err) {
+      setSubmitFailed(true);
       setError(err instanceof Error ? err.message : String(err));
       setPhase("error");
     }
@@ -194,9 +206,10 @@ export function MediaPipeSquatSession({
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-black/15 p-4 text-sm dark:border-white/20">
-      <p className="font-medium">Log a workout (browser fallback, real pose capture)</p>
+      <p className="font-medium">Squat workout</p>
 
-      {phase === "idle" && (
+      <p className="text-muted">Browser camera · Unverified counts. Keep your whole body visible, turn sideways, and allow camera access. This result is not payout verification.</p>
+      {(phase === "idle" || (phase === "error" && !submitFailed)) && (
         <button
           type="button"
           onClick={start}
@@ -212,12 +225,12 @@ export function MediaPipeSquatSession({
           {phase === "loading" && <p className="text-xs text-zinc-500">Loading camera and pose model...</p>}
           {phase === "running" && (
             <>
-              <p className="text-base font-semibold">Reps: {reps}</p>
+              <p className="font-serif text-5xl" aria-live="polite">{reps} <span className="font-sans text-sm">squats</span></p>
               {prompt && (
                 <p className="text-xs text-zinc-500">
                   Liveness prompt: {prompt.text}{" "}
-                  {livenessPassed === true && "✓ detected"}
-                  {livenessPassed === false && "✗ not detected in time"}
+                  {livenessPassed === true && "Detected"}
+                  {livenessPassed === false && "Not detected in time"}
                 </p>
               )}
               <button
@@ -233,6 +246,7 @@ export function MediaPipeSquatSession({
       )}
 
       {phase === "submitting" && <p className="text-xs text-zinc-500">Submitting...</p>}
+      {submitFailed && phase === "error" && <button onClick={finish} className="underline">Retry saving this workout</button>}
       {result && <p className="text-xs text-zinc-500">{result}</p>}
       {error && <p className="text-xs text-red-700 dark:text-red-300">{error}</p>}
     </div>

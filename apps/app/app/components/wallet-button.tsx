@@ -3,14 +3,8 @@
 import { useEffect, useState } from "react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
-// Phantom's mobile flow (deep-link out to the Phantom app, which then opens
-// the site in Phantom's own in-app browser) rendered a blank screen when
-// tested for real on an iPhone -- root cause not diagnosed yet (network
-// tooling fights ate the session's remaining time). Rather than ship a
-// broken connect button on phones, wallet connect is gated to desktop
-// browsers for now; every other page still works fine on a phone/PWA, this
-// is the one deliberately restricted action. Getting mobile wallet connect
-// working for real is a stretch goal, not abandoned -- see HANDOFF.md.
+// Injected Phantom can connect directly. Other mobile browsers get explicit
+// recovery guidance until the physical-device deep-link flow is verified.
 function isMobileBrowser(): boolean {
   return /iPhone|iPod|Android.*Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
@@ -34,7 +28,8 @@ export function WalletButton() {
     // here too rather than during render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    setIsMobile(isMobileBrowser());
+    const injected = (window as Window & { phantom?: { solana?: { isPhantom?: boolean } }; solana?: { isPhantom?: boolean } });
+    setIsMobile(isMobileBrowser() && !injected.phantom?.solana?.isPhantom && !injected.solana?.isPhantom);
   }, []);
 
   if (!mounted) {
@@ -51,14 +46,10 @@ export function WalletButton() {
 
   if (isMobile) {
     return (
-      <button
-        type="button"
-        disabled
-        title="Wallet connect needs a computer browser for now -- open this site on a desktop to connect Phantom."
-        className="!h-9 rounded-full border border-black/10 px-4 text-sm opacity-50 dark:border-white/15"
-      >
-        Use a computer to connect
-      </button>
+      <details className="max-w-xs rounded-xl border border-line px-3 text-sm">
+        <summary className="flex cursor-pointer items-center">Connect on mobile</summary>
+        <p className="pb-3 text-muted">Open this site in Phantom’s browser to try connecting. If it opens blank, return to Safari to browse, or connect from a desktop browser. iPhone wallet support is still being tested.</p>
+      </details>
     );
   }
 

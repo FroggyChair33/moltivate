@@ -28,6 +28,11 @@ type ChallengeView = {
 };
 
 export function JoinClient({ code }: { code: string }) {
+  const { publicKey } = useWallet();
+  return <JoinClientView key={code + (publicKey?.toBase58() ?? "disconnected")} code={code} />;
+}
+
+function JoinClientView({ code }: { code: string }) {
   const { connected, publicKey } = useWallet();
   const program = useProgram();
 
@@ -93,6 +98,7 @@ export function JoinClient({ code }: { code: string }) {
         })
         .rpc();
       setDeposited(true);
+      window.dispatchEvent(new Event("moltivate:updated"));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // The deadline could have passed in the gap between loading this page

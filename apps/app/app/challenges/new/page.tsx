@@ -109,6 +109,7 @@ function NewChallengeForm() {
         })
         .rpc();
 
+      window.dispatchEvent(new Event("moltivate:updated"));
       router.push(`/join/${challenge.toBase58()}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

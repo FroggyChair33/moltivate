@@ -30,6 +30,11 @@ type Loaded = {
 };
 
 export function ChallengeScoreboardClient({ id }: { id: string }) {
+  const { publicKey } = useWallet();
+  return <ChallengeScoreboardClientView key={id + (publicKey?.toBase58() ?? "disconnected")} id={id} />;
+}
+
+function ChallengeScoreboardClientView({ id }: { id: string }) {
   const program = useProgram();
   const { publicKey } = useWallet();
   const [state, setState] = useState<Loaded | null>(null);
@@ -39,6 +44,15 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
   // disagrees with the server-rendered markup.
   const [origin, setOrigin] = useState("");
   const [copied, setCopied] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => { if (document.visibilityState === "visible") setReloadKey((key) => key + 1); };
+    window.addEventListener("focus", refresh);
+    window.addEventListener("moltivate:updated", refresh);
+    const timer = window.setInterval(refresh, 30000);
+    return () => { window.removeEventListener("focus", refresh); window.removeEventListener("moltivate:updated", refresh); window.clearInterval(timer); };
+  }, []);
   const names = useDisplayNames(state?.members.map((m) => m.owner) ?? []);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -85,6 +99,8 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
           };
         });
 
+        if (cancelled) return;
+        setError(null);
         setState({
           title: `${teamA.name} vs ${teamB.name}`,
           target: challengeAcc.target,
@@ -100,12 +116,21 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
     return () => {
       cancelled = true;
     };
-  }, [program, id]);
+  }, [program, id, reloadKey]);
 
-  if (error) {
+  if (!program) {
+    return <section className="mx-auto w-full max-w-lg space-y-4 px-5 py-12">
+      <h1 className="text-3xl">Connect to your challenge</h1>
+      <p className="text-muted">Connect the wallet you created or joined with to load your devnet challenge.</p>
+      <Link href="/" className="underline">Return to your challenges</Link>
+    </section>;
+  }
+
+  if (error && !state) {
     return (
       <div className="mx-auto w-full max-w-3xl px-6 py-12">
-        <p className="text-sm text-red-700">{error}</p>
+        <p role="alert" className="text-sm text-red-700">{error}</p>
+        <button onClick={() => setReloadKey((key) => key + 1)} className="mt-4 underline">Retry</button>
       </div>
     );
   }
@@ -136,7 +161,8 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-12">
-      <Eyebrow>Live challenge</Eyebrow>
+      {error && <p role="alert" className="mb-4 text-sm text-red-700">Refresh failed. Showing the last loaded standings. <button className="underline" onClick={() => setReloadKey((key) => key + 1)}>Retry</button></p>}
+      <Eyebrow>{state.settled ? "Challenge results" : "Live challenge"}</Eyebrow>
       <h1 className="sr-only">{state.title}</h1>
       <CommitmentSlip
         label="The challenge"
@@ -233,10 +259,10 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
       </section>
 
       <div className="mt-10 flex flex-col gap-6">
-        {myMember ? (
+        {state.settled ? <p>This challenge has ended. Open results to review your claim.</p> : myMember ? (
           <>
             <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
-            <LogSessionStub challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
+            <LogSessionStub />
           </>
         ) : (
           <p className="text-sm text-muted">Connect the wallet you joined with to log a workout.</p>
