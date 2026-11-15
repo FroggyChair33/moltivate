@@ -639,3 +639,71 @@ This checklist records the old session. Use **Resume here** for the current plan
    the first migration remain unpopulated placeholders - decide at some
    point whether to actually wire create/join to also write them (for a
    future cross-challenge dashboard) or drop them from the schema entirely.
+
+## Full devnet loop verified end-to-end (15 November 2026)
+
+Everything in "Historical next steps" item 6 above is now done. PRs #16
+and #17 are merged to `main`. The program is deployed to devnet
+(`DhWeNpUmpxjSXdZ6iN1VCbP1WJVAYg9Yrprtx1LBPDum`), Supabase keys and the
+oracle wallet are live, and a real click-through (two separate Phantom
+wallets, two browsers) ran the whole loop for real: create -> join both
+teams -> log workouts via the real in-browser MediaPipe squat capture ->
+settle -> claim. The settlement math matched the on-chain computation
+exactly (verified by hand against the per-member payout numbers).
+
+Real bugs found and fixed along the way (all merged):
+- Program had never actually been deployed to devnet - only ever tested
+  against a local validator. Deployed for real this session.
+- `WalletButton` had a React hydration mismatch (error #418) that left it
+  unresponsive after a real click - `app/components/wallet-button.tsx`
+  now gates the real button behind a post-mount check.
+- Join page had no path forward after a successful deposit (dead end) -
+  now links to the scoreboard.
+- Scoreboard had no way to see/share the invite link at all - now shown
+  with a copy button.
+- Dead `/challenges/demo` links left over from the mock-data era, in both
+  the nav and homepage - removed.
+- Scoreboard showed 0 progress before settle() (on-chain `counted_units`
+  is genuinely zero until then by design) - added a live/unverified
+  preview read from Supabase (`/api/workout-sessions/totals`).
+- Create form's duration field couldn't accept short devnet test
+  durations (min 1 whole day) - now accepts fractions.
+
+### Stretch goal: PWA + mobile wallet connect
+
+A PWA manifest and iOS home-screen install (PR #20, `app/manifest.ts`,
+`app/icon.tsx`, `app/apple-icon.tsx`, `appleWebApp` metadata in
+`layout.tsx`) is implemented and verified via build/lint/curl, but
+**not yet verified on a real iPhone** - real-device testing this session
+was blocked by tooling, not app bugs:
+- `localtunnel` (`npx localtunnel`) was repeatedly flaky (random process
+  deaths, 502s, timeouts) independent of anything in this app.
+- `cloudflared`'s quick tunnel (installed via
+  `winget install Cloudflare.cloudflared`) never printed a URL at all
+  when run from the test network (a college guest Wi-Fi) - strongly
+  suggests that network blocks outbound tunnel connections, a common
+  campus-network security policy, not a bug here.
+- Separately, Phantom's actual mobile connect flow (deep-link to the
+  Phantom app, which opens the site in Phantom's own in-app browser) was
+  tested for real once a tunnel briefly worked, and rendered a **blank
+  screen** inside Phantom's in-app browser specifically (the PWA itself,
+  opened directly in Safari, rendered correctly). Root cause not
+  diagnosed - needs real console access (Mac + Safari Web Inspector
+  over USB, or a working tunnel long enough to debug) to see the actual
+  JS error inside that specific WebView.
+
+Given that unresolved blank-screen issue, `app/components/wallet-button.tsx`
+now detects a mobile user agent and shows a disabled "Use a computer to
+connect" button instead of attempting the broken mobile flow. Every other
+page (scoreboard, results, the real MediaPipe camera capture) works fine
+on a phone/PWA - only the wallet-connect action itself is gated to
+desktop for now. This was an explicit, deliberate scope cut for this
+session, not an oversight - next steps when picked back up:
+1. Get real browser console access on the phone (Mac + Safari Web
+   Inspector via USB is the most direct path) to see why Phantom's
+   in-app browser shows a blank screen.
+2. Retry real-device testing from a non-restrictive network (e.g.
+   cellular data, or a home/non-campus Wi-Fi) before assuming the tunnel
+   tooling itself is the problem again.
+3. Once mobile wallet connect actually works, remove the `isMobile` gate
+   in `wallet-button.tsx`.

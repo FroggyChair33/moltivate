@@ -10,6 +10,10 @@ node_modules/
 playwright-report/
 test-results/
 
+# Local-only notes/handoffs meant for sending elsewhere (e.g. Slack), never
+# project source and never committed.
+/local-notes/
+
 # Local recovery/checkouts and Rust/Anchor output are never project source.
 /.isolated/
 /.claude/

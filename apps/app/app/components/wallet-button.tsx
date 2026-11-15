@@ -3,6 +3,18 @@
 import { useEffect, useState } from "react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 
+// Phantom's mobile flow (deep-link out to the Phantom app, which then opens
+// the site in Phantom's own in-app browser) rendered a blank screen when
+// tested for real on an iPhone -- root cause not diagnosed yet (network
+// tooling fights ate the session's remaining time). Rather than ship a
+// broken connect button on phones, wallet connect is gated to desktop
+// browsers for now; every other page still works fine on a phone/PWA, this
+// is the one deliberately restricted action. Getting mobile wallet connect
+// working for real is a stretch goal, not abandoned -- see HANDOFF.md.
+function isMobileBrowser(): boolean {
+  return /iPhone|iPod|Android.*Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
 // WalletMultiButton reads wallet-adapter state (connected wallet, selected
 // adapter) that only exists in the browser. Next.js still server-renders
 // "use client" components for the initial HTML, so its SSR markup ("Select
@@ -12,11 +24,18 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 // behind a post-mount check means it never participates in SSR at all.
 export function WalletButton() {
   const [mounted, setMounted] = useState(false);
-  // The standard SSR-hydration-mismatch workaround: this must flip to true
-  // only after hydration has already matched the server's output, which is
-  // exactly what an effect (as opposed to a lazy initializer) guarantees.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => setMounted(true), []);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    // The standard SSR-hydration-mismatch workaround: this must flip to
+    // true only after hydration has already matched the server's output,
+    // which is exactly what an effect (as opposed to a lazy initializer)
+    // guarantees. navigator.userAgent is equally browser-only, so it's read
+    // here too rather than during render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+    setIsMobile(isMobileBrowser());
+  }, []);
 
   if (!mounted) {
     return (
@@ -26,6 +45,19 @@ export function WalletButton() {
         className="!h-9 rounded-full border border-black/10 px-4 text-sm opacity-50 dark:border-white/15"
       >
         Select Wallet
+      </button>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <button
+        type="button"
+        disabled
+        title="Wallet connect needs a computer browser for now -- open this site on a desktop to connect Phantom."
+        className="!h-9 rounded-full border border-black/10 px-4 text-sm opacity-50 dark:border-white/15"
+      >
+        Use a computer to connect
       </button>
     );
   }

@@ -5,8 +5,11 @@ import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton } from "@/app/components/wallet-button";
+import { Eyebrow } from "@/app/components/eyebrow";
+import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
 import { teamPda } from "@/lib/anchor";
+import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 // The invite "code" is the challenge account's own base58 address -- every
 // other account (vault, teams, members) derives from it, so no separate
@@ -18,6 +21,10 @@ type ChallengeView = {
   teamAName: string;
   teamBName: string;
   settled: boolean;
+  deadlineUnix: number;
+  // Captured when this load resolved, purely to compare against
+  // deadlineUnix -- not used for anything that needs to be live/ticking.
+  loadedAtMs: number;
 };
 
 export function JoinClient({ code }: { code: string }) {
@@ -30,6 +37,7 @@ export function JoinClient({ code }: { code: string }) {
   const [depositing, setDepositing] = useState(false);
   const [deposited, setDeposited] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const myName = useDisplayNames(publicKey ? [publicKey.toBase58()] : []);
 
   const challengePk = useMemo(() => {
     try {
@@ -57,6 +65,8 @@ export function JoinClient({ code }: { code: string }) {
           teamAName: teamA.name,
           teamBName: teamB.name,
           settled: challengeAcc.settled,
+          deadlineUnix: challengeAcc.deadlineUnix.toNumber(),
+          loadedAtMs: Date.now(),
         });
       } catch (err) {
         if (!cancelled) {
@@ -84,7 +94,18 @@ export function JoinClient({ code }: { code: string }) {
         .rpc();
       setDeposited(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      // The deadline could have passed in the gap between loading this page
+      // and submitting (or Phantom's own preflight simulation can reject
+      // without a clean AnchorError at all -- see wallet-button.tsx's
+      // comment on "Unexpected error" for another example of that). Try to
+      // recognize this one specific case and say something a user can
+      // actually act on; anything else falls back to the raw message.
+      setError(
+        message.includes("DeadlinePassed")
+          ? "This challenge's deadline has already passed -- it's closed to new members."
+          : message,
+      );
     } finally {
       setDepositing(false);
     }
@@ -117,18 +138,30 @@ export function JoinClient({ code }: { code: string }) {
   }
 
   const stakeSol = view.stakeLamports / 1_000_000_000;
+  const deadlinePassed = view.loadedAtMs >= view.deadlineUnix * 1000;
+  const closed = view.settled || deadlinePassed;
 
   return (
     <div className="mx-auto w-full max-w-md px-6 py-12">
-      <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">
+      <Eyebrow>You&apos;re invited</Eyebrow>
+      <h1 className="sr-only">{view.title}</h1>
+      <CommitmentSlip
+        label="The challenge"
+        value={view.title}
+        detail={`${view.target} reps/week · stake ${stakeSol} SOL (devnet)`}
+        signoff="see you there."
+      />
+      <p className="mt-3 mb-6 text-xs uppercase tracking-wide text-muted">
         Invite code: {code.slice(0, 4)}...{code.slice(-4)}
       </p>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight">{view.title}</h1>
-      <p className="mb-6 text-sm text-zinc-600 dark:text-zinc-400">
-        {view.target} reps/week &middot; stake {stakeSol} SOL (devnet)
-      </p>
 
-      {!connected ? (
+      {closed ? (
+        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {view.settled
+            ? "This challenge has already been settled -- it's closed to new members."
+            : "This challenge's deadline has already passed -- it's closed to new members."}
+        </p>
+      ) : !connected ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm">Connect your Phantom wallet to join.</p>
           <WalletButton />
@@ -136,8 +169,7 @@ export function JoinClient({ code }: { code: string }) {
       ) : (
         <div className="flex flex-col gap-5">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Connected as {publicKey?.toBase58().slice(0, 4)}...
-            {publicKey?.toBase58().slice(-4)}
+            Connected as {publicKey ? displayNameOrShort(publicKey.toBase58(), myName) : ""}
           </p>
 
           <div className="flex flex-col gap-2">
