@@ -1,4 +1,5 @@
 """Synthetic pose events exercise the live set boundaries and discontinuities."""
+from dataclasses import replace
 import unittest
 
 from test_motion import fixture
@@ -7,6 +8,10 @@ from live_motion import LiveSet
 
 
 class LiveSetTests(unittest.TestCase):
+    @staticmethod
+    def preview(pose):
+        return replace(pose, image=[(0.74 + x * 0.24, 0.01 + y * 0.24, z) for x, y, z in pose.image])
+
     def start(self, exercise):
         session = LiveSet(exercise, prep_seconds=1, set_seconds=15)
         neutral = [fixture(exercise)]
@@ -79,3 +84,60 @@ class LiveSetTests(unittest.TestCase):
             session.update(second / 10, pose)
         self.assertEqual(session.result()["complete_cycles"], 0)
         self.assertEqual(session.result()["tracking_interruptions"], 1)
+
+    def test_squats_ignore_preview_even_if_detection_order_changes(self):
+        session = LiveSet("squats", prep_seconds=1, set_seconds=15)
+        up = fixture("squats", yaw=90)
+        down = fixture("squats", active=True, yaw=90)
+        preview = self.preview(up)
+        for ms in range(0, 1500, 100):
+            session.observe(ms, 1, [preview, up])
+        self.assertEqual(session.phase, "active")
+        for ms in range(1500, 2700, 100):
+            poses = [down, preview] if ms in (1800, 2200) else [preview, up]
+            session.observe(ms, 1, poses)
+        result = session.snapshot()
+        self.assertEqual(result["count"], 2)
+        self.assertEqual(result["ignored_secondary_pose_frames"], 12)
+        self.assertEqual(result["status"], "experimental_only")
+
+    def test_missing_primary_never_switches_to_the_preview(self):
+        session, up, down = self.start("squats")
+        preview_up = self.preview(up[0])
+        preview_down = self.preview(down[0])
+        for ms, poses in enumerate((up, down, [preview_up], [preview_down], [preview_up], up), 15):
+            session.observe(ms * 100, 1, poses)
+        self.assertEqual(session.snapshot()["count"], 0)
+
+    def test_ambiguous_pose_cannot_complete_an_unfinished_squat(self):
+        session, up, down = self.start("squats")
+        for ms, poses in enumerate((up, down, up + up, up), 15):
+            session.observe(ms * 100, 1, poses)
+        result = session.snapshot()
+        self.assertEqual(result["count"], 0)
+        self.assertIn("multiple_people_in_set", result["retry_reasons"])
+
+    def test_straight_legs_while_lying_down_do_not_start_a_squat_set(self):
+        session = LiveSet("squats", prep_seconds=1, set_seconds=15)
+        upright = fixture("squats")
+        lying = replace(upright, image=[(y, x, z) for x, y, z in upright.image])
+        for ms in range(0, 1800, 100):
+            self.assertIsNone(session.observe(ms, 1, [lying]))
+        self.assertEqual(session.phase, "preparing")
+
+    def test_cropped_body_blocks_countdown_and_go(self):
+        for exercise, cropped_region in (("squats", (0, 7, 8)), ("pushups", (31, 32))):
+            with self.subTest(exercise=exercise):
+                session = LiveSet(exercise, prep_seconds=1, set_seconds=15)
+                up = fixture(exercise)
+                cropped = replace(up, image=[(-0.1, y, z) if i in cropped_region else (x, y, z)
+                                             for i, (x, y, z) in enumerate(up.image)])
+                for ms in range(0, 1000, 100):
+                    self.assertIsNone(session.observe(ms, 1, [cropped]))
+                self.assertEqual(session.phase, "preparing")
+                for ms in range(1000, 2400, 100):
+                    session.observe(ms, 1, [up])
+                self.assertEqual(session.phase, "countdown")
+                self.assertNotEqual(session.observe(2400, 1, [cropped]), "Go")
+                self.assertEqual(session.snapshot()["frames_analyzed"], 0)
+                self.assertEqual(session.observe(2500, 1, [up]), "Go")

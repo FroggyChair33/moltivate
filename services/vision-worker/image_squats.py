@@ -7,6 +7,70 @@ from motion_core import angle
 LEFT_LEG = (23, 25, 27)
 
 
+def torso_signature(pose):
+    if any(len(values) <= 24 for values in (pose.image, pose.visibility, pose.presence)):
+        return None
+    centers = []
+    for pair in ((11, 12), (23, 24)):
+        visible = [pose.image[i][:2] for i in pair
+                   if pose.visibility[i] >= 0.5 and pose.presence[i] >= 0.5
+                   and all(0 <= coordinate <= 1 for coordinate in pose.image[i][:2])]
+        if not visible:
+            return None
+        centers.append(tuple(sum(axis) / len(visible) for axis in zip(*visible)))
+    shoulder, hip = centers
+    size = math.dist(shoulder, hip)
+    if size < 0.01:
+        return None
+    center = tuple((a + b) / 2 for a, b in zip(shoulder, hip))
+    return center, size, hip[1] - shoulder[1] >= 0.7 * size
+
+
+def squat_ready(pose):
+    torso = torso_signature(pose)
+    return (torso is not None and torso[2] and squat_state([pose])[0] == "neutral"
+            and pose.image[27][1] - pose.image[23][1] >= 0.08)
+
+
+class PrimarySquatPose:
+    """Follow the main torso within one call, with no fallback to a bystander."""
+
+    def __init__(self):
+        self.target = None
+
+    def select(self, poses):
+        ranked = []
+        for pose in poses:
+            signature = torso_signature(pose)
+            if signature is None:
+                continue
+            center, size, _ = signature
+            if self.target is None:
+                if size < 0.08:
+                    continue
+                # Prefer a large, centrally framed torso over a picture-in-picture preview.
+                score = -size / (1 + 2 * math.dist(center, (0.5, 0.5)))
+            else:
+                previous_center, previous_size, _ = self.target
+                distance = math.dist(center, previous_center)
+                ratio = size / previous_size
+                if distance > max(0.10, 0.85 * previous_size) or not 0.55 <= ratio <= 1.8:
+                    continue
+                score = distance / previous_size + 0.25 * abs(math.log(ratio))
+            ranked.append((score, pose, signature))
+        if not ranked:
+            return None
+        ranked.sort(key=lambda item: item[0])
+        best_score, pose, signature = ranked[0]
+        if len(ranked) > 1:
+            margin = abs(best_score) * 0.2 if self.target is None else 0.20
+            if ranked[1][0] - best_score < margin:
+                return None
+        if self.target is not None or squat_ready(pose):
+            self.target = signature
+        return pose
+
+
 def squat_state(poses):
     if len(poses) != 1:
         return None, "multiple_people_detected" if poses else "no_person_detected"

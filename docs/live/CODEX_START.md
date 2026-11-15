@@ -43,9 +43,14 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
   count of seven. Its result was still `needs_retry` because nine frames
   contained multiple detected poses. The call also exposed a swapped
   argument order in LiveKit's mute callback, corrected in the next revision.
-- **Next action:** validate flexible pushups on a physical phone. Repeat a
-  squat call with the camera framed to isolate one person. Compare spoken
-  counts with the manual count and check the evidence flags. Follow the
+- Squat setup now waits for stable, upright head-to-feet framing before the
+  countdown and checks framing again before “Go”. The squat counter follows
+  the primary pose and ignores clearly separate secondary detections. It
+  clears unfinished reps when the primary disappears or becomes ambiguous.
+- **Next action:** run a squat-only FaceTime test. Start partially out of frame,
+  then step back and stand side-on. Confirm the countdown waits for full-body
+  framing, compare spoken counts with manual counts, and check the evidence
+  flags. Follow the
   [manual live rep test](VULTR_DEPLOYMENT.md#manual-live-rep-test).
 
 

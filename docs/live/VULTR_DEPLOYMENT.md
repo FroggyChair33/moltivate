@@ -136,6 +136,9 @@ Live squats use the normalized 2D left hip–knee–ankle angle from Claude
 co-authored commit `cc16424`. The angle must go below 110° and return above
 160°. The live adapter requires observable joints and clears an unfinished
 rep after lost tracking. Stand side-on with your left side toward the camera.
+The squat counter uses torso position and scale to follow the primary person.
+It skips clear secondary poses, such as a small preview, and clears unfinished
+reps when it cannot confidently match the primary pose.
 
 Wait for Chert’s waiting-room message, then call with FaceTime Video. Prop the
 phone level and side-on with the whole body visible. Hold upright for squats,
@@ -144,7 +147,9 @@ reps with a brief hold at both endpoints, and compare the spoken numbers with
 your manual count. End by hanging up. Read the experimental result and confirm
 media cleanup and release of the line. The spoken cues use FFmpeg/Flite's
 offline female `slt` voice. The countdown can tolerate up to a second of
-brief tracking loss and checks the starting position again before “Go”.
+brief tracking loss. Hold the starting position with head, hands, and feet
+inside the frame to start the countdown. The agent checks framing and starting
+position again before “Go” and begins counting in the active set.
 
 The probe samples fresh frames, preserves aspect ratio, applies RTC rotation,
 and resets unfinished movement when video is muted, replaced, or interrupted.

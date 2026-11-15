@@ -6,7 +6,7 @@ import struct
 import sys
 from pathlib import Path
 
-from image_squats import ImageSquatSession, squat_state
+from image_squats import ImageSquatSession, PrimarySquatPose, squat_ready, squat_state
 from motion_core import MotionSession, extract
 
 FRAME_HEADER = struct.Struct("!QIIIII")  # monotonic ms, epoch, width, height, rotation, sender gap ms
@@ -14,11 +14,23 @@ MAX_PIXELS = 1920 * 1080
 GAP_MS = 350
 PREP_GAP_MS = 1000
 EXERCISES = ("squats", "pushups")
+FRAMING_REGIONS = ((0, 7, 8), (11, 12), (15, 16), (23, 24), (25, 26), (27, 28), (31, 32))
+
+
+def whole_body_visible(pose):
+    if any(len(values) != 33 for values in (pose.image, pose.visibility, pose.presence)):
+        return False
+    # Side-on framing can hide the far-side joint. Check one reliable point per body region.
+    return all(any(pose.visibility[i] >= 0.5 and pose.presence[i] >= 0.5
+                   and all(0.03 <= coordinate <= 0.97 for coordinate in pose.image[i][:2])
+                   for i in region) for region in FRAMING_REGIONS)
 
 
 class LiveSet:
     def __init__(self, exercise, prep_seconds, set_seconds):
         self.motion = ImageSquatSession() if exercise == "squats" else MotionSession(exercise)
+        self.primary_pose = PrimarySquatPose() if exercise == "squats" else None
+        self.ignored_secondary_pose_frames = 0
         self.prep_ms = prep_seconds * 1000
         self.set_ms = set_seconds * 1000
         self.phase = "preparing"
@@ -52,13 +64,29 @@ class LiveSet:
         if self.phase == "ended":
             return None
 
+        if self.primary_pose is not None:
+            candidates = poses
+            if self.primary_pose.target is None:
+                candidates = [pose for pose in poses if whole_body_visible(pose)]
+            primary = self.primary_pose.select(candidates)
+            if primary is not None:
+                if self.phase == "active" and len(poses) > 1:
+                    self.ignored_secondary_pose_frames += 1
+                poses = [primary]
+            elif len(poses) == 1:
+                poses = []
+
         if self.phase != "active":
-            if isinstance(self.motion, ImageSquatSession):
+            if len(poses) != 1 or not whole_body_visible(poses[0]):
+                states = []
+            elif isinstance(self.motion, ImageSquatSession):
                 states = [squat_state(poses)[0]]
             else:
                 states = [extract(poses[0], self.motion.exercise, side).state
-                          for side in ("left", "right")] if len(poses) == 1 else []
+                          for side in ("left", "right")]
             neutral = "neutral" in states
+            if neutral and self.primary_pose is not None:
+                neutral = squat_ready(poses[0])
             if any(state is not None for state in states):
                 self.last_visible = ms
             if self.phase == "preparing":
@@ -103,8 +131,9 @@ class LiveSet:
 
     def snapshot(self):
         result = self.motion.result()
-        policy = "claude-2d-left-squat-v1" if isinstance(self.motion, ImageSquatSession) else "flexible-pushup"
-        return {"phase": self.phase, "count": self.count, "policy": policy, **{
+        policy = "claude-2d-primary-squat-v2" if self.primary_pose is not None else "flexible-pushup"
+        return {"phase": self.phase, "count": self.count, "policy": policy,
+                "ignored_secondary_pose_frames": self.ignored_secondary_pose_frames, **{
             key: result[key] for key in (
                 "status", "payout_eligible", "frames_analyzed", "usable_fraction",
                 "tracking_interruptions", "retry_reasons", "rejected_frame_reasons",
