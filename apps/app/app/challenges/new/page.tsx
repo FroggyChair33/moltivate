@@ -23,6 +23,9 @@ export default function NewChallengePage() {
   const [goalReps, setGoalReps] = useState("150");
   const [alphaPercent, setAlphaPercent] = useState("20");
   const [rakePercent, setRakePercent] = useState("3");
+  // 7 days is the real default; a small fraction (e.g. 0.002 ~= 3 minutes) is
+  // useful for devnet demo/testing -- see MVP doc "For the demo, set the
+  // challenge length to a few minutes."
   const [durationDays, setDurationDays] = useState("7");
   const [teamAName, setTeamAName] = useState("Sunrise Squad");
   const [teamBName, setTeamBName] = useState("Night Owls");
@@ -52,7 +55,7 @@ export default function NewChallengePage() {
 
       const challengeId = new BN(Date.now());
       const challenge = challengePda(publicKey, challengeId);
-      const deadlineUnix = new BN(Math.floor(Date.now() / 1000) + Number(durationDays) * 86400);
+      const deadlineUnix = new BN(Math.floor(Date.now() / 1000 + Number(durationDays) * 86400));
 
       await program.methods
         .initialize({
@@ -164,11 +167,12 @@ export default function NewChallengePage() {
           />
         </Field>
 
-        <Field label="Duration (days)">
+        <Field label="Duration (days) -- use a small fraction like 0.002 (~3 min) for a devnet demo">
           <input
             required
             type="number"
-            min="1"
+            min="0.001"
+            step="0.001"
             value={durationDays}
             onChange={(e) => setDurationDays(e.target.value)}
             className="input"
