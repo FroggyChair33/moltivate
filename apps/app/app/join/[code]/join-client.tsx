@@ -18,6 +18,10 @@ type ChallengeView = {
   teamAName: string;
   teamBName: string;
   settled: boolean;
+  deadlineUnix: number;
+  // Captured when this load resolved, purely to compare against
+  // deadlineUnix -- not used for anything that needs to be live/ticking.
+  loadedAtMs: number;
 };
 
 export function JoinClient({ code }: { code: string }) {
@@ -57,6 +61,8 @@ export function JoinClient({ code }: { code: string }) {
           teamAName: teamA.name,
           teamBName: teamB.name,
           settled: challengeAcc.settled,
+          deadlineUnix: challengeAcc.deadlineUnix.toNumber(),
+          loadedAtMs: Date.now(),
         });
       } catch (err) {
         if (!cancelled) {
@@ -84,7 +90,18 @@ export function JoinClient({ code }: { code: string }) {
         .rpc();
       setDeposited(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const message = err instanceof Error ? err.message : String(err);
+      // The deadline could have passed in the gap between loading this page
+      // and submitting (or Phantom's own preflight simulation can reject
+      // without a clean AnchorError at all -- see wallet-button.tsx's
+      // comment on "Unexpected error" for another example of that). Try to
+      // recognize this one specific case and say something a user can
+      // actually act on; anything else falls back to the raw message.
+      setError(
+        message.includes("DeadlinePassed")
+          ? "This challenge's deadline has already passed -- it's closed to new members."
+          : message,
+      );
     } finally {
       setDepositing(false);
     }
@@ -117,6 +134,8 @@ export function JoinClient({ code }: { code: string }) {
   }
 
   const stakeSol = view.stakeLamports / 1_000_000_000;
+  const deadlinePassed = view.loadedAtMs >= view.deadlineUnix * 1000;
+  const closed = view.settled || deadlinePassed;
 
   return (
     <div className="mx-auto w-full max-w-md px-6 py-12">
@@ -128,7 +147,13 @@ export function JoinClient({ code }: { code: string }) {
         {view.target} reps/week &middot; stake {stakeSol} SOL (devnet)
       </p>
 
-      {!connected ? (
+      {closed ? (
+        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          {view.settled
+            ? "This challenge has already been settled -- it's closed to new members."
+            : "This challenge's deadline has already passed -- it's closed to new members."}
+        </p>
+      ) : !connected ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm">Connect your Phantom wallet to join.</p>
           <WalletButton />
