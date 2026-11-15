@@ -7,8 +7,13 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
 - The caller reported six actual squats and six counted at `4358d02`, with
   delayed, robotic speech when moving quickly. Speech now caches the first
   30 numbers before the call and uses AudioSource pacing without an extra
-  per-packet sleep. Phone latency still needs retesting. Natural speech is
-  pending a current OPENAI_API_KEY in the private Vultr transport environment.
+  per-packet sleep. Phone latency still needs retesting. The replacement
+  OPENAI_API_KEY passed a speech request on Vultr with file permissions 600.
+  Set MOLTIVATE_NATURAL_VOICE=1 for the upbeat coral voice. Generated cues are
+  cached privately under ~/.cache/moltivate-speech/coral-v1. Warm the counts
+  before opening the call window. Natural voice phone validation is pending.
+  This temporary Speech API adapter uses gpt-4o-mini-tts, whose documented
+  shutdown is January 6, 2027. Migrate the speech generator before that date.
 
 - Branch head was verified at `22acb38` in draft PR #21 before work. The
   Windows worktree is `live-coach-transport`. Vultr SSH succeeded and the

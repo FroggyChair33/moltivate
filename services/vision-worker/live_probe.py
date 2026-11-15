@@ -2,6 +2,8 @@
 import asyncio
 import json
 import logging
+import hashlib
+import os
 import time
 from pathlib import Path
 
@@ -19,6 +21,45 @@ SPEECH_CACHE = {}
 async def speech(text):
     if text in SPEECH_CACHE:
         return SPEECH_CACHE[text]
+    if os.environ.get("MOLTIVATE_NATURAL_VOICE") == "1":
+        from aiohttp import ClientSession, ClientTimeout
+        cache = Path.home() / ".cache/moltivate-speech/coral-v1"
+        cache.mkdir(parents=True, exist_ok=True, mode=0o700)
+        path = cache / (hashlib.sha256(text.encode()).hexdigest() + ".pcm")
+        if path.exists():
+            SPEECH_CACHE[text] = path.read_bytes()
+            return SPEECH_CACHE[text]
+        async with ClientSession(timeout=ClientTimeout(total=20)) as client:
+            async with client.post(
+                "https://api.openai.com/v1/audio/speech",
+                headers={"Authorization": "Bearer " + os.environ["OPENAI_API_KEY"]},
+                json={"model": "gpt-4o-mini-tts", "voice": "coral", "input": text,
+                      "response_format": "pcm", "speed": 1.15,
+                      "instructions": "Warm, upbeat female fitness coach. Speak naturally and concisely. Say numbers crisply with no extra words or long pauses."},
+            ) as response:
+                if response.status != 200:
+                    raise RuntimeError(f"Speech provider returned HTTP {response.status}")
+                raw = await response.read()
+        process = await asyncio.create_subprocess_exec(
+            "ffmpeg", "-nostdin", "-loglevel", "error", "-f", "s16le", "-ar", "24000",
+            "-ac", "1", "-i", "pipe:0", "-ar", str(SAMPLE_RATE), "-f", "s16le", "pipe:1",
+            stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        try:
+            async with asyncio.timeout(5):
+                pcm, _ = await process.communicate(raw)
+            if process.returncode or not pcm:
+                raise RuntimeError("Speech conversion failed")
+        finally:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+        temporary = path.with_suffix(f".{os.getpid()}.tmp")
+        temporary.write_bytes(pcm)
+        temporary.replace(path)
+        SPEECH_CACHE[text] = pcm
+        return pcm
     # Prompts and counts come only from this probe's state machine.
     process = await asyncio.create_subprocess_exec(
         "ffmpeg", "-nostdin", "-loglevel", "error", "-f", "lavfi", "-i",
@@ -167,7 +208,7 @@ class LiveProbe:
                     if not introduced:
                         introduced = True
                         synthesis = asyncio.create_task(speech(
-                            f"Ready for {self.exercise}? Show your whole body from the side. Take your time"
+                            f"I'm your AI workout coach. Ready for {self.exercise}? Show your whole body from the side. Take your time"
                         ))
                     else:
                         self.introduction_done.set()
