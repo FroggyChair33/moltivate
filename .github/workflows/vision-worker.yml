@@ -14,6 +14,8 @@ jobs:
   rules:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      PYTHONPATH: services/vision-worker
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,6 +27,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends ffmpeg
           ffmpeg -version
           ffprobe -version
+      - name: Install signed control API test dependencies
+        run: python -m pip install --constraint services/vision-worker/transport.requirements.lock.txt aiohttp
       - run: python -m unittest discover -s services/vision-worker/tests -v
       - run: python -m py_compile services/vision-worker/motion_core.py services/vision-worker/calibration.py services/vision-worker/moltivate_motion.py
       - run: bash -n services/vision-worker/bootstrap.sh
