@@ -13,9 +13,12 @@ log = logging.getLogger("moltivate.live")
 SAMPLE_RATE = 16_000
 SAMPLES = 320
 BYTES_PER_PACKET = SAMPLES * 2
+SPEECH_CACHE = {}
 
 
 async def speech(text):
+    if text in SPEECH_CACHE:
+        return SPEECH_CACHE[text]
     # Prompts and counts come only from this probe's state machine.
     process = await asyncio.create_subprocess_exec(
         "ffmpeg", "-nostdin", "-loglevel", "error", "-f", "lavfi", "-i",
@@ -27,6 +30,7 @@ async def speech(text):
             pcm, _ = await process.communicate()
         if process.returncode or not pcm:
             raise RuntimeError("Offline speech generation failed")
+        SPEECH_CACHE[text] = pcm
         return pcm
     finally:
         if process.returncode is None:
@@ -56,6 +60,10 @@ class LiveProbe:
         if json.loads(await asyncio.wait_for(self.worker.stdout.readline(), 12)) != {"ready": True}:
             raise RuntimeError("Vision worker failed its ready handshake")
         log.info("CPU pose model ready for %s", self.exercise)
+        # Prepare short counts before the caller starts moving.
+        for number in range(1, 31):
+            await speech(str(number))
+        await speech("Go")
 
     async def close(self):
         if self.last_result is not None:
@@ -72,7 +80,7 @@ class LiveProbe:
     def say(self, cue):
         if self.cues.full():
             self.cues.get_nowait()
-        self.cues.put_nowait(cue)
+        self.cues.put_nowait((cue, time.monotonic()))
 
     def track_changed(self, sid):
         if sid == self.video_sid:
@@ -145,11 +153,16 @@ class LiveProbe:
         introduced = False
         synthesis = None
         pcm = b""
+        cue = None
+        queued_at = None
         try:
             while True:
                 if synthesis is not None and synthesis.done():
                     pcm = synthesis.result()
                     synthesis = None
+                    if queued_at is not None:
+                        log.info("speech ready: cue=%s delay_ms=%.0f",
+                                 cue, (time.monotonic() - queued_at) * 1000)
                 if synthesis is None and not pcm and bridge_seen.is_set():
                     if not introduced:
                         introduced = True
@@ -159,12 +172,14 @@ class LiveProbe:
                     else:
                         self.introduction_done.set()
                         if not self.cues.empty():
-                            synthesis = asyncio.create_task(speech(self.cues.get_nowait()))
+                            cue, queued_at = self.cues.get_nowait()
+                            synthesis = asyncio.create_task(speech(cue))
                 chunk, pcm = pcm[:BYTES_PER_PACKET], pcm[BYTES_PER_PACKET:]
                 await source.capture_frame(rtc.AudioFrame(
                     chunk.ljust(BYTES_PER_PACKET, b"\0"), SAMPLE_RATE, 1, SAMPLES,
                 ))
-                await asyncio.sleep(.02)
+                # AudioSource provides backpressure and paces these 20 ms frames.
+                # A second sleep here accumulates scheduler delay during playback.
         finally:
             if synthesis is not None:
                 synthesis.cancel()

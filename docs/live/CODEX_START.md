@@ -4,6 +4,12 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
 
 ## Current checkpoint
 
+- The caller reported six actual squats and six counted at `4358d02`, with
+  delayed, robotic speech when moving quickly. Speech now caches the first
+  30 numbers before the call and uses AudioSource pacing without an extra
+  per-packet sleep. Phone latency still needs retesting. Natural speech is
+  pending a current OPENAI_API_KEY in the private Vultr transport environment.
+
 - Branch head was verified at `22acb38` in draft PR #21 before work. The
   Windows worktree is `live-coach-transport`. Vultr SSH succeeded and the
   isolated `~/moltivate-live` clone passed `bash ops/vultr/preflight.sh`
