@@ -4,6 +4,16 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
 
 ## Current checkpoint
 
+- Latest real-phone test of `6ba0f17` matched the caller's six squats.
+  All seven countdown cues were emitted with 22–36 ms speech-ready delay;
+  rep cues took 20–37 ms. These exclude phone/network playback latency.
+  Processing rose to 487 frames per 35 seconds (13.9 fps). Overall usable
+  coverage was 61.8%, with missing/ambiguous poses and one interruption,
+  so the result remains needs_retry and payout-ineligible. Logs do not locate
+  those rejections within the set. The final summary took 1.42 seconds to
+  synthesize. Cleanup completed. Proceed to persistent service and authenticated
+  worker API work for experimental app integration, retaining quality flags.
+
 - Natural voice phone test counted 7 of the caller's 8 squats. Active processing
   averaged 7.4 fps with 46 rejected frames. Detected rep cues reached speech
   readiness in 22–38 ms, excluding generated silence and network playback.
