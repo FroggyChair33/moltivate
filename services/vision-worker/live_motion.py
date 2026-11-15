@@ -8,9 +8,10 @@ from pathlib import Path
 
 from motion_core import MotionSession, extract
 
-FRAME_HEADER = struct.Struct("!QIIII")  # monotonic ms, track epoch, width, height, clockwise rotation
+FRAME_HEADER = struct.Struct("!QIIIII")  # monotonic ms, epoch, width, height, rotation, sender gap ms
 MAX_PIXELS = 1920 * 1080
 GAP_MS = 350
+PREP_GAP_MS = 1000
 EXERCISES = ("squats", "pushups")
 
 
@@ -20,14 +21,14 @@ class LiveSet:
         self.prep_ms = prep_seconds * 1000
         self.set_ms = set_seconds * 1000
         self.phase = "preparing"
-        self.neutral_since = self.countdown_at = self.active_at = None
+        self.neutral_since = self.countdown_at = self.active_at = self.last_visible = None
         self.last_ms = self.epoch = self.last_cue = None
         self.count = 0
 
     def interrupt(self):
         if self.phase in ("preparing", "countdown"):
             self.phase = "preparing"
-            self.neutral_since = self.countdown_at = self.last_cue = None
+            self.neutral_since = self.countdown_at = self.last_cue = self.last_visible = None
         elif self.phase == "active":
             self.motion.counter.reset()
             self.motion.side = None
@@ -35,31 +36,37 @@ class LiveSet:
                 self.motion.in_gap = True
                 self.motion.interruptions += 1
 
-    def observe(self, ms, epoch, poses):
+    def observe(self, ms, epoch, poses, sender_gap_ms=0):
         if self.last_ms is not None and ms <= self.last_ms:
             return None
-        if self.last_ms is not None and (epoch != self.epoch or ms - self.last_ms > GAP_MS):
+        gap_limit = GAP_MS if self.phase == "active" else PREP_GAP_MS
+        if self.last_ms is not None and (
+            epoch != self.epoch or max(ms - self.last_ms, sender_gap_ms) > gap_limit
+        ):
             self.interrupt()
         self.epoch, self.last_ms = epoch, ms
         if self.phase == "ended":
             return None
 
         if self.phase != "active":
-            neutral = len(poses) == 1 and any(
-                extract(poses[0], self.motion.exercise, side).state == "neutral"
-                for side in ("left", "right")
-            )
-            if not neutral:
-                was_counting = self.phase == "countdown"
-                self.interrupt()
-                return "Hold the starting position" if was_counting else None
-            if self.neutral_since is None:
-                self.neutral_since = ms
-            if ms - self.neutral_since < 400:
-                return None
-            if self.countdown_at is None:
+            states = [extract(poses[0], self.motion.exercise, side).state
+                      for side in ("left", "right")] if len(poses) == 1 else []
+            neutral = "neutral" in states
+            if any(state is not None for state in states):
+                self.last_visible = ms
+            if self.phase == "preparing":
+                if not neutral:
+                    self.neutral_since = None
+                    return None
+                if self.neutral_since is None:
+                    self.neutral_since = ms
+                if ms - self.neutral_since < 400:
+                    return None
                 self.countdown_at = ms
                 self.phase = "countdown"
+            elif ms - self.last_visible > PREP_GAP_MS:
+                self.interrupt()
+                return "Take a moment to get back in view"
             remaining = self.prep_ms - (ms - self.countdown_at)
             if remaining > 0:
                 number = (remaining + 999) // 1000
@@ -67,13 +74,19 @@ class LiveSet:
                     self.last_cue = number
                     return str(number)
                 return None
+            if not neutral:
+                if self.last_cue != 0:
+                    self.last_cue = 0
+                    return "When you are ready hold the starting position"
+                return None
             self.active_at = ms
             self.phase = "active"
             return "Go"
 
         if ms >= self.active_at + self.set_ms:
             self.phase = "ended"
-            return f"Set complete. {self.count} repetitions"
+            unit = "repetition" if self.count == 1 else "repetitions"
+            return f"Nice work. I counted {self.count} {unit}"
         self.motion.update((ms - self.active_at) / 1000, poses)
         events = self.motion.counter.events
         if events and events[-1]["type"] == "complete_cycle":
@@ -115,7 +128,7 @@ def run(exercise, prep_seconds, set_seconds):
     print('{"ready":true}', flush=True)
     try:
         while header := sys.stdin.buffer.read(FRAME_HEADER.size):
-            ms, epoch, width, height, rotation = FRAME_HEADER.unpack(header)
+            ms, epoch, width, height, rotation, sender_gap_ms = FRAME_HEADER.unpack(header)
             if not 0 < width * height <= MAX_PIXELS or rotation not in (0, 90, 180, 270):
                 raise ValueError("Invalid live frame dimensions or rotation")
             data = sys.stdin.buffer.read(width * height * 3)
@@ -135,7 +148,7 @@ def run(exercise, prep_seconds, set_seconds):
                                     interpolation=cv2.INTER_AREA)
             pixels = np.ascontiguousarray(np.rot90(pixels, -rotation // 90))
             result = detector.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=pixels), ms)
-            cue = live_set.observe(ms, epoch, pose_from_result(result))
+            cue = live_set.observe(ms, epoch, pose_from_result(result), sender_gap_ms)
             print(json.dumps({"cue": cue, **live_set.snapshot()}), flush=True)
     finally:
         detector.close()

@@ -19,7 +19,7 @@ async def speech(text):
     # Prompts and counts come only from this probe's state machine.
     process = await asyncio.create_subprocess_exec(
         "ffmpeg", "-nostdin", "-loglevel", "error", "-f", "lavfi", "-i",
-        f"flite=text='{text}'", "-ar", str(SAMPLE_RATE), "-ac", "1", "-f", "s16le", "pipe:1",
+        f"flite=voice=slt:text='{text}'", "-ar", str(SAMPLE_RATE), "-ac", "1", "-f", "s16le", "pipe:1",
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
     )
     try:
@@ -103,27 +103,29 @@ class LiveProbe:
                 if source_ms is not None and (stamp - source_ms < 90 or now - received_ms < 80):
                     self.dropped += 1
                     continue
-                # A sender-side gap also breaks continuity when frames arrive in bursts.
-                if source_ms is not None and stamp - source_ms > 350:
-                    self.track_changed(publication.sid)
-                    epoch = self.epoch
                 source_ms, received_ms = stamp, now
                 if self.frames.full():
                     self.frames.get_nowait()
                     self.dropped += 1
-                self.frames.put_nowait((now, epoch, frame, int(event.rotation) * 90))
+                self.frames.put_nowait((now, epoch, frame, int(event.rotation) * 90, stamp))
         finally:
             self.track_changed(publication.sid)
             await stream.aclose()
 
     async def infer(self):
+        last_stamp = last_epoch = None
         while True:
-            ms, epoch, frame, rotation = await self.frames.get()
+            ms, epoch, frame, rotation, stamp = await self.frames.get()
             if epoch != self.epoch or time.monotonic_ns() // 1_000_000 - ms > 350:
                 self.dropped += 1
                 continue
+            # Compute the gap between processed source frames, including dropped frames.
+            sender_gap_ms = min(60_000, stamp - last_stamp) if epoch == last_epoch else 0
+            last_stamp, last_epoch = stamp, epoch
             async with asyncio.timeout(4):
-                self.worker.stdin.write(FRAME_HEADER.pack(ms, epoch, frame.width, frame.height, rotation))
+                self.worker.stdin.write(FRAME_HEADER.pack(
+                    ms, epoch, frame.width, frame.height, rotation, sender_gap_ms,
+                ))
                 self.worker.stdin.write(frame.data)
                 await self.worker.stdin.drain()
                 result = json.loads(await self.worker.stdout.readline())
@@ -152,7 +154,7 @@ class LiveProbe:
                     if not introduced:
                         introduced = True
                         synthesis = asyncio.create_task(speech(
-                            f"{self.exercise}. Show your whole body from the side. Hold the starting position"
+                            f"Ready for {self.exercise}? Show your whole body from the side. Take your time"
                         ))
                     else:
                         self.introduction_done.set()

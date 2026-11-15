@@ -23,17 +23,17 @@ class LiveSetTests(unittest.TestCase):
                 self.assertEqual(session.snapshot()["count"], 1)
                 self.assertFalse(session.snapshot()["payout_eligible"])
                 self.assertEqual([cue for cue in cues if cue], ["1"])
-                self.assertEqual(session.observe(16400, 1, neutral), "Set complete. 1 repetitions")
+                self.assertEqual(session.observe(16400, 1, neutral), "Nice work. I counted 1 repetition")
                 self.assertIsNone(session.observe(16500, 1, neutral))
 
     def test_gap_or_replacement_does_not_finish_inflight_rep(self):
-        for next_time, next_epoch in ((2400, 1), (2100, 2)):
+        for next_time, next_epoch, sender_gap in ((2400, 1, 0), (2100, 2, 0), (2100, 1, 400)):
             with self.subTest(timestamp=next_time, epoch=next_epoch):
                 session, neutral, bottom = self.start("pushups")
                 for ms in range(1500, 2100, 100):
                     session.observe(ms, 1, bottom if ms >= 1800 else neutral)
                 for ms in range(next_time, next_time + 300, 100):
-                    session.observe(ms, next_epoch, neutral)
+                    session.observe(ms, next_epoch, neutral, sender_gap if ms == next_time else 0)
                 self.assertEqual(session.snapshot()["count"], 0)
                 self.assertEqual(session.snapshot()["tracking_interruptions"], 1)
 
@@ -44,6 +44,20 @@ class LiveSetTests(unittest.TestCase):
             session.observe(ms, 1, neutral)
         self.assertEqual(session.phase, "countdown")
         self.assertIsNone(session.observe(300, 1, []))
-        self.assertIsNone(session.observe(900, 1, neutral))
+        self.assertIsNone(session.observe(1500, 1, neutral))
         self.assertEqual(session.phase, "preparing")
+        self.assertEqual(session.snapshot()["frames_analyzed"], 0)
+
+    def test_countdown_tolerates_brief_loss_but_waits_for_neutral_at_go(self):
+        session = LiveSet("squats", prep_seconds=1, set_seconds=15)
+        neutral = [fixture("squats")]
+        bottom = [fixture("squats", active=True)]
+        for ms in range(0, 500, 100):
+            session.observe(ms, 1, neutral)
+        session.observe(900, 1, [])
+        self.assertEqual(session.phase, "countdown")
+        self.assertEqual(session.observe(1400, 1, bottom),
+                         "When you are ready hold the starting position")
+        self.assertIsNone(session.observe(1500, 1, bottom))
+        self.assertEqual(session.observe(1600, 1, neutral), "Go")
         self.assertEqual(session.snapshot()["frames_analyzed"], 0)

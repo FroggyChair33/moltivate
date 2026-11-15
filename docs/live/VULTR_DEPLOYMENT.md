@@ -137,7 +137,9 @@ phone level and side-on with the whole body visible. Hold upright for squats,
 or hold the top position for pushups. Wait for “Go”, perform three controlled
 reps with a brief hold at both endpoints, and compare the spoken numbers with
 your manual count. End by hanging up. Read the experimental result and confirm
-media cleanup and release of the line. The spoken cues use offline FFmpeg/Flite.
+media cleanup and release of the line. The spoken cues use FFmpeg/Flite's
+offline female `slt` voice. The countdown can tolerate up to a second of
+brief tracking loss and checks the starting position again before “Go”.
 
 The probe samples fresh frames, preserves aspect ratio, applies RTC rotation,
 and resets unfinished movement when video is muted, replaced, or interrupted.

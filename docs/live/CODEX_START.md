@@ -29,6 +29,11 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
   Offline speech gives framing, countdown and count cues. The 58-test suite
   and both loopback RTC smoke tests passed on Vultr. The synthetic RTC tests
   carried no actual reps.
+- The first real squat call reached the countdown, which repeatedly reset
+  and never started the active set. Preparation now tolerates brief tracking
+  loss and checks the starting position again before “Go”. During a set,
+  the existing 350 ms continuity limit still applies. The next phone test
+  also uses Flite's female `slt` voice and updated coaching prompts.
 - **Next action:** test three controlled squats, then three pushups, by
   FaceTime Video and compare the spoken counts with the manual count.
   Check the waiting-room message before each call. Follow the
