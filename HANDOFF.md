@@ -4,7 +4,140 @@ Written mid-session for a fresh agent to pick up. Committed for convenience
 (so a fresh clone sees it immediately) - fine to remove from tracking later
 once it's served its purpose.
 
-## Resume here (14 November 2026)
+## Current handoff — 15 November 2026: Expo preparation and Vultr vision
+
+This section supersedes older stack and vision-status statements below. Preserve
+the older app/environment notes and inline transfer patch as historical context;
+check the current app branch before applying that patch.
+
+### Branches and ownership
+
+| Work | Branch / PR | Observed state |
+| --- | --- | --- |
+| App, API and Anchor integration | `stephen/wire-frontend-to-anchor-program`, [PR #16](https://github.com/betrji/moltivate/pull/16) | Open; head `76b81238322c278c2e5525a6486cafd1dc7f17d6` when checked |
+| Isolated vision worker | `codex/vision-worker-v03`, [PR #18](https://github.com/betrji/moltivate/pull/18) | Draft; head `b34ac3502367d6dd6d7043d01852a63a19092bbc` |
+| Expo preparation timer and these root docs | `codex/workout-prep-countdown`, [PR #19](https://github.com/betrji/moltivate/pull/19) | Draft; implementation commit `b6cb26faee933e7bb4ebeccacbda99c9b65f469f`; documentation follows |
+
+Refresh branch heads before editing; these are observations, not merge pins.
+Neither experimental branch has been merged as part of this work. PR #16 has
+advanced beyond the `78cf4f0` snapshot in the older handoff; do not assume the
+historical patch is still missing or safe to apply. Its branch did not contain
+a root HANDOFF.md when checked, so read this handoff on the documentation branch.
+
+The user has a separate Codex agent building the app. That agent owns the app,
+camera integration, API, migrations, wallets and settlement. Vision work stays
+under `services/vision-worker/`; preparation source stays under
+`packages/workout-prep/`, with scoped CI. Do not replace root dependencies or
+rewrite the app to merge these increments.
+
+### Decisions to carry forward
+
+- The user explicitly chose **React Native + Expo** for the intended mobile
+  app. Existing `apps/app/` is Next.js; no integrated Expo app was available in
+  the inspected checkout. Preserve it and coordinate the native transition.
+  Older instructions saying “no native app” describe the previous direction.
+- **Vultr** hosts the isolated CPU vision worker. Do not recreate accounts,
+  challenges or settlement in Python. Existing Next.js backend work remains
+  owned by the app agent; no new FastAPI service is required for the timer.
+- **Preparation runs on the phone**, in the main app repository. The backend
+  may authorize a session first but never sends per-second timer ticks. Capture
+  and video timestamps start after preparation; only workout footage reaches
+  the worker. Server eligibility/deadlines remain independently enforced.
+- Chert coaching and caller-video/LiveKit plumbing remain pending. The uploaded
+  clip experiments do not establish working live Chert capture.
+- Entire is an additional track/agent-handoff direction. No completed Entire
+  session capture or automatic cross-agent transfer is established here.
+- Keep devnet test SOL and the current contract/product rules. This update
+  changes neither scoring nor payout policy.
+
+### Preparation component delivered
+
+Read [packages/workout-prep/README.md](packages/workout-prep/README.md).
+Default 7→1; presets 3, 5, 7, 10, 15, 30 seconds; custom 1–60 seconds; visible
+and spoken cues; cancel and background/focus/camera-interruption handling.
+Duration can be persisted locally through a callback; no VM timer is needed.
+
+The app agent must supply the actual camera adapter. Do not pass Expo Camera's
+`recordAsync` directly as a start acknowledgement: its promise represents
+the completed file. “Go” must correspond to actual capture start. Honor aborts
+by stopping/discarding late native recordings. Keep the component mounted
+through capture, then reset for the next set as documented.
+
+Twelve controller tests and JSX syntax bundling passed locally. GitHub Actions
+“Workout preparation timer” and “Demo CI” both passed on `b6cb26f`. Native
+build, rendered UI, physical camera and audio behavior are not yet tested.
+Run the documented iOS/Android checklist before claiming integration complete.
+
+### Vision evidence and limits
+
+Read the [worker README](https://github.com/betrji/moltivate/blob/codex/vision-worker-v03/services/vision-worker/README.md)
+and [worker integration contract](https://github.com/betrji/moltivate/blob/codex/vision-worker-v03/services/vision-worker/INTEGRATION_HANDOFF.md).
+Their older “deployment remains to test” and “user currently runs v0.2” notes
+are superseded by the user-reported results here; setup and schema instructions
+remain useful.
+
+The VM has Ubuntu 24.04, 2 vCPUs, 4 GB RAM and 128 GB NVMe. Existing
+`~/moltivate-vision` contains the earlier experiment/media; v0.3 uses the
+separate `~/moltivate-worker-v03/services/vision-worker` checkout. Preserve
+both and existing clips. Run Linux worker commands inside SSH, and Windows
+file-transfer commands in local PowerShell.
+
+Version `motion-experiment-0.3.1` uses MediaPipe 0.10.21, FFmpeg MP4/MOV
+decoding, aspect-preserving 640×640 input, 10 sampled fps, estimated 3D joints,
+visible-side locking and separate rules for squats/pushups/situps/jumping_jacks.
+Forty-one automated tests were previously reported passing locally and in CI;
+they do not replace a labeled real-video evaluation.
+
+The user confirmed **four real squats** in the 15.798-second squats2 clip.
+The worker reported four complete cycles, 158/158 usable frames, right side,
+no initial partial, no unfinished cycle and no tracking interruptions.
+Completion timestamps: 6.0, 8.1, 10.1, 11.9 seconds. Reported processing fell
+from 10.166 seconds with overlay to 5.754 seconds without overlay, about 43%
+less time. Counts and event times matched. This is not controlled benchmarking,
+does not include upload/queueing, and was not independently replayed here.
+
+The original clip's 3D neutral threshold remained unreliable; its attempted
+1.6–2.2-second standing reference had median 150.2 degrees and spread 13.9
+degrees, exceeding the permitted 12-degree spread. The user chose squats2
+instead. Do not hard-code expected counts or loosen gates to pass one video.
+Automatic side selection and inferred 3D improve the approach but cannot
+guarantee every viewpoint or correct exercise form.
+
+All outputs retain `payout_eligible: false`, `form_assessed: false`,
+`identity_verified: false`, `liveness_verified: false` and
+`exercise_identity_verified: false`. `experimental_only` is not acceptance.
+Do not turn candidate cycles into credited scores or settlement instructions.
+
+### Next work, in order
+
+1. Integrate the preparation component in the actual Expo camera screen; test
+   both phone platforms, custom delays, canceled/late starts, backgrounding,
+   audio and repeat sets. Exclude all setup footage from uploaded workout video.
+2. Test known-count push-ups, sit-ups and jumping jacks, plus still/partial/
+   arm-only and poor-view controls. These exercises have rules, not demonstrated
+   real-video accuracy yet. Review overlays when results disagree with labels.
+3. Benchmark repeated runs without overlay; keep diagnostic rendering optional.
+   Record cold/warm timings, video duration, correctness and upload/queue time.
+   The initial credit allowance is $260; remaining balance is unverified.
+   Keep the current CPU VM and one bounded job at a time until measurements
+   justify a different CPU, GPU or concurrency setting.
+4. Build an authenticated app-to-worker adapter: server-bound session and
+   membership, upload limits, private media, bounded queue/supervisor/timeouts,
+   replay controls, idempotent results and retention. The CLI has no public
+   HTTP endpoint and is not a hardened upload service.
+5. Evaluate acceptance criteria before connecting counts to accepted workouts,
+   then validate the full devnet flow and physical wallets. On-device feedback
+   can be explored later; client counts alone do not authorize payouts.
+6. Verify Chert caller-frame access before making a live-video dependency.
+   Keep this separate from the working local-clip test path.
+
+Never commit private workout media, pose traces, keys, tokens or credentials.
+The old oracle stash is still not a recoverable implementation; do not follow
+historical stash-pop instructions or infer credentials exist.
+
+---
+
+## Earlier app handoff (14 November 2026)
 
 Start from [PR #16](https://github.com/betrji/moltivate/pull/16), which is
 open at `78cf4f0a46b416a2b2c9ce65614935b2ffcd81fe`. This handoff is on
