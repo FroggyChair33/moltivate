@@ -2,6 +2,28 @@
 
 Updated 2026-11-15. This is the current handoff, superseding older hosting and native-app assumptions. Read root `HANDOFF.md`, then this file. Historical patches in that handoff are not instructions to reapply them.
 
+## Current checkpoint
+
+- Branch head was verified at `22acb38` in draft PR #21 before work. The
+  Windows worktree is `live-coach-transport`. Vultr SSH succeeded and the
+  isolated `~/moltivate-live` clone passed `bash ops/vultr/preflight.sh`
+  on Ubuntu 24.04.5 and Python 3.12.3.
+- The one-room transport probe is in `services/vision-worker/transport_probe.py`.
+  Node 24.22.1 and Chert CLI 0.1.0-beta.19 are installed under
+  `~/.config/moltivate-live`. Transport dependencies are frozen separately
+  from the MediaPipe worker in `transport.requirements.lock.txt`.
+- An isolated synthetic LiveKit test on Vultr passed dispatch, receipt of
+  64×96 changing video and 48-kHz mono audio, reception of a non-silent agent
+  cue by the synthetic peer, and agent departure after peer disconnect.
+  The test server was stopped. LiveKit emitted FFI handle warnings during
+  teardown. The room had no remaining participants and was deleted.
+- **Next action:** provision and authorize the Chert line, enter a newly
+  issued LiveKit credential set on the VM, and run the two-terminal phone
+  check in [VULTR_DEPLOYMENT.md](VULTR_DEPLOYMENT.md). Caller-camera capture,
+  audible FaceTime output, and real-call cleanup are pending. Move to live
+  pose tracking only after this call passes.
+
+
 ## Checkout and model
 
 Use branch `codex/live-coaching-handoff` in a separate checkout/worktree. It combines current main, worker source from PR #18, and countdown source from PR #19. Preserve the teammate's app work. Do not reset their working directory or merge into main automatically.

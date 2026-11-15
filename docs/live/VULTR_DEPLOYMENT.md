@@ -1,6 +1,6 @@
 # Vultr deployment runbook
 
-Status on 2026-11-15: CPU file processing has run on the user's VM. A live agent, authenticated control API, TLS endpoint and Vercel connection have **not** been deployed. This handoff branch contains the existing worker/countdown and deployment instructions; it does not contain a functioning live service entry point. Do not install an example systemd unit pointing at a nonexistent module.
+Status on 2026-11-15: CPU file processing has run on the user's VM. A live agent, authenticated control API, TLS endpoint and Vercel connection have **not** been deployed. This branch includes a manual transport probe. The full live coaching service still needs implementation, real-phone validation and deployment.
 
 ## Existing machine and access
 
@@ -37,6 +37,69 @@ python moltivate_motion.py --help
 
 The bootstrap installs locked dependencies and verifies the official lite model checksum. It does not configure Chert or start a live service. Keep original media in its existing private directory; use an absolute input path for a regression run and a new output directory. Do not upload media to GitHub.
 
+## One-call transport check
+
+The transport probe joins named LiveKit dispatches, consumes only the
+expected Chert bridge tracks, publishes a deterministic tone, and exits on
+bridge disconnect or a two-minute test timeout. It writes no media files and
+does no inference. Use this manual check before exposing any control API.
+
+1. In the [Chert app](https://app.trychert.com), sign in, verify the phone,
+   and request a line if the project has none. In the [FaceTime dashboard](https://facetime.trychert.com),
+   select **Workers & Lines** and confirm one assigned online FaceTime Video
+   line, **customer decides**, and no default hosted Assistant. Ask Chert to
+   confirm that caller-camera capture is enabled for the assigned worker
+   profile if there is no self-service capture setting. See [Projects and
+   lines](https://docs.trychert.com/facetime-cli/connect) and [Caller
+   vision](https://docs.trychert.com/facetime-cli/video).
+2. On the VM, put only `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and
+   `LIVEKIT_API_SECRET` in `~/.config/moltivate-live/transport.env`
+   with mode `0600`. The URL uses the project's `wss://` endpoint. Use
+   the same LiveKit project in both terminals. No OpenAI key is needed.
+3. In SSH terminal A, start the probe from the isolated checkout.
+
+   ```bash
+   cd ~/moltivate-live
+   set -a
+   . ~/.config/moltivate-live/transport.env
+   set +a
+   .transport-venv/bin/python services/vision-worker/transport_probe.py start
+   ```
+
+   For a fresh transport environment, create it with
+   `python3 -m venv .transport-venv` from the checkout root and install
+   `.transport-venv/bin/python -m pip install -r services/vision-worker/transport.requirements.lock.txt`.
+
+4. In SSH terminal B, approve Chert sign-in for the intended project and
+   check the line. Start the documented named-agent BYOR connector for a
+   short slot. No inbound webhook is needed for this diagnostic.
+
+   ```bash
+   conf="$HOME/.config/moltivate-live"
+   export PATH="$conf/toolchain/node-v24.22.1-linux-x64/bin:$PATH"
+   chert="$conf/connector/node_modules/.bin/chert"
+   "$chert" login --device
+   "$chert" doctor --env-file "$conf/transport.env"
+   "$chert" dev --agent moltivate-transport --env-file "$conf/transport.env" --minutes 5
+   ```
+
+5. Call the assigned address using **FaceTime Video** on a real iPhone.
+   Turn on the camera and change the view. Confirm the agent logs
+   `caller frame received` with format, dimensions, and rotation, then
+   `caller video frames changed`. Say a word to exercise the microphone.
+   Confirm the caller hears a test tone. Hang up and verify **both** the
+   probe's `transport media cleanup complete` and connector room cleanup.
+   Stop the connector first, wait for line release, then stop the probe.
+
+### Transport evidence
+
+SSH, preflight and `pip check` passed. A temporary LiveKit 1.13.11 server
+on Vultr delivered synthetic 64×96 video and mono caller audio to the probe,
+returned a non-silent cue, and showed the agent leaving after the peer
+disconnected. The temporary server and agent were stopped. The synthetic
+room was deleted. There is no measured phone latency or production release.
+
+
 ## Finish deployment after the live agent is implemented
 
 Local Codex must carry out these steps, not merely mark this checklist complete:
@@ -57,4 +120,4 @@ Rollback: stop accepting new sessions, cleanly end the active call, switch to th
 
 ### Remaining external prerequisites
 
-This cloud workspace has no SSH key, Vultr API credential, Chert line access or LiveKit secrets. The existing local Codex/laptop connection is the intended deployment executor. A live deployment cannot be verified here until that executor runs it and reports the evidence above.
+The laptop SSH route passed preflight. The real call still requires a provisioned Chert line with caller video, private LiveKit configuration, and an iPhone operator. Production HTTPS and Vercel integration also require a worker hostname and coordination with the app owner.
