@@ -36,8 +36,6 @@ type Loaded = {
   oracle: string;
   stakeLamports: number;
   target: number;
-  alphaBps: number;
-  rakeBps: number;
 };
 
 export function ResultsClient({ id }: { id: string }) {
@@ -78,8 +76,6 @@ export function ResultsClient({ id }: { id: string }) {
           oracle: challengeAcc.oracle.toBase58(),
           stakeLamports: challengeAcc.stakeLamports.toNumber(),
           target: challengeAcc.target,
-          alphaBps: challengeAcc.alphaBps,
-          rakeBps: challengeAcc.rakeBps,
           members: memberAccs.map((m) => ({
             pubkey: m.publicKey.toBase58(),
             owner: m.account.owner.toBase58(),
@@ -172,8 +168,6 @@ export function ResultsClient({ id }: { id: string }) {
               teamBName: state.teamBName,
               stakeSol: String(state.stakeLamports / 1_000_000_000),
               goalReps: String(state.target),
-              alphaPercent: String(state.alphaBps / 100),
-              rakePercent: String(state.rakeBps / 100),
               oracle: state.oracle,
             }).toString()}`}
             className="w-fit rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"

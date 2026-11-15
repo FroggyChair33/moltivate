@@ -15,6 +15,16 @@ import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
 // the Challenge and both Team accounts. Devnet only -- see AGENTS.md
 // "Financial correctness".
 //
+// Alpha and rake are house-set constants, not something a challenge
+// creator chooses -- matches the MVP doc's own default/worked example
+// (alpha 20%, rake 3%) exactly. Versioned here (not just "the current
+// default") because a future change to either must never reinterpret an
+// already-created challenge: each Challenge account stores the bps values
+// it was created with, so old challenges keep whatever was true when they
+// were made regardless of what these constants become later.
+const HOUSE_ALPHA_PERCENT = 20;
+const HOUSE_RAKE_PERCENT = 3;
+//
 // useSearchParams() needs a Suspense boundary under the App Router (it
 // opts the page out of static rendering) -- this is also what lets the
 // results page's "Rematch" button prefill this form via query params
@@ -36,8 +46,6 @@ function NewChallengeForm() {
   const [title, setTitle] = useState(params.get("title") ?? "Push-up Pact");
   const [stakeSol, setStakeSol] = useState(params.get("stakeSol") ?? "0.25");
   const [goalReps, setGoalReps] = useState(params.get("goalReps") ?? "150");
-  const [alphaPercent, setAlphaPercent] = useState(params.get("alphaPercent") ?? "20");
-  const [rakePercent, setRakePercent] = useState(params.get("rakePercent") ?? "3");
   // 7 days is the real default; a small fraction (e.g. 0.002 ~= 3 minutes) is
   // useful for devnet demo/testing -- see MVP doc "For the demo, set the
   // challenge length to a few minutes."
@@ -78,8 +86,8 @@ function NewChallengeForm() {
         .initialize({
           id: challengeId,
           oracle: oracleKey,
-          alphaBps: Math.round(Number(alphaPercent) * 100),
-          rakeBps: Math.round(Number(rakePercent) * 100),
+          alphaBps: HOUSE_ALPHA_PERCENT * 100,
+          rakeBps: HOUSE_RAKE_PERCENT * 100,
           target: Number(goalReps),
           stakeLamports: new BN(Math.round(Number(stakeSol) * 1_000_000_000)),
           deadlineUnix,
@@ -170,29 +178,12 @@ function NewChallengeForm() {
           />
         </Field>
 
-        <Field label="Alpha (% of stake always at risk)">
-          <input
-            required
-            type="number"
-            min="0"
-            max="100"
-            value={alphaPercent}
-            onChange={(e) => setAlphaPercent(e.target.value)}
-            className="input"
-          />
-        </Field>
-
-        <Field label="House rake (%)">
-          <input
-            required
-            type="number"
-            min="0"
-            max="100"
-            value={rakePercent}
-            onChange={(e) => setRakePercent(e.target.value)}
-            className="input"
-          />
-        </Field>
+        <p className="rounded-lg bg-black/[.03] p-3 text-xs text-zinc-600 dark:bg-white/[.06] dark:text-zinc-400">
+          House rules, not yours to set: {HOUSE_ALPHA_PERCENT}% of your stake is always at
+          risk even if you hit your goal, and the house takes a {HOUSE_RAKE_PERCENT}% rake
+          from forfeits only (never from a winner&apos;s principal, waived entirely if both
+          teams pass).
+        </p>
 
         <Field label="Duration (days) -- use a small fraction like 0.002 (~3 min) for a devnet demo">
           <input
