@@ -5,7 +5,6 @@ import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { RollingNumber } from "@/app/components/rolling-number";
-import { LogSessionStub } from "@/app/components/log-session-stub";
 import { MediaPipeSquatSession } from "@/app/components/mediapipe-squat-session";
 import { Eyebrow } from "@/app/components/eyebrow";
 import { CommitmentSlip } from "@/app/components/commitment-slip";
@@ -281,10 +280,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
       <blockquote className="motivation">“Someone’s showing up because you are.”</blockquote>
       <div id="workout" className="mt-10 flex flex-col gap-6">
         {state.settled ? <p>This challenge has ended. Open results to review your claim.</p> : myMember ? (
-          <>
-            <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
-            <LogSessionStub />
-          </>
+          <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
         ) : (
           <p className="text-sm text-muted">Connect the wallet you joined with to log a workout.</p>
         )}

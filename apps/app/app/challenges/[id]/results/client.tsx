@@ -33,7 +33,6 @@ type Loaded = {
   // Everything below is only used to prefill the "Rematch" button's link to
   // /challenges/new -- not otherwise displayed on this page.
   creator: string;
-  oracle: string;
   stakeLamports: number;
   target: number;
 };
@@ -88,7 +87,6 @@ function ResultsClientView({ id }: { id: string }) {
           deadlineUnix: challengeAcc.deadlineUnix.toNumber(),
           loadedAtMs: Date.now(),
           creator: challengeAcc.creator.toBase58(),
-          oracle: challengeAcc.oracle.toBase58(),
           stakeLamports: challengeAcc.stakeLamports.toNumber(),
           target: challengeAcc.target,
           members: memberAccs.map((m) => ({
@@ -244,7 +242,6 @@ function ResultsClientView({ id }: { id: string }) {
               teamBName: state.teamBName,
               stakeSol: String(state.stakeLamports / 1_000_000_000),
               goalReps: String(state.target),
-              oracle: state.oracle,
             }).toString()}`}
             className="w-fit rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
           >
