@@ -70,4 +70,12 @@ export async function fetchChallengeMembers(program: Program<CommitmentStakes>, 
   return program.account.teamMember.all([{ memcmp: { offset: 8, bytes: challenge.toBase58() } }]);
 }
 
+// All TeamMember accounts owned by one wallet, across every challenge --
+// same idea as fetchChallengeMembers but filtered on `owner` instead of
+// `challenge`. Byte 72 is where `owner` starts: discriminator (8) +
+// challenge (32) + team (32).
+export async function fetchMemberships(program: Program<CommitmentStakes>, owner: PublicKey) {
+  return program.account.teamMember.all([{ memcmp: { offset: 72, bytes: owner.toBase58() } }]);
+}
+
 export const NO_WINNER = 2;
