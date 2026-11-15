@@ -5,6 +5,7 @@ import { PublicKey } from "@solana/web3.js";
 import { ClaimButton } from "@/app/components/claim-button";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda, NO_WINNER } from "@/lib/anchor";
+import { explorerTxUrl } from "@/lib/explorer";
 
 type MemberRow = {
   pubkey: string;
@@ -33,6 +34,7 @@ export function ResultsClient({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [settling, setSettling] = useState(false);
   const [settleMessage, setSettleMessage] = useState<string | null>(null);
+  const [settleSignature, setSettleSignature] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -79,6 +81,7 @@ export function ResultsClient({ id }: { id: string }) {
   async function handleSettleNow() {
     setSettling(true);
     setSettleMessage(null);
+    setSettleSignature(null);
     try {
       const res = await fetch("/api/oracle/settle", {
         method: "POST",
@@ -90,7 +93,8 @@ export function ResultsClient({ id }: { id: string }) {
       if (!result) {
         setSettleMessage(`Unexpected response: ${JSON.stringify(data)}`);
       } else if (result.status === "settled") {
-        setSettleMessage(`Settled. Tx: ${result.signature}`);
+        setSettleMessage("Settled.");
+        setSettleSignature(result.signature);
         setReloadKey((k) => k + 1);
       } else if (result.status === "already_settled") {
         setSettleMessage("Already settled.");
@@ -152,7 +156,24 @@ export function ResultsClient({ id }: { id: string }) {
           >
             {settling ? "Settling..." : "Settle now"}
           </button>
-          {settleMessage && <p className="text-xs text-zinc-500">{settleMessage}</p>}
+          {settleMessage && (
+            <p className="text-xs text-zinc-500">
+              {settleMessage}
+              {settleSignature && (
+                <>
+                  {" "}
+                  <a
+                    href={explorerTxUrl(settleSignature)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    View on Solana Explorer
+                  </a>
+                </>
+              )}
+            </p>
+          )}
         </div>
       )}
 

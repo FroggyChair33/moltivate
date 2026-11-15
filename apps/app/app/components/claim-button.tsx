@@ -5,6 +5,7 @@ import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useProgram } from "@/lib/use-program";
 import { vaultPda } from "@/lib/anchor";
+import { explorerTxUrl } from "@/lib/explorer";
 
 export function ClaimButton({
   challenge,
@@ -23,6 +24,7 @@ export function ClaimButton({
   const [claimed, setClaimed] = useState(alreadyClaimed);
   const [claiming, setClaiming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
 
   async function handleClaim() {
     if (!program || !publicKey) return;
@@ -34,7 +36,7 @@ export function ClaimButton({
       // instruction, which the strict variant rejects for every valid key
       // combination (confirmed empirically). accountsPartial skips that
       // check so these can be supplied by hand.
-      await program.methods
+      const sig = await program.methods
         .claim()
         .accountsPartial({
           memberAuthority: publicKey,
@@ -43,6 +45,7 @@ export function ClaimButton({
           teamMember: new PublicKey(teamMember),
         })
         .rpc();
+      setSignature(sig);
       setClaimed(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -63,6 +66,16 @@ export function ClaimButton({
         {claimed ? "Claimed" : claiming ? "Claiming..." : "Claim"}
       </button>
       {error && <p className="text-xs text-red-700 dark:text-red-300">{error}</p>}
+      {signature && (
+        <a
+          href={explorerTxUrl(signature)}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs underline text-zinc-500"
+        >
+          View on Solana Explorer
+        </a>
+      )}
     </div>
   );
 }

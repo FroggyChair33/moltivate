@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { LogSessionStub } from "@/app/components/log-session-stub";
+import { MediaPipeSquatSession } from "@/app/components/mediapipe-squat-session";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda } from "@/lib/anchor";
 
@@ -114,7 +115,10 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
         {(() => {
           const myMember = state.members.find((m) => m.owner === publicKey?.toBase58());
           return myMember ? (
-            <LogSessionStub challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
+            <>
+              <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
+              <LogSessionStub challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
+            </>
           ) : (
             <p className="text-sm text-zinc-500">
               Connect the wallet you joined with to log a workout.
