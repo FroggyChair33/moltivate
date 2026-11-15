@@ -4,7 +4,29 @@ Written mid-session for a fresh agent to pick up. Committed for convenience
 (so a fresh clone sees it immediately) - fine to remove from tracking later
 once it's served its purpose.
 
-## Resume here (14 November 2026)
+## Current handoff — live coaching (15 November 2026)
+
+Start with [docs/live/CODEX_START.md](docs/live/CODEX_START.md). Branch
+`codex/live-coaching-handoff` combines main at `ef623a3640c0ea60718fbc7b741b561202cd4ab1`,
+worker v0.3.2 source from PR #18 (`3e89e755864c93bed6073abd5d3d9f9cd83123f4`),
+and countdown source from PR #19 (`22a65796ec8b5dd0d75e4cb140e6a77bcbe19475`).
+PR #16 and #17 are merged. Older statements below about open PRs, missing app
+implementation, private worktrees, and transfer patches are historical; inspect
+current files before taking action. Do not run recovery/reset commands from old notes.
+
+The user selected Expo for the eventual native client, Vercel for the general/Web3
+backend, and Vultr for the live coaching/MediaPipe process. Preserve the existing
+Next.js app and coordinate API edits with its owner. The Chert managed service owns
+the FaceTime bridge; the VM owns our agent. Live transport, voice, endpoints and TLS
+are not implemented/deployed by this handoff. Existing experimental counters are
+not payout verification. No secrets, private videos or pose CSVs are committed.
+
+Read [architecture](docs/live/ARCHITECTURE.md), [endpoint contract](docs/live/ENDPOINT_CONTRACT.md),
+and [deployment runbook](docs/live/VULTR_DEPLOYMENT.md). Local Codex has the intended
+laptop SSH route; this cloud workspace cannot authenticate to the VM. Complete one
+real call and measured deployment checks before claiming integration works.
+
+## Historical snapshot (14 November 2026; do not reapply patches blindly)
 
 Start from [PR #16](https://github.com/betrji/moltivate/pull/16), which is
 open at `78cf4f0a46b416a2b2c9ce65614935b2ffcd81fe`. This handoff is on
