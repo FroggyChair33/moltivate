@@ -6,6 +6,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { WalletButton } from "@/app/components/wallet-button";
+import { Eyebrow } from "@/app/components/eyebrow";
 import { useProgram } from "@/lib/use-program";
 import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
 
@@ -111,6 +112,7 @@ function NewChallengeForm() {
   if (!publicKey) {
     return (
       <div className="mx-auto w-full max-w-lg px-6 py-12">
+        <Eyebrow>New challenge</Eyebrow>
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">Create a challenge</h1>
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
           Connect your Phantom wallet (devnet) to create a challenge.
@@ -122,6 +124,7 @@ function NewChallengeForm() {
 
   return (
     <div className="mx-auto w-full max-w-lg px-6 py-12">
+      <Eyebrow>{isRematch ? "Run it back" : "New challenge"}</Eyebrow>
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
         {isRematch ? "Start a rematch" : "Create a challenge"}
       </h1>

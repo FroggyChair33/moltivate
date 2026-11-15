@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { ClaimButton } from "@/app/components/claim-button";
+import { Eyebrow } from "@/app/components/eyebrow";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda, NO_WINNER } from "@/lib/anchor";
 import { explorerTxUrl } from "@/lib/explorer";
@@ -152,6 +153,7 @@ export function ResultsClient({ id }: { id: string }) {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
+      <Eyebrow>{state.settled ? "Final results" : "Awaiting settlement"}</Eyebrow>
       <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
       </p>

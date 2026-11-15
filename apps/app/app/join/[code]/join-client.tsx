@@ -5,6 +5,8 @@ import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton } from "@/app/components/wallet-button";
+import { Eyebrow } from "@/app/components/eyebrow";
+import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
 import { teamPda } from "@/lib/anchor";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
@@ -141,12 +143,16 @@ export function JoinClient({ code }: { code: string }) {
 
   return (
     <div className="mx-auto w-full max-w-md px-6 py-12">
-      <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">
+      <Eyebrow>You&apos;re invited</Eyebrow>
+      <h1 className="sr-only">{view.title}</h1>
+      <CommitmentSlip
+        label="The challenge"
+        value={view.title}
+        detail={`${view.target} reps/week · stake ${stakeSol} SOL (devnet)`}
+        signoff="see you there."
+      />
+      <p className="mt-3 mb-6 text-xs uppercase tracking-wide text-muted">
         Invite code: {code.slice(0, 4)}...{code.slice(-4)}
-      </p>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight">{view.title}</h1>
-      <p className="mb-6 text-sm text-zinc-600 dark:text-zinc-400">
-        {view.target} reps/week &middot; stake {stakeSol} SOL (devnet)
       </p>
 
       {closed ? (

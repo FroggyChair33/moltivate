@@ -6,6 +6,8 @@ import { PublicKey } from "@solana/web3.js";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { LogSessionStub } from "@/app/components/log-session-stub";
 import { MediaPipeSquatSession } from "@/app/components/mediapipe-squat-session";
+import { Eyebrow } from "@/app/components/eyebrow";
+import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda } from "@/lib/anchor";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
@@ -134,13 +136,16 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-12">
-      <p className="mb-1 text-xs uppercase tracking-wide text-muted">
+      <Eyebrow>Live challenge</Eyebrow>
+      <h1 className="sr-only">{state.title}</h1>
+      <CommitmentSlip
+        label="The challenge"
+        value={state.title}
+        detail={`${state.target} workouts per member${state.settled ? " · settled" : ""}`}
+      />
+      <p className="mt-3 mb-6 text-xs uppercase tracking-wide text-muted">
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
-      </p>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight">{state.title}</h1>
-      <p className="mb-6 text-sm text-muted">
-        Goal: {state.target} workouts per member
-        {state.settled ? " · settled" : " · progress below is live/unverified until settled"}
+        {!state.settled && " · progress below is live/unverified until settled"}
       </p>
 
       <section className="overflow-hidden rounded-[22px] border border-[#2c4838] bg-[#132e23] text-[#f3f5e8] shadow-[0_20px_50px_rgba(24,60,37,0.25)]">
