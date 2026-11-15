@@ -31,6 +31,14 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
   const { publicKey } = useWallet();
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // window.location.origin isn't available during SSR -- read it only after
+  // mount (same hydration-mismatch concern as WalletButton) so this never
+  // disagrees with the server-rendered markup.
+  const [origin, setOrigin] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setOrigin(window.location.origin), []);
 
   useEffect(() => {
     if (!program) return;
@@ -101,10 +109,25 @@ export function ChallengeScoreboardClient({ id }: { id: string }) {
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
       </p>
       <h1 className="mb-1 text-2xl font-semibold tracking-tight">{state.title}</h1>
-      <p className="mb-8 text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
         Goal: {state.target} workouts per member
         {state.settled && " · settled"}
       </p>
+
+      <div className="mb-8 flex items-center gap-2 rounded-lg bg-black/[.03] p-3 text-sm dark:bg-white/[.06]">
+        <span className="min-w-0 flex-1 truncate text-zinc-500">{origin}/join/{id}</span>
+        <button
+          type="button"
+          onClick={async () => {
+            await navigator.clipboard.writeText(`${origin}/join/${id}`);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          }}
+          className="shrink-0 rounded-full border border-black/10 px-3 py-1 text-xs font-medium dark:border-white/15"
+        >
+          {copied ? "Copied" : "Copy invite link"}
+        </button>
+      </div>
 
       <div className="grid gap-8 sm:grid-cols-2">
         <TeamColumn name={state.teamAName} members={teamAMembers} goalUnits={goalUnits} />
