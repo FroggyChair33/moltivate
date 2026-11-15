@@ -2,26 +2,106 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
+import { BN } from "@coral-xyz/anchor";
+import { WalletButton } from "@/app/components/wallet-button";
+import { useProgram } from "@/lib/use-program";
+import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
 
-// Create-challenge form stub. Submitting does not hit an API yet -- there is
-// no challenges API route or Anchor program wired up. It only navigates to
-// the mocked scoreboard so the lifecycle can be clicked through end to end.
+// Real on-chain create: initializes the creator's persistent group pot the
+// first time it's needed, then calls `initialize`, which atomically creates
+// the Challenge and both Team accounts. Devnet only -- see AGENTS.md
+// "Financial correctness".
 export default function NewChallengePage() {
   const router = useRouter();
-  const [title, setTitle] = useState("");
+  const { publicKey } = useWallet();
+  const program = useProgram();
+
+  const [title, setTitle] = useState("Push-up Pact");
   const [stakeSol, setStakeSol] = useState("0.25");
   const [goalReps, setGoalReps] = useState("150");
   const [alphaPercent, setAlphaPercent] = useState("20");
+  const [rakePercent, setRakePercent] = useState("3");
+  // 7 days is the real default; a small fraction (e.g. 0.002 ~= 3 minutes) is
+  // useful for devnet demo/testing -- see MVP doc "For the demo, set the
+  // challenge length to a few minutes."
   const [durationDays, setDurationDays] = useState("7");
   const [teamAName, setTeamAName] = useState("Sunrise Squad");
   const [teamBName, setTeamBName] = useState("Night Owls");
+  // Defaults to the backend oracle (app/api/oracle/settle) - only that
+  // service actually calls settle() automatically. Overriding this to your
+  // own wallet is still useful for manually testing settle() yourself.
+  const [oracle, setOracle] = useState(process.env.NEXT_PUBLIC_ORACLE_PUBKEY ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    // TODO(backend): POST to /api/challenges once it exists; that route
-    // creates the draft row (status 'draft') and, once funded on-chain,
-    // flips it to 'open'. For now, just land on the mocked scoreboard.
-    router.push("/challenges/demo");
+    if (!program || !publicKey) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const oracleKey = new PublicKey(oracle || publicKey.toBase58());
+
+      const pot = potPda(publicKey, DEFAULT_GROUP_ID);
+      const potAccount = await program.provider.connection.getAccountInfo(pot);
+      if (!potAccount) {
+        await program.methods
+          .initializeGroup(DEFAULT_GROUP_ID)
+          .accounts({ creator: publicKey })
+          .rpc();
+      }
+
+      const challengeId = new BN(Date.now());
+      const challenge = challengePda(publicKey, challengeId);
+      const deadlineUnix = new BN(Math.floor(Date.now() / 1000 + Number(durationDays) * 86400));
+
+      await program.methods
+        .initialize({
+          id: challengeId,
+          oracle: oracleKey,
+          alphaBps: Math.round(Number(alphaPercent) * 100),
+          rakeBps: Math.round(Number(rakePercent) * 100),
+          target: Number(goalReps),
+          stakeLamports: new BN(Math.round(Number(stakeSol) * 1_000_000_000)),
+          deadlineUnix,
+          teamAName,
+          teamBName,
+        })
+        // .accountsPartial(), not .accounts(): `pot` doesn't actually
+        // resolve automatically at runtime here even though the generated
+        // type claims it's derivable (its real seeds need the group id,
+        // which isn't an `initialize` instruction arg - only an
+        // `initializeGroup` one). Confirmed via a real browser run against
+        // a local validator: create-challenge fails without passing it
+        // explicitly. accountsPartial skips the strict "all PDAs must be
+        // auto-resolvable" type check so this one can be supplied by hand.
+        .accountsPartial({
+          pot,
+          teamA: teamPda(challenge, 0),
+          teamB: teamPda(challenge, 1),
+        })
+        .rpc();
+
+      router.push(`/join/${challenge.toBase58()}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!publicKey) {
+    return (
+      <div className="mx-auto w-full max-w-lg px-6 py-12">
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Create a challenge</h1>
+        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+          Connect your Phantom wallet (devnet) to create a challenge.
+        </p>
+        <WalletButton />
+      </div>
+    );
   }
 
   return (
@@ -75,11 +155,24 @@ export default function NewChallengePage() {
           />
         </Field>
 
-        <Field label="Duration (days)">
+        <Field label="House rake (%)">
           <input
             required
             type="number"
-            min="1"
+            min="0"
+            max="100"
+            value={rakePercent}
+            onChange={(e) => setRakePercent(e.target.value)}
+            className="input"
+          />
+        </Field>
+
+        <Field label="Duration (days) -- use a small fraction like 0.002 (~3 min) for a devnet demo">
+          <input
+            required
+            type="number"
+            min="0.001"
+            step="0.001"
             value={durationDays}
             onChange={(e) => setDurationDays(e.target.value)}
             className="input"
@@ -105,11 +198,27 @@ export default function NewChallengePage() {
           </Field>
         </div>
 
+        <Field label="Oracle address (defaults to the backend oracle; change only to self-settle manually)">
+          <input
+            value={oracle}
+            onChange={(e) => setOracle(e.target.value)}
+            placeholder={publicKey.toBase58()}
+            className="input"
+          />
+        </Field>
+
+        {error && (
+          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            {error}
+          </p>
+        )}
+
         <button
           type="submit"
-          className="mt-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc]"
+          disabled={submitting}
+          className="mt-2 rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-colors hover:bg-[#383838] disabled:opacity-50 dark:hover:bg-[#ccc]"
         >
-          Create (demo)
+          {submitting ? "Creating on devnet..." : "Create"}
         </button>
       </form>
     </div>

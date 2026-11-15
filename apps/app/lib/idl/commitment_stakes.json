@@ -1,0 +1,884 @@
+{
+  "address": "DhWeNpUmpxjSXdZ6iN1VCbP1WJVAYg9Yrprtx1LBPDum",
+  "metadata": {
+    "name": "commitment_stakes",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
+  "instructions": [
+    {
+      "name": "claim",
+      "docs": [
+        "Pays one already-settled member's recorded outcome. Separate from",
+        "`settle` on purpose - moving lamports to every member in a single",
+        "instruction doesn't scale with roster size the way this does."
+      ],
+      "discriminator": [
+        62,
+        198,
+        214,
+        193,
+        213,
+        159,
+        108,
+        210
+      ],
+      "accounts": [
+        {
+          "name": "member_authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "challenge",
+          "relations": [
+            "team_member"
+          ]
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "team_member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              },
+              {
+                "kind": "account",
+                "path": "member_authority"
+              }
+            ]
+          }
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Creates the challenge and both of its teams atomically - a challenge",
+        "can never exist with zero, one, or more than two teams."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "pot"
+          ]
+        },
+        {
+          "name": "challenge",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  104,
+                  97,
+                  108,
+                  108,
+                  101,
+                  110,
+                  103,
+                  101
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "args.id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pot",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "account",
+                "path": "pot.id",
+                "account": "Pot"
+              }
+            ]
+          }
+        },
+        {
+          "name": "team_a",
+          "writable": true
+        },
+        {
+          "name": "team_b",
+          "writable": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "args",
+          "type": {
+            "defined": {
+              "name": "InitializeArgs"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize_group",
+      "docs": [
+        "A separate group pot can be shared by later challenges of this creator."
+      ],
+      "discriminator": [
+        191,
+        73,
+        34,
+        229,
+        233,
+        213,
+        189,
+        173
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "pot",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "arg",
+                "path": "group_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "group_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "join_team",
+      "docs": [
+        "Joins one of the challenge's two teams and deposits the fixed stake",
+        "straight into the program-owned vault - money never passes through",
+        "any off-chain hop."
+      ],
+      "discriminator": [
+        244,
+        30,
+        215,
+        53,
+        96,
+        145,
+        4,
+        206
+      ],
+      "accounts": [
+        {
+          "name": "member_authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "challenge",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "team",
+          "writable": true
+        },
+        {
+          "name": "team_member",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  101,
+                  109,
+                  98,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              },
+              {
+                "kind": "account",
+                "path": "member_authority"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "team_index",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "settle",
+      "docs": [
+        "Oracle-reported final counts, one call, once. Computes every",
+        "member's payout and the aggregate house/pot flows; does not pay",
+        "individual members out (see `claim`) - only the fixed-size flows",
+        "(house cut, pot delta) move lamports here, keeping this instruction",
+        "O(1) in the accounts it must transfer regardless of roster size."
+      ],
+      "discriminator": [
+        175,
+        42,
+        185,
+        87,
+        144,
+        131,
+        102,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "oracle",
+          "signer": true,
+          "relations": [
+            "challenge"
+          ]
+        },
+        {
+          "name": "challenge",
+          "writable": true
+        },
+        {
+          "name": "team_a"
+        },
+        {
+          "name": "team_b"
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "treasury",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  101,
+                  97,
+                  115,
+                  117,
+                  114,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "challenge"
+              }
+            ]
+          }
+        },
+        {
+          "name": "pot",
+          "writable": true
+        }
+      ],
+      "args": [
+        {
+          "name": "counts",
+          "type": {
+            "vec": "u32"
+          }
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Challenge",
+      "discriminator": [
+        119,
+        250,
+        161,
+        121,
+        119,
+        81,
+        22,
+        208
+      ]
+    },
+    {
+      "name": "Pot",
+      "discriminator": [
+        238,
+        118,
+        60,
+        175,
+        178,
+        191,
+        59,
+        58
+      ]
+    },
+    {
+      "name": "Team",
+      "discriminator": [
+        140,
+        218,
+        177,
+        140,
+        193,
+        241,
+        199,
+        106
+      ]
+    },
+    {
+      "name": "TeamMember",
+      "discriminator": [
+        45,
+        32,
+        135,
+        109,
+        75,
+        252,
+        204,
+        244
+      ]
+    },
+    {
+      "name": "Treasury",
+      "discriminator": [
+        238,
+        239,
+        123,
+        238,
+        89,
+        1,
+        168,
+        253
+      ]
+    },
+    {
+      "name": "Vault",
+      "discriminator": [
+        211,
+        8,
+        232,
+        43,
+        2,
+        152,
+        117,
+        119
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "InvalidBps",
+      "msg": "Basis points must be between 0 and 10000 inclusive"
+    },
+    {
+      "code": 6001,
+      "name": "InvalidTarget",
+      "msg": "Workout target must be positive"
+    },
+    {
+      "code": 6002,
+      "name": "InvalidStake",
+      "msg": "Stake amount must be positive"
+    },
+    {
+      "code": 6003,
+      "name": "InvalidOracle",
+      "msg": "Oracle must be a nonzero public key"
+    },
+    {
+      "code": 6004,
+      "name": "NameTooLong",
+      "msg": "Team name exceeds the maximum length"
+    },
+    {
+      "code": 6005,
+      "name": "DeadlineInPast",
+      "msg": "Deadline must be in the future"
+    },
+    {
+      "code": 6006,
+      "name": "InvalidTeamIndex",
+      "msg": "Team index must be 0 or 1"
+    },
+    {
+      "code": 6007,
+      "name": "ChallengeAlreadySettled",
+      "msg": "Challenge has already been settled"
+    },
+    {
+      "code": 6008,
+      "name": "DeadlinePassed",
+      "msg": "Challenge's join/deposit deadline has passed"
+    },
+    {
+      "code": 6009,
+      "name": "DeadlineNotReached",
+      "msg": "Challenge's deadline has not been reached yet"
+    },
+    {
+      "code": 6010,
+      "name": "MemberCountMismatch",
+      "msg": "Number of accounts/counts does not match the challenge's actual roster"
+    },
+    {
+      "code": 6011,
+      "name": "DuplicateMember",
+      "msg": "The same member was included more than once"
+    },
+    {
+      "code": 6012,
+      "name": "MemberMismatch",
+      "msg": "A provided account is not a member of this challenge"
+    },
+    {
+      "code": 6013,
+      "name": "ChallengeNotSettled",
+      "msg": "Challenge has not been settled yet"
+    },
+    {
+      "code": 6014,
+      "name": "AlreadyClaimed",
+      "msg": "This member has already claimed their payout"
+    },
+    {
+      "code": 6015,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "Challenge",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "group",
+            "type": "pubkey"
+          },
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "alpha_bps",
+            "type": "u16"
+          },
+          {
+            "name": "rake_bps",
+            "type": "u16"
+          },
+          {
+            "name": "target",
+            "type": "u32"
+          },
+          {
+            "name": "stake_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "deadline_unix",
+            "type": "i64"
+          },
+          {
+            "name": "total_staked_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "winning_team",
+            "type": "u8"
+          },
+          {
+            "name": "rules_version",
+            "type": "u16"
+          },
+          {
+            "name": "settled",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitializeArgs",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "oracle",
+            "type": "pubkey"
+          },
+          {
+            "name": "alpha_bps",
+            "type": "u16"
+          },
+          {
+            "name": "rake_bps",
+            "type": "u16"
+          },
+          {
+            "name": "target",
+            "type": "u32"
+          },
+          {
+            "name": "stake_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "deadline_unix",
+            "type": "i64"
+          },
+          {
+            "name": "team_a_name",
+            "type": "string"
+          },
+          {
+            "name": "team_b_name",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Pot",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "creator",
+            "type": "pubkey"
+          },
+          {
+            "name": "id",
+            "type": "u64"
+          },
+          {
+            "name": "balance_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Team",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "index",
+            "type": "u8"
+          },
+          {
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "name": "member_count",
+            "type": "u16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TeamMember",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "team",
+            "type": "pubkey"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "stake_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "counted_units",
+            "type": "u64"
+          },
+          {
+            "name": "payout_lamports",
+            "type": "u64"
+          },
+          {
+            "name": "claimed",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Treasury",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Vault",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "challenge",
+            "type": "pubkey"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -11,9 +11,6 @@ export function Nav() {
         <Link href="/challenges/new" className="hover:underline">
           Create
         </Link>
-        <Link href="/challenges/demo" className="hover:underline">
-          Scoreboard
-        </Link>
         <WalletButton />
       </nav>
     </header>

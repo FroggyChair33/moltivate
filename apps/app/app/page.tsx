@@ -19,12 +19,6 @@ export default function Home() {
         >
           Create a challenge
         </Link>
-        <Link
-          href="/challenges/demo"
-          className="rounded-full border border-black/10 px-6 py-3 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
-        >
-          View demo scoreboard
-        </Link>
       </div>
     </div>
   );
