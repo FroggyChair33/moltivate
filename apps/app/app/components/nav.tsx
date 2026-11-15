@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { WalletButton } from "./wallet-button";
+import { DisplayNameEditor } from "./display-name-editor";
+import { CurrentChallengeLink } from "./current-challenge-link";
 
 export function Nav() {
   return (
@@ -11,6 +13,8 @@ export function Nav() {
         <Link href="/challenges/new" className="hover:underline">
           Create
         </Link>
+        <CurrentChallengeLink />
+        <DisplayNameEditor />
         <WalletButton />
       </nav>
     </header>
