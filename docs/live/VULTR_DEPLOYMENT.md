@@ -179,6 +179,38 @@ Local Codex must carry out these steps, not merely mark this checklist complete:
 
 ## Deployment record required
 
+2026-11-15 service checkpoint. User systemd units moltivate-agent.service and
+moltivate-control.service run from ~/moltivate-live as the existing unprivileged
+moltivate account. Both are enabled and passed restart checks. The control API
+listens on 127.0.0.1:8080 only. Unsigned start returned 401; signed start/status/end
+returned 202/200/200. Authentication/replay and durable reservation tests passed
+using .transport-venv (aiohttp is already pinned in its lockfile).
+
+Private command keys were generated on the VM in
+~/.config/moltivate-live/control.env, mode 600. Durable state is under
+~/.local/state/moltivate-live. Never put these command keys in browser settings.
+The coach uses the existing private transport.env and natural voice cache.
+This remains a reservation-only API. /readyz intentionally reports 503.
+
+The existing SSH account is used for this increment. Dedicated service-account
+isolation, pinned release directories, HTTPS hostname/certificate, boot
+persistence (linger currently disabled), Chert caller pairing and callbacks
+remain pending. The persistent agent does not persist the expiring Chert CLI
+test binding. No always-on FaceTime routing is claimed.
+
+Operator checks:
+
+```bash
+systemctl --user status moltivate-agent moltivate-control
+curl -fsS http://127.0.0.1:8080/healthz
+systemctl --user restart moltivate-agent moltivate-control
+```
+
+To withdraw this increment, stop and disable moltivate-control and
+moltivate-agent with systemctl --user. Preserve the SQLite state and private
+configuration. Manual phone testing can resume from the prior tested coach
+release 6ba0f17 once a fresh Chert slot is opened.
+
 Update this file with actual release SHA, hostname, service name, deployment time, health checks, real-call tracking/count/audio latency, callback acceptance evidence and rollback release SHA. A target such as p95 count latency under 500 ms is not a measured result.
 
 Rollback: stop accepting new sessions, cleanly end the active call, switch to the previous known-good release and restart the service. Keep durable idempotency/outbox state; do not restore stale session state that could duplicate counts. Preserve old CLI directories throughout.

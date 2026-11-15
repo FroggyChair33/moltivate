@@ -77,11 +77,15 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
   countdown and checks framing again before “Go”. The squat counter follows
   the primary pose and ignores clearly separate secondary detections. It
   clears unfinished reps when the primary disappears or becomes ambiguous.
-- **Next action:** run a squat-only FaceTime test. Start partially out of frame,
-  then step back and stand side-on. Confirm the countdown waits for full-body
-  framing, compare spoken counts with manual counts, and check the evidence
-  flags. Follow the
-  [manual live rep test](VULTR_DEPLOYMENT.md#manual-live-rep-test).
+- **Next action:** finish HTTPS and caller pairing for app integration.
+  The user systemd units moltivate-agent and moltivate-control are installed,
+  enabled and active on Vultr. Restart and localhost signed API smoke passed.
+  Linger is still disabled, so reboot/logout persistence awaits
+  `sudo loginctl enable-linger moltivate`. A worker hostname/DNS and privileged
+  TLS proxy setup remain pending. The API currently reserves capacity only.
+  It does not authorize a Chert caller or bind a call/result to that reservation.
+  Keep readiness false until pairing, transport binding and durable callbacks
+  are implemented. The app owner must approve the contract before UI wiring.
 
 
 ## Checkout and model

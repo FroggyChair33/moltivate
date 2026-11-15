@@ -1,0 +1,21 @@
+[Unit]
+Description=Moltivate LiveKit workout coach
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/moltivate-live
+EnvironmentFile=%h/.config/moltivate-live/transport.env
+Environment=MOLTIVATE_LIVE_EXERCISE=squats
+Environment=MOLTIVATE_NATURAL_VOICE=1
+ExecStart=%h/moltivate-live/.transport-venv/bin/python -u services/vision-worker/transport_probe.py start
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+MemoryMax=2G
+
+[Install]
+WantedBy=default.target
