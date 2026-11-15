@@ -1,4 +1,31 @@
-# Validation record — motion-experiment-0.3.0
+# Validation record — motion-experiment-0.3.1
+
+## 0.3.1 regression increment
+
+The user ran v0.3.0 on Vultr and reported 112/112 usable frames, knee range
+70.825–160.091°, zero complete/partial cycles and an unfinished cycle. The
+160° neutral threshold plus endpoint dwell prevented neutral acquisition.
+Good tracking alone did not establish correct counting. The exact per-frame
+3D trace and raw workout video were not available on this implementation host.
+
+- **41 automated tests passed**, none skipped. The nine added tests cover
+  explicit reference calibration, missing/cropped/unstable/too-bent references,
+  interval bounds, minimum motion separation, stationary negative control,
+  and a synthetic 157° top-angle regression (uncalibrated zero → calibrated
+  two complete + one partial). This is not the user's actual trajectory.
+- A full CLI run with **mock inference** and real FFmpeg decoding/encoding
+  replayed 36 synthetic landmark frames with calibration, producing two full
+  cycles, one initial partial, a 152° neutral threshold and matching output
+  artifacts. This exercises the calibration/overlay path, not vision accuracy.
+- Real MediaPipe CPU inference on the blank MOV still produced 20 frames,
+  zero detections/reps and `needs_retry`; the overlay completed after refactoring.
+- Python compilation passed. Dependencies and model remain unchanged.
+
+The corrected counter still needs a real rerun of the user's clip and visual
+confirmation of the selected standing interval. No claim is made that the
+new result must be four reps or that it verifies form/payouts.
+
+## Original 0.3.0 validation
 
 Implemented for the November 15, 2026 Moltivate worker increment. These checks
 ran on the implementation host, not on the user's Vultr VM.

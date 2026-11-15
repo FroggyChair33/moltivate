@@ -3,7 +3,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 import math
 
-VERSION = "motion-experiment-0.3.0"
+VERSION = "motion-experiment-0.3.1"
 EXERCISES = ("squats", "pushups", "situps", "jumping_jacks")
 SIDES = {"left": (11, 13, 15, 23, 25, 27), "right": (12, 14, 16, 24, 26, 28)}
 RULES = {
@@ -70,7 +70,7 @@ def check_points(pose, indices, minimum=0.65):
     return ("low_landmark_confidence" if score < minimum else None), score
 
 
-def extract(pose, exercise, side="left"):
+def extract(pose, exercise, side="left", squat_standing=160):
     """World joint angles + conservative image posture gates. Requires a level camera.
 
     Posture gates are movement filters, NOT biomechanical form assessment.
@@ -104,7 +104,7 @@ def extract(pose, exercise, side="left"):
         if exercise == "squats":
             if elevation < 0.25 or p[a][1] - p[h][1] < 0.04:
                 return Feature(confidence=confidence, reason="squat_posture_not_visible", values=values)
-            state = "neutral" if knee >= 160 else "active" if knee <= 110 else "middle"
+            state = "neutral" if knee >= squat_standing else "active" if knee <= 110 else "middle"
         elif exercise == "pushups":
             elbow = angle(q[s], q[e], q[w])
             body = angle(q[s], q[h], q[a])
@@ -145,10 +145,13 @@ class CycleCounter:
         self.initial = True
         self.last_t = self.neutral_since = self.active_since = self.started = self.last_neutral = None
         self.events = []
+        self.neutral_holds = 0
+        self.was_neutral = False
 
     def reset(self):
         self.phase, self.initial = "seeking_neutral", False
         self.neutral_since = self.active_since = self.started = self.last_neutral = None
+        self.was_neutral = False
 
     def update(self, t, state):
         if not math.isfinite(t) or t < 0 or self.last_t is not None and t <= self.last_t:
@@ -165,6 +168,9 @@ class CycleCounter:
         self.active_since = (t if self.active_since is None else self.active_since) if state == "active" else None
         neutral = self.neutral_since is not None and t - self.neutral_since >= self.dwell - 1e-8
         active = self.active_since is not None and t - self.active_since >= self.dwell - 1e-8
+        if neutral and not self.was_neutral:
+            self.neutral_holds += 1
+        self.was_neutral = neutral
         if self.started is not None and t - self.started > self.max_seconds:
             self.reset()
             return
@@ -189,18 +195,22 @@ class CycleCounter:
             self.phase, self.initial, self.last_neutral, self.started = "ready", False, t, None
 
     def result(self):
-        return {"complete_cycles": sum(e["type"] == "complete_cycle" for e in self.events),
+        return {"neutral_holds_observed": self.neutral_holds,
+                "complete_cycles": sum(e["type"] == "complete_cycle" for e in self.events),
                 "initial_partial_cycles": sum(e["type"] == "initial_partial" for e in self.events),
                 "unfinished_cycle": self.phase in ("active", "initial_partial") or self.started is not None,
                 "events": self.events}
 
 
 class MotionSession:
-    def __init__(self, exercise, side="auto"):
+    def __init__(self, exercise, side="auto", squat_standing=160):
         if exercise not in EXERCISES or side not in ("auto", "left", "right"):
             raise ValueError("Unsupported exercise or side")
         if exercise == "jumping_jacks" and side != "auto":
             raise ValueError("Jumping jacks require both sides; use --side auto")
+        if not math.isfinite(squat_standing) or not 140 <= squat_standing <= 175:
+            raise ValueError("Squat standing threshold must be between 140 and 175 degrees")
+        self.squat_standing = squat_standing
         self.exercise, self.preference = exercise, side
         self.counter = CycleCounter(min_seconds=0.4 if exercise == "jumping_jacks" else 0.5)
         self.side = None
@@ -224,9 +234,11 @@ class MotionSession:
             feature = Feature(reason="no_person_detected" if not poses else "multiple_people_detected")
         else:
             self.detected += 1
-            candidates = {s: extract(poses[0], self.exercise, s) for s in SIDES}
+            candidates = {s: extract(poses[0], self.exercise, s, self.squat_standing) for s in SIDES}
             row.update({s + "_confidence": round(f.confidence, 3) for s, f in candidates.items()})
             row.update({s + "_reason": f.reason for s, f in candidates.items()})
+            for s, f in candidates.items():
+                row.update({s + "_" + key: round(value, 3) for key, value in f.values.items()})
             if self.exercise == "jumping_jacks":
                 self.side = "both"
                 feature = candidates["left"]
@@ -270,6 +282,11 @@ class MotionSession:
             reasons.append("insufficient_tracking_coverage")
         if self.reasons["multiple_people_detected"]:
             reasons.append("multiple_people_in_clip")
+        if self.usable >= 10 and self.counter.neutral_holds == 0:
+            reasons.append("neutral_endpoint_not_observed")
+        rules = dict(RULES[self.exercise])
+        if self.exercise == "squats":
+            rules["knee_extended_min"] = self.squat_standing
         return {
             "verifier_version": VERSION, "exercise": self.exercise,
             "status": "needs_retry" if reasons else "experimental_only",
@@ -277,7 +294,7 @@ class MotionSession:
             "identity_verified": False, "liveness_verified": False,
             "exercise_identity_verified": False,
             "coordinate_mode": "estimated_world_3d_with_image_posture_gates",
-            "rules": RULES[self.exercise], "frames_analyzed": self.frames,
+            "rules": rules, "frames_analyzed": self.frames,
             "single_person_frames": self.detected, "usable_joint_frames": self.usable,
             "usable_fraction": round(fraction, 3), "retry_reasons": reasons,
             "rejected_frame_reasons": dict(self.reasons),

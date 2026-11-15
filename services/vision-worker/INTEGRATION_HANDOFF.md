@@ -18,6 +18,17 @@ that Supabase/oracle credentials are available.
 
 ## Implemented
 
+Version 0.3.1 addresses the first user-reported v0.3 result: 112/112 usable
+squat frames but zero counts, with the 3D knee maximum at 160.091°. Neutral
+endpoint acquisition now has its own diagnostic and can cause `needs_retry`
+despite good landmark coverage. Explicit `--squat-standing-window START END`
+calibration uses an operator-labeled held standing interval, freezes its side
+and threshold, then replays cached poses; it does not select thresholds to
+produce a desired rep total. Output records the reference and does not verify
+that the operator's label is correct. For a future live flow, collect an
+explicit standing reference before exercise and validate it; that live flow is
+not implemented here.
+
 - CLI processing of local footage on CPU; MediaPipe Tasks + FFmpeg.
 - Experimental squat, push-up, sit-up and jumping-jack motion rules.
 - Automatic visible-side selection, 3D joint angles, conservative posture gates,
@@ -41,7 +52,8 @@ artifact directory is not a successful job.
 Core fields: `verifier_version`, `exercise`, `status`, `complete_cycles`,
 `initial_partial_cycles`, `events`, `frames_analyzed`, `usable_joint_frames`,
 `usable_fraction`, `retry_reasons`, `rejected_frame_reasons`,
-`side_acquisitions`, `feature_ranges`, `model_sha256` and `mediapipe_version`.
+`side_acquisitions`, `feature_ranges`, `neutral_holds_observed`, `calibration`,
+`model_sha256` and `mediapipe_version`.
 Events contain a type, start time and end time relative to the decoded clip.
 They are not server-issued workout/session identities or trusted timestamps.
 

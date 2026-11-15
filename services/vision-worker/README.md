@@ -1,4 +1,4 @@
-# Moltivate vision worker — experiment 0.3
+# Moltivate vision worker — experiment 0.3.1
 
 An isolated **local-video CPU worker** for squats, push-ups, sit-ups and jumping
 jacks. It counts candidate movement cycles and writes diagnostics. It does not
@@ -78,6 +78,43 @@ python moltivate_motion.py ~/moltivate-vision/videos/squats.mp4 \
   --exercise squats --output-dir results/squats-v03 --overlay
 ```
 
+### If tracking works but no standing endpoint is recognized
+
+The first real v0.3 run of the original squat clip tracked 112/112 frames, yet
+reported zero cycles: estimated 3D knee angles peaked at 160.091°, barely above
+the fixed 160° standing threshold. A single maximum cannot establish a held
+neutral position. Version 0.3.1 reports `neutral_endpoint_not_observed` and
+`needs_retry` in that situation instead of merely reporting tracking success.
+
+Inspect the original overlay and identify **0.4–3 seconds visibly held fully
+standing**. Use that interval explicitly for diagnostic calibration:
+
+```bash
+git pull --ff-only
+python moltivate_motion.py ~/moltivate-vision/videos/squats.mp4 \
+  --exercise squats --squat-standing-window 1.6 2.2 \
+  --output-dir results/squats-v031 --overlay
+```
+
+The example interval comes from the earlier diagnostic trace for this particular
+clip; confirm it in the overlay before using it. Other videos require their own
+standing interval. Do not use a squat bottom or a partial standing position.
+This operator label is not proof of standing and does not verify form.
+
+Calibration requires at least five consecutive usable frames of the same side,
+median angle ≥145° and spread ≤12°. It sets neutral to the reference's lower
+decile minus a fixed 5° allowance, bounded to 140–175°. Bent remains 110°,
+so at least a 30° separation is preserved. These bounds are experimental, not
+medical limits. Invalid references fail explicitly without publishing a result.
+
+The worker then replays cached poses with that reference side fixed and writes
+matching counts, CSV and overlay. It runs inference once; an optional overlay
+adds a second video decode without retaining pixels in memory. The chosen
+reference and threshold are recorded in `calibration` and `rules`. It never
+calibrates from the maximum angle, requested rep total, or number of detected
+cycles. An initial partial remains separate, and tracking gaps still reset reps.
+This is a diagnostic workflow, not a validated automatic camera calibration.
+
 Use a **new output directory per run**; existing results are never overwritten.
 Then test the new recording, for example:
 
@@ -114,8 +151,9 @@ fix capture/decode issues before adjusting movement thresholds.
 
 `experimental_only` means enough frames passed the measurement gates; it never
 means an accepted or verified workout. `needs_retry` is returned for fewer than
-10 usable frames, under 75% usable coverage, or any detected multiple-person
-frame. `complete_cycles` in either status are **observed candidate cycles only**.
+10 usable frames, under 75% usable coverage, any detected multiple-person
+frame, or no held neutral endpoint despite at least 10 usable frames.
+`complete_cycles` in either status are **observed candidate cycles only**.
 
 Every result includes `payout_eligible: false`, `form_assessed: false`,
 `identity_verified: false`, `liveness_verified: false` and
@@ -153,7 +191,7 @@ Do not put them on-chain or in a public PR.
 
 ```bash
 python -m unittest discover -s tests -v
-python -m py_compile motion_core.py moltivate_motion.py
+python -m py_compile motion_core.py calibration.py moltivate_motion.py
 bash -n bootstrap.sh
 ```
 

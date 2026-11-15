@@ -16,6 +16,7 @@ import tempfile
 import time
 
 from motion_core import EXERCISES, MotionSession, Pose
+from calibration import squat_reference
 
 SIZE, FPS = 640, 10
 MAX_SECONDS, MAX_BYTES, JOB_TIMEOUT = 60, 100 * 1024**2, 180
@@ -122,6 +123,9 @@ def analyze(args):
     if not model.is_file() or not 0 < model.stat().st_size < 100 * 1024**2:
         raise ValueError("Invalid model file")
     metadata = probe_video(video)
+    reference_window = getattr(args, "squat_standing_window", None)
+    if reference_window and args.exercise != "squats":
+        raise ValueError("Standing-window calibration is only supported for squats")
     directory = Path(args.output_dir).resolve()
     directory.mkdir(parents=True, mode=0o700, exist_ok=False)
     os.chmod(directory, 0o700)
@@ -129,7 +133,8 @@ def analyze(args):
     alarm_before = signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm(JOB_TIMEOUT)
     started = time.perf_counter()
-    session, rows = MotionSession(args.exercise, args.side), []
+    session, rows, pose_frames = MotionSession(args.exercise, args.side), [], []
+    calibration = None
     try:
         import numpy as np
         import mediapipe as mp
@@ -144,13 +149,6 @@ def analyze(args):
         # Temp stderr avoids pipe deadlock and keeps library warnings out of JSON.
         with tempfile.TemporaryFile() as decode_log, tempfile.TemporaryFile() as encode_log:
             decoder = subprocess.Popen(decoder_command(video), stdout=subprocess.PIPE, stderr=decode_log)
-            if args.overlay:
-                encoder = subprocess.Popen([
-                    "ffmpeg", "-nostdin", "-v", "error", "-n", "-f", "rawvideo", "-pixel_format", "rgb24",
-                    "-video_size", f"{SIZE}x{SIZE}", "-framerate", str(FPS), "-i", "pipe:0",
-                    "-an", "-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", "24",
-                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(directory / "overlay.partial.mp4"),
-                ], stdin=subprocess.PIPE, stderr=encode_log)
             with PoseLandmarker.create_from_options(options) as detector:
                 while True:
                     data = decoder.stdout.read(SIZE * SIZE * 3)
@@ -167,13 +165,36 @@ def analyze(args):
                     poses = pose_from_result(result)
                     row = session.update(stamp / 1000, poses)
                     rows.append(row)
-                    if encoder:
-                        encoder.stdin.write(draw_overlay(pixels, poses, row,
-                                                         session.counter.result()["complete_cycles"], args.exercise))
+                    if args.overlay or reference_window:
+                        pose_frames.append(poses)
             if decoder.wait(timeout=10) != 0:
                 decode_log.seek(0)
                 raise ValueError("Decode failed: " + decode_log.read(1500).decode(errors="replace"))
-            if encoder:
+            stop_process(decoder)
+            if reference_window:
+                calibration = squat_reference(rows, *reference_window)
+                session = MotionSession("squats", calibration["side"], calibration["knee_extended_min"])
+                rows = [session.update(i / FPS, poses) for i, poses in enumerate(pose_frames)]
+            if args.overlay:
+                # Re-decode pixels, not inference. This keeps annotated counts in
+                # sync with the calibrated replay without buffering video in RAM.
+                decoder = subprocess.Popen(decoder_command(video), stdout=subprocess.PIPE, stderr=decode_log)
+                encoder = subprocess.Popen([
+                    "ffmpeg", "-nostdin", "-v", "error", "-n", "-f", "rawvideo", "-pixel_format", "rgb24",
+                    "-video_size", f"{SIZE}x{SIZE}", "-framerate", str(FPS), "-i", "pipe:0",
+                    "-an", "-c:v", "libx264", "-threads", "2", "-preset", "veryfast", "-crf", "24",
+                    "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(directory / "overlay.partial.mp4"),
+                ], stdin=subprocess.PIPE, stderr=encode_log)
+                completions = [e["end_seconds"] for e in session.counter.events if e["type"] == "complete_cycle"]
+                for row, poses in zip(rows, pose_frames):
+                    data = decoder.stdout.read(SIZE * SIZE * 3)
+                    if len(data) != SIZE * SIZE * 3:
+                        raise ValueError("Overlay replay has missing frames")
+                    pixels = np.frombuffer(data, np.uint8).reshape(SIZE, SIZE, 3)
+                    count = sum(t <= row["seconds"] + 1e-8 for t in completions)
+                    encoder.stdin.write(draw_overlay(pixels, poses, row, count, args.exercise))
+                if decoder.stdout.read(1) or decoder.wait(timeout=10) != 0:
+                    raise ValueError("Overlay replay does not match analyzed frames")
                 encoder.stdin.close()
                 encoder.stdin = None
                 if encoder.wait(timeout=10) != 0:
@@ -182,6 +203,7 @@ def analyze(args):
             if not session.frames:
                 raise ValueError("No video frames decoded")
         result = session.result()
+        result["calibration"] = calibration
         with model.open("rb") as model_file:
             model_sha = hashlib.file_digest(model_file, "sha256").hexdigest()
         result.update(input_metadata=metadata, model_sha256=model_sha,
@@ -215,6 +237,8 @@ def main():
     parser.add_argument("--side", choices=("auto", "left", "right"), default="auto")
     parser.add_argument("--output-dir", required=True, help="New private directory; never overwrites an existing run")
     parser.add_argument("--overlay", action="store_true", help="Save a 10-fps skeleton video for inspection")
+    parser.add_argument("--squat-standing-window", type=float, nargs=2, metavar=("START", "END"),
+                        help="Experimental calibration: seconds visibly held fully standing in this clip")
     args = parser.parse_args()
     os.umask(0o077)
     try:
