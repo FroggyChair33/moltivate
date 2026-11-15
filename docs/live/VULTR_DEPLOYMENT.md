@@ -193,8 +193,7 @@ The coach uses the existing private transport.env and natural voice cache.
 This remains a reservation-only API. /readyz intentionally reports 503.
 
 The existing SSH account is used for this increment. Dedicated service-account
-isolation, pinned release directories, HTTPS hostname/certificate, boot
-persistence (linger currently disabled), Chert caller pairing and callbacks
+isolation, pinned release directories, HTTPS hostname/certificate, a real reboot test (linger is enabled), Chert caller pairing and callbacks
 remain pending. The persistent agent does not persist the expiring Chert CLI
 test binding. No always-on FaceTime routing is claimed.
 

@@ -80,7 +80,7 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
 - **Next action:** finish HTTPS and caller pairing for app integration.
   The user systemd units moltivate-agent and moltivate-control are installed,
   enabled and active on Vultr. Restart and localhost signed API smoke passed.
-  Linger is still disabled, so reboot/logout persistence awaits
+  Linger=yes is now verified after the operator ran
   `sudo loginctl enable-linger moltivate`. A worker hostname/DNS and privileged
   TLS proxy setup remain pending. The API currently reserves capacity only.
   It does not authorize a Chert caller or bind a call/result to that reservation.
