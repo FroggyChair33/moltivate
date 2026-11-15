@@ -178,13 +178,6 @@ function NewChallengeForm() {
           />
         </Field>
 
-        <p className="rounded-lg bg-black/[.03] p-3 text-xs text-zinc-600 dark:bg-white/[.06] dark:text-zinc-400">
-          House rules, not yours to set: {HOUSE_ALPHA_PERCENT}% of your stake is always at
-          risk even if you hit your goal, and the house takes a {HOUSE_RAKE_PERCENT}% rake
-          from forfeits only (never from a winner&apos;s principal, waived entirely if both
-          teams pass).
-        </p>
-
         <Field label="Duration (days) -- use a small fraction like 0.002 (~3 min) for a devnet demo">
           <input
             required
@@ -238,6 +231,13 @@ function NewChallengeForm() {
         >
           {submitting ? "Creating on devnet..." : isRematch ? "Start rematch" : "Create"}
         </button>
+
+        <p className="text-center text-[11px] leading-relaxed text-zinc-500">
+          House rules, not yours to set: {HOUSE_ALPHA_PERCENT}% of your stake is always at
+          risk even if you hit your goal, and the house takes a {HOUSE_RAKE_PERCENT}% rake
+          from forfeits only (never from a winner&apos;s principal, waived entirely if both
+          teams pass).
+        </p>
       </form>
     </div>
   );
