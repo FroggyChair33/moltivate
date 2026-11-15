@@ -2,6 +2,8 @@
 
 ## Start here
 
+**If `HANDOFF.md` exists at the repo root, read it before anything else in this file.** It's a mid-session handoff note - current work-in-progress state, exact next steps, secrets/credentials handling, and environment gotchas that took real time to discover. It is not always present (it's written ad hoc when work hands off between agents/sessions, and isn't guaranteed to be committed) - if it's missing, proceed with the rest of this file as normal.
+
 This repository belongs to **Moltivate**, a mobile social fitness competition app. Read [readme.md](readme.md) for product intent and [architecture.md](architecture.md) for the proposed technical design before implementing changes.
 
 The repository contains an implemented static landing/preview site in `apps/web/` and planning documents for the real product. The functional app (wallet, challenges, workouts, scoreboard, settlement), its API, the verification worker, and the Solana program remain unimplemented. Distinguish decisions, proposals, implemented behavior, and verified behavior. Never describe a proposed service, unrun test, or simulated transaction as working production functionality.
