@@ -97,7 +97,20 @@ SSH, preflight and `pip check` passed. A temporary LiveKit 1.13.11 server
 on Vultr delivered synthetic 64×96 video and mono caller audio to the probe,
 returned a non-silent cue, and showed the agent leaving after the peer
 disconnected. The temporary server and agent were stopped. The synthetic
-room was deleted. There is no measured phone latency or production release.
+room was deleted.
+
+- On 2026-11-15, a real iPhone placed one inbound FaceTime Video call through
+  Chert CLI `0.1.0-beta.21` to the Vultr probe at `6fdbb57`. Chert reported
+  acceptance in 0.1 s. That measures the call decision.
+- The probe received changing 1280×720 frames with rotation 0 and a 48 kHz
+  mono caller audio track. The caller confirmed hearing the generated tone.
+- After hangup, both caller tracks unsubscribed, the bridge disconnected,
+  and the probe logged media cleanup. Chert reported the call ended and
+  briefly reported no warm agent before confirming a replacement waiting
+  room. Verify readiness again before a second call.
+- End-to-end audio and count latency remain unmeasured. This was a manual
+  transport test. Persistent service, HTTPS and Vercel integration are
+  pending.
 
 
 ## Finish deployment after the live agent is implemented
@@ -120,4 +133,7 @@ Rollback: stop accepting new sessions, cleanly end the active call, switch to th
 
 ### Remaining external prerequisites
 
-The laptop SSH route passed preflight. The real call still requires a provisioned Chert line with caller video, private LiveKit configuration, and an iPhone operator. Production HTTPS and Vercel integration also require a worker hostname and coordination with the app owner.
+The laptop SSH route passed preflight. Repeat phone tests use the assigned
+Chert line with caller capture and the private LiveKit configuration on
+Vultr. Production HTTPS and Vercel integration require a worker hostname
+and coordination with the app owner.

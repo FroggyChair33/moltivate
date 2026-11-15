@@ -17,11 +17,17 @@ Updated 2026-11-15. This is the current handoff, superseding older hosting and n
   cue by the synthetic peer, and agent departure after peer disconnect.
   The test server was stopped. LiveKit emitted FFI handle warnings during
   teardown. The room had no remaining participants and was deleted.
-- **Next action:** provision and authorize the Chert line, enter a newly
-  issued LiveKit credential set on the VM, and run the two-terminal phone
-  check in [VULTR_DEPLOYMENT.md](VULTR_DEPLOYMENT.md). Caller-camera capture,
-  audible FaceTime output, and real-call cleanup are pending. Move to live
-  pose tracking only after this call passes.
+- **Real-phone transport passed on 2026-11-15.** Vultr ran commit `6fdbb57`
+  and Chert CLI `0.1.0-beta.21` on the existing line. One inbound FaceTime
+  Video call delivered changing 1280×720 frames and 48 kHz mono caller audio.
+  The caller heard the generated tone. The bridge disconnected and the
+  probe logged cleanup after hangup.
+- **Next action:** build the live frame adapter around the existing warm
+  MediaPipe model and rep tracker. Start with squats and flexible-profile
+  pushups, and count only during the active set. Check that the next room is
+  warm before each call. Chert briefly reported no warm agent after hangup,
+  then confirmed a replacement waiting room.
+  See the [deployment record](VULTR_DEPLOYMENT.md#transport-evidence).
 
 
 ## Checkout and model
