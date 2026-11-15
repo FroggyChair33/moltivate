@@ -13,7 +13,7 @@ export default function Home() {
         <div className="action-row"><Link href="/challenges/new" className="button-primary">Make a commitment <ClubIcon kind="arrow" /></Link><Link href="/coach" className="text-link">Meet your coach ↗</Link></div>
         <span className="hand-note">better together. always.</span>
       </div>
-      <div className="hero-photos"><span className="photo-sun" /><Polaroid caption="the showing-up club" /><Polaroid caption="one more? you got this." tone="sage" tilt={7} /></div>
+      <div className="hero-photos"><span className="photo-sun" /><Polaroid src="/photos/tracksuit-crew.jpg" alt="A crew in matching tracksuits lifting in a small gym" position="center 70%" caption="the showing-up club" /><Polaroid src="/photos/heavy-gains.jpg" alt="A man in a tuxedo squatting a barbell while his gym crew cheers" position="center 40%" caption="one more? you got this." tone="sage" tilt={7} /></div>
     </section>
     <div className="club-ribbon"><span>SMALL WINS, SHARED.</span><span aria-hidden="true">✳</span><span>PUT YOUR MONEY WHERE YOUR MUSCLES ARE.</span><span aria-hidden="true">✳</span><span>STAY MOLTIVATED.</span></div>
     <section className="home-grid">

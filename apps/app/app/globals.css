@@ -125,7 +125,7 @@ html { scroll-padding-top: 24px; }
 .photo-sun { position: absolute; width: 330px; height: 330px; background: #edcf7755; border-radius: 50%; }
 .polaroid { position: relative; width: 230px; max-width: 100%; margin: 8px; padding: 12px 12px 10px; background: #fffef9; border: 1px solid #dddcd1; box-shadow: 0 9px 20px #33452a12, 2px 3px 0 #d8d6c5; transform: rotate(var(--tilt)); }
 .polaroid::before { content: ""; position: absolute; width: 74px; height: 24px; top: -12px; left: calc(50% - 37px); background: #d8cda28c; transform: rotate(-6deg); z-index: 1; }
-.polaroid-photo { aspect-ratio: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; color: #9a563b; background: #efd6bc; border: 1px solid #173e2c0a; }
+.polaroid-photo { position: relative; overflow: hidden; aspect-ratio: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; color: #9a563b; background: #efd6bc; border: 1px solid #173e2c0a; }
 .polaroid-photo span { font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase; }
 .polaroid-sage .polaroid-photo { background: #dce2c8; color: #58714b; }
 .polaroid figcaption { font: 23px/1.3 var(--font-hand), cursive; text-align: center; padding-top: 13px; color: var(--green); }

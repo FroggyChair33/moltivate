@@ -6,11 +6,36 @@ Moltivate is a mobile fitness competition app where friends form teams, put mone
 
 **Are you Moltivated?**
 
-[Live demo](https://staymoltivated.club) · [Demo CI](https://github.com/betrji/moltivate/actions/workflows/demo.yml) · [CI/CD guide](docs/ci-cd.md)
+[Live app (devnet)](https://moltivate.vercel.app) · [Landing page](https://staymoltivated.club) · [Demo CI](https://github.com/betrji/moltivate/actions/workflows/demo.yml) · [CI/CD guide](docs/ci-cd.md)
 
 The complete demo source lives in `apps/web/`. The demo is public at staymoltivated.club; GitHub Actions produces tested build artifacts, with optional GitHub Pages deployment when a public host is selected.
 
-> Status (2026-11-15): the marketing demo is in `apps/web`; the Next.js app and Anchor source are now present. This branch also contains the experimental CPU vision CLI and Expo preparation component. Live Chert coaching, a deployed VM API, and an end-to-end accepted workout remain unfinished. See [the current Codex handoff](docs/live/CODEX_START.md). Devnet/test SOL only.
+> Status (2026-11-15): the functional app (`apps/app`) is deployed at [moltivate.vercel.app](https://moltivate.vercel.app) against an Anchor program on Solana devnet. The create → join → camera workout → settle → claim loop was run end to end on devnet from a local build; the deployed build has been checked for page loads and its database connection only. Live FaceTime coaching through Chert is wired to a button but not verified end to end, and its counts never feed settlement. Devnet/test SOL only. Sections below marked "planned" predate the app and are kept for history; where they disagree with this block or with [AGENTS.md](AGENTS.md), they are stale.
+
+## The functional app (`apps/app`)
+
+Two teams each stake devnet SOL on a shared rep goal. The program escrows the stakes; after the deadline an oracle reports each member's count, the program computes every payout, and members claim.
+
+| Piece | What exists |
+| --- | --- |
+| Frontend + API | Next.js (TypeScript) on Vercel: create, join by invite link, scoreboard, results, claim, rematch |
+| Wallet | Phantom via `@solana/wallet-adapter`, desktop browsers; phone wallet connect is not working yet |
+| Workout capture | In-browser MediaPipe pose tracking counts squats from the knee angle, with a liveness prompt. Recorded as `unverified` |
+| On-chain program | Anchor (Rust), devnet, `DhWeNpUmpxjSXdZ6iN1VCbP1WJVAYg9Yrprtx1LBPDum`: `initialize`, `initialize_group`, `join_team`, `settle`, `claim` |
+| Oracle | A server-side keypair in `/api/oracle/settle` sums accepted sessions from Supabase and signs `settle()` |
+| Database | Supabase (Postgres): display names, workout sessions, vision events. An index only; the program is the authority on funds |
+| Live coach | Python worker on a Vultr VM (`services/vision-worker`) behind Chert's FaceTime bridge. Experimental, never payout-eligible |
+
+Settlement rules, enforced on chain in integer lamports (`programs/commitment-stakes/.../math.rs`):
+
+- A team passes when its members' combined reps reach `members × goal`. One member's contribution is capped at 150% of their own goal.
+- One team passes: each losing member forfeits `stake × (20% + 80% × their shortfall)`. The house takes 3% of everything staked (never more than the forfeits). Winners get their stake back plus the rest, split by reps contributed.
+- Both fail: everyone forfeits by the same formula; after the house cut the remainder goes to the group's persistent pot.
+- Both pass: everyone gets their stake back plus an equal share of a bonus from the pot, at most 5% of the round's stakes.
+
+Known limits: settlement currently counts `unverified` browser sessions, so results are self-reported in the cheating sense; the oracle and the program upgrade authority are single keys the team holds; there is no refund path if the oracle never settles.
+
+Run it: `cd apps/app && npm ci && npm run dev`, with the variables listed in [apps/app/DEPLOYMENT.md](apps/app/DEPLOYMENT.md) in `apps/app/.env.local`.
 
 ## Live coaching handoff
 
@@ -25,7 +50,7 @@ The planned split is **Vercel for the general/Web3 backend**, **Vultr for the lo
 The file worker supports squat, pushup, situp and jumping-jack experiments. Flexible pushup tops use 145 degrees; tracking/posture checks remain. Candidate cycles are not verified form, identity, liveness or payout evidence. Live deployment is pending implementation and authenticated local SSH execution.
 
 
-## Current frontend
+## Landing page (`apps/web`)
 
 The website combines a clear landing page with an interactive phone preview and a searchable Club leaderboard. It is built with HTML, CSS, vanilla JavaScript ES modules, and three custom elements: `<moltivate-demo>`, `<club-board>`, and `<rolling-amount>`.
 
@@ -74,7 +99,7 @@ Knowing you should work out is easy. Following through consistently is harder. M
 
 The brand centers on self-improvement, consistency, and belonging. Competition is the experience; becoming more consistent is the benefit. The name combines **molt**, shedding an old form, with **motivate**.
 
-## How it will work
+## How it works
 
 1. **Join your crew.** Create or join a private challenge with friends.
 2. **Make a commitment.** Review the workout target, team roster, deadlines, deposit, scoring, payout, and refund rules before joining.
@@ -92,16 +117,16 @@ The brand centers on self-improvement, consistency, and belonging. Competition i
 | --- | --- |
 | Project and repository | **Moltivate** / `moltivate` |
 | Emory Hacks track | **Entertainment** |
-| Product | Mobile app for iPhone and Android |
+| Product | Mobile-first web app; a native client is later scope |
 | Core experience | Social team competition built around exercise |
 | Financial infrastructure | Solana; devnet test SOL for the demo |
-| Backend hosting | Our own services on Vultr |
+| Backend hosting | Vercel for the app and API; a Vultr VM for the live-coach worker |
 | Domain identity | The selected `.club` direction; record the exact purchased hostname before configuring DNS and app links |
 | Brand lines | “Are you Moltivated?” · “Stay Moltivated.” · “Put your money where your muscles are.” |
 
 Entertainment is the team's chosen submission track. The demo should show an engaging competition, clear team contributions, and a complete workout-to-settlement loop. GoDaddy domain and other sponsor submissions depend on the event's actual rules; no prize eligibility is assumed here.
 
-## Planned native MVP
+## Planned native MVP (historical)
 
 All items below are planned, not shipped.
 
@@ -132,7 +157,7 @@ The proposed baseline in [architecture.md](architecture.md) rewards meeting comm
 
 These can be evaluated after the core loop works. A mascot or evolution mechanic is optional, not a dependency.
 
-## Planned stack
+## Planned stack (historical — see "The functional app" for what was built)
 
 | Layer | Technology | Responsibility |
 | --- | --- | --- |
@@ -153,7 +178,11 @@ Pin exact package versions after a device integration spike. Android Mobile Wall
 | [readme.md](readme.md) | Product, scope, stack, and build milestones |
 | [architecture.md](architecture.md) | System boundaries, data model, contract rules, failure paths, deployment plan |
 | [AGENTS.md](AGENTS.md) | Instructions and quality expectations for coding agents and contributors |
-| `apps/web/` | Implemented browser frontend, custom elements, styles, and self-hosted assets |
+| `apps/web/` | Landing page: custom elements, styles, and self-hosted assets |
+| `apps/app/` | The functional Next.js app and its API routes |
+| `programs/commitment-stakes/` | Anchor program: escrow, settlement math, claims |
+| `services/vision-worker/` | Python MediaPipe worker and live-coach control API (Vultr) |
+| `supabase/migrations/` | Database schema |
 | `scripts/build.mjs` | Dependency-free build that copies the frontend into `dist/` |
 | `package.json` | Node requirement and the `check` / `build` commands |
 

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 
 export function ClubIcon({ kind, className = "" }: { kind: "home" | "coach" | "club" | "plus" | "arrow"; className?: string }) {
   const paths = {
@@ -10,9 +11,9 @@ export function ClubIcon({ kind, className = "" }: { kind: "home" | "coach" | "c
   return <svg className={className} width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[kind]} /></svg>;
 }
 
-export function Polaroid({ caption, tone = "peach", tilt = -4 }: { caption: string; tone?: "peach" | "sage"; tilt?: number }) {
+export function Polaroid({ src, alt, position = "center", caption, tone = "peach", tilt = -4 }: { src: string; alt: string; position?: string; caption: string; tone?: "peach" | "sage"; tilt?: number }) {
   return <figure className={`polaroid polaroid-${tone}`} style={{ "--tilt": `${tilt}deg` } as CSSProperties}>
-    <div className="polaroid-photo"><svg width="78" height="78" viewBox="0 0 80 80" fill="none" aria-hidden="true"><path d="m20 28 9-12 8 6-9 12m15 12 9-12 8 6-9 12M29 28l23 17M15 24l18 13m14-5 18 13" stroke="currentColor" strokeWidth="6" strokeLinecap="round" /><path d="m58 12 3 5m7 4 4-1M12 53l-3 5m14 1 1 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg><span>Your photo goes here</span></div>
+    <div className="polaroid-photo"><Image src={src} alt={alt} fill sizes="230px" style={{ objectFit: "cover", objectPosition: position }} /></div>
     <figcaption>{caption}</figcaption>
   </figure>;
 }
