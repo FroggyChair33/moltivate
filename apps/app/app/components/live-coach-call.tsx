@@ -111,12 +111,14 @@ export function LiveCoachCall({
       ) : (
         <div className="flex flex-col gap-2">
           <p className="text-xs">
-            Reserved -- state: <strong>{session.state}</strong>. FaceTime{" "}
-            <a href={`facetime:${CHERT_NUMBER.replace(/[^\d+]/g, "")}`} className="underline">
-              {CHERT_NUMBER}
-            </a>{" "}
-            now from a tested device.
+            Reserved -- state: <strong>{session.state}</strong>.
           </p>
+          <a
+            href={`facetime:${CHERT_NUMBER.replace(/[^\d+]/g, "")}`}
+            className="w-fit rounded-lg bg-foreground px-4 py-3 text-lg font-semibold text-background underline-offset-4 hover:underline"
+          >
+            Call now: {CHERT_NUMBER}
+          </a>
           <button
             type="button"
             disabled={ending}

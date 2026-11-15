@@ -1,4 +1,9 @@
-"""Private, signed session reservation API. Transport pairing is a separate gate."""
+"""Private, signed session reservation API. A new reservation also opens the
+Chert call-binding window, when MOLTIVATE_CHERT_BIN/MOLTIVATE_CHERT_ENV_FILE
+are configured on this box -- see ops/vultr/moltivate-control.service's
+EnvironmentFile. Still soft: if unconfigured, reservation bookkeeping works
+exactly as before and nothing calls out to Chert."""
+import asyncio
 import hashlib
 import hmac
 import json
@@ -11,6 +16,35 @@ from pathlib import Path
 from aiohttp import web
 
 IDENTIFIER = re.compile(r"[A-Za-z0-9_-]{1,128}")
+
+_chert_process = None  # the single active window; only one 'reserved' row exists at a time
+
+
+async def _open_chert_window(minutes):
+    global _chert_process
+    chert_bin = os.environ.get("MOLTIVATE_CHERT_BIN")
+    env_file = os.environ.get("MOLTIVATE_CHERT_ENV_FILE")
+    if not chert_bin or not env_file:
+        return
+    agent = os.environ.get("MOLTIVATE_CHERT_AGENT", "moltivate-transport")
+    env = os.environ.copy()
+    node_dir = os.environ.get("MOLTIVATE_CHERT_NODE_BIN_DIR")
+    if node_dir:
+        env["PATH"] = node_dir + os.pathsep + env.get("PATH", "")
+    try:
+        _chert_process = await asyncio.create_subprocess_exec(
+            chert_bin, "dev", "--agent", agent, "--env-file", env_file,
+            "--minutes", str(minutes), env=env,
+        )
+    except OSError:
+        _chert_process = None
+
+
+def _close_chert_window():
+    global _chert_process
+    if _chert_process is not None and _chert_process.returncode is None:
+        _chert_process.terminate()
+    _chert_process = None
 
 
 def database(path):
@@ -111,6 +145,8 @@ def create_app(db, keys):
         except sqlite3.IntegrityError:
             raise web.HTTPConflict()
         row = db.execute("SELECT * FROM sessions WHERE id=?", (data["session_id"],)).fetchone()
+        minutes = max(1, (expires - int(time.time()) + 59) // 60)
+        await _open_chert_window(minutes)
         return web.json_response(representation(row), status=202)
 
     async def session(request):
@@ -123,6 +159,7 @@ def create_app(db, keys):
             with db:
                 db.execute("UPDATE sessions SET state='ended' WHERE id=? AND state='reserved'", (row[0],))
             row = db.execute("SELECT * FROM sessions WHERE id=?", (row[0],)).fetchone()
+            _close_chert_window()
         return web.json_response(representation(row))
 
     app.router.add_get("/healthz", health)
