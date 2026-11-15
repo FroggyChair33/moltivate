@@ -47,6 +47,9 @@ export function ResultsClient({ id }: { id: string }) {
   const [settleMessage, setSettleMessage] = useState<string | null>(null);
   const [settleSignature, setSettleSignature] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [closed, setClosed] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState<string | null>(null);
   const names = useDisplayNames(state?.members.map((m) => m.owner) ?? []);
 
   useEffect(() => {
@@ -93,6 +96,38 @@ export function ResultsClient({ id }: { id: string }) {
       cancelled = true;
     };
   }, [program, id, reloadKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await fetch(`/api/challenges/close?challenges=${id}`);
+      const data = await res.json().catch(() => ({}));
+      if (!cancelled) setClosed((data.closed ?? []).includes(id));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, reloadKey]);
+
+  async function handleClose() {
+    if (!publicKey) return;
+    setClosing(true);
+    setCloseError(null);
+    try {
+      const res = await fetch("/api/challenges/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challengePubkey: id, wallet: publicKey.toBase58() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      setClosed(true);
+    } catch (err) {
+      setCloseError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setClosing(false);
+    }
+  }
 
   async function handleSettleNow() {
     setSettling(true);
@@ -147,6 +182,10 @@ export function ResultsClient({ id }: { id: string }) {
       ? "Settled: either both teams made goal (equal-split bonus from the group pot) or both fell short (forfeits went to the group pot)."
       : `Settled: ${state.winningTeam === 0 ? state.teamAName : state.teamBName} won.`;
 
+  const isCreator = publicKey?.toBase58() === state.creator;
+  const isMember = state.members.some((m) => m.owner === publicKey?.toBase58());
+  const allClaimed = state.members.length > 0 && state.members.every((m) => m.claimed);
+
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-12">
       <Eyebrow>{state.settled ? "Final results" : "Awaiting settlement"}</Eyebrow>
@@ -159,8 +198,16 @@ export function ResultsClient({ id }: { id: string }) {
 
       <p className="mb-4 rounded-lg bg-black/[.03] p-4 text-sm dark:bg-white/[.06]">{outcomeLabel}</p>
 
-      {state.settled && publicKey?.toBase58() === state.creator && (
-        <div className="mb-8">
+      {state.settled && closed && (
+        <p className="mb-8 rounded-lg border border-black/10 p-3 text-sm text-zinc-500 dark:border-white/15">
+          This challenge is closed. It won&apos;t show up as a &quot;current challenge&quot; or
+          rematch suggestion anymore -- everyone already claimed, and nothing on-chain
+          changes because of this.
+        </p>
+      )}
+
+      {state.settled && !closed && isCreator && (
+        <div className="mb-6">
           <Link
             href={`/challenges/new?${new URLSearchParams({
               rematchOf: id,
@@ -180,6 +227,32 @@ export function ResultsClient({ id }: { id: string }) {
             it&apos;s tied to your wallet. Make sure you&apos;ve claimed your own payout first
             if you need it to fund the new stake.
           </p>
+        </div>
+      )}
+
+      {state.settled && !closed && (isCreator || isMember) && (
+        <div className="mb-8">
+          {allClaimed ? (
+            <>
+              <button
+                type="button"
+                disabled={closing}
+                onClick={handleClose}
+                className="w-fit rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/[.06]"
+              >
+                {closing ? "Closing..." : "Close challenge"}
+              </button>
+              <p className="mt-1 text-xs text-zinc-500">
+                Nobody wants a rematch? Everyone&apos;s claimed, so this is safe to close --
+                it&apos;s a UI-only dismissal, not an on-chain action.
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-zinc-500">
+              Close challenge becomes available once every member has claimed their payout.
+            </p>
+          )}
+          {closeError && <p className="mt-1 text-xs text-red-700 dark:text-red-300">{closeError}</p>}
         </div>
       )}
 
