@@ -62,7 +62,7 @@ versions in lockfiles and record why.
 | `programs/commitment-stakes/` | Anchor program; `src/math.rs` holds the settlement math and its unit tests |
 | `supabase/migrations/` | Database schema, applied in filename order |
 | `scripts/check-repository.mjs`, `tests/repository.test.js` | Repo guard: rejects gitlinks, keypairs, `.env` files and build output from the index |
-| `.github/workflows/` | CI: repo guard, `apps/app` lint/test/build, program unit tests |
+| `.github/workflows/` | CI: repo guard, `apps/app` lint/test/build, program unit tests (first CI run pending) |
 
 ## Working on the app (`apps/app`)
 
@@ -118,6 +118,7 @@ let it silently rewrite an already-funded challenge.
 ## Known gaps (state them, don't hide them)
 
 - Browser-counted reps can be faked by a determined user.
+- Workout submissions are checked against challenge membership and the deadline, but the caller isn't authenticated: anyone who knows a member account could submit reps for it (deferred design problem).
 - No timeout refund if settlement never happens.
 - Phone wallet connect is blank in Phantom's in-app browser; desktop works.
 - The scoreboard polls every 5 seconds (and on tab focus); updates aren't pushed live.

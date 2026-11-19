@@ -9,7 +9,7 @@ import { Eyebrow } from "@/app/components/eyebrow";
 import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
 import { teamPda } from "@/lib/anchor";
-import { sendWithPhases, type TxPhase } from "@/lib/send-tx";
+import { describeTxError, sendWithPhases, type TxPhase } from "@/lib/send-tx";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 // The invite "code" is the challenge account's own base58 address -- every
@@ -92,6 +92,7 @@ function JoinClientView({ code }: { code: string }) {
   async function handleDeposit() {
     if (!program || !publicKey || !challengePk || teamIndex === null) return;
     const mine = ++attempt.current;
+    setPhase("approve"); // lock the button now, before any await
     setError(null);
     try {
       const tx = await program.methods
@@ -111,7 +112,7 @@ function JoinClientView({ code }: { code: string }) {
       window.dispatchEvent(new Event("moltivate:updated"));
     } catch (err) {
       if (attempt.current !== mine) return;
-      const message = err instanceof Error ? err.message : String(err);
+      const message = describeTxError(err, program.idl.errors ?? []);
       // The deadline could have passed in the gap between loading this page
       // and submitting (or Phantom's own preflight simulation can reject
       // without a clean AnchorError at all -- see wallet-button.tsx's

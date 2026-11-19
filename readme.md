@@ -70,7 +70,7 @@ rake 3%, both-pass bonus 5%.
 | `programs/commitment-stakes/` | Anchor program; `src/math.rs` holds the settlement math and its unit tests |
 | `supabase/migrations/` | Database schema, applied in filename order |
 | `scripts/check-repository.mjs`, `tests/repository.test.js` | Repo guard: rejects gitlinks, keypairs, `.env` files and build output |
-| `.github/workflows/app.yml` | CI: repo guard, `apps/app` lint, unit tests and build, and the program's `math.rs` unit tests |
+| `.github/workflows/app.yml` | CI: repo guard, `apps/app` lint, unit tests and build, and the program's `math.rs` unit tests (that job's first run is pending) |
 | [AGENTS.md](AGENTS.md) | Contributor rules: financial correctness, trust model, verification expectations |
 
 ## Run locally

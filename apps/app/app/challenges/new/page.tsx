@@ -9,7 +9,7 @@ import { WalletButton } from "@/app/components/wallet-button";
 import { Eyebrow } from "@/app/components/eyebrow";
 import { useProgram } from "@/lib/use-program";
 import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
-import { sendWithPhases, type TxPhase } from "@/lib/send-tx";
+import { describeTxError, sendWithPhases, type TxPhase } from "@/lib/send-tx";
 
 // Real on-chain create: initializes the creator's persistent group pot the
 // first time it's needed, then calls `initialize`, which atomically creates
@@ -65,6 +65,7 @@ function NewChallengeForm() {
     event.preventDefault();
     if (!program || !publicKey) return;
     const mine = ++attempt.current;
+    setPhase("approve"); // lock the button now, before the RPC lookups below
     const onPhase = (p: TxPhase) => {
       if (attempt.current === mine) setPhase(p);
     };
@@ -127,7 +128,7 @@ function NewChallengeForm() {
       window.dispatchEvent(new Event("moltivate:updated"));
       router.push(`/join/${challenge.toBase58()}`);
     } catch (err) {
-      if (attempt.current === mine) setError(err instanceof Error ? err.message : String(err));
+      if (attempt.current === mine) setError(describeTxError(err, program.idl.errors ?? []));
     } finally {
       if (attempt.current === mine) setPhase(null);
     }

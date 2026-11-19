@@ -5,6 +5,21 @@ import type { WalletContextState } from "@solana/wallet-adapter-react";
 // "confirm": sent; waiting for devnet to confirm it.
 export type TxPhase = "approve" | "confirm";
 
+type ProgramError = { code: number; name: string; msg: string };
+
+// Anchor's .rpc() used to turn program errors into named AnchorErrors; going
+// through the wallet's sendTransaction loses that, leaving either an on-chain
+// `{"Custom":6008}` or a simulation `custom program error: 0x1778`. Map either
+// back to the IDL's name and message; anything else is returned unchanged.
+export function describeTxError(err: unknown, errors: ProgramError[]): string {
+  const message =
+    typeof err === "object" && err !== null && "message" in err ? String((err as { message: unknown }).message) : String(err);
+  const match = message.match(/"Custom":(\d+)/) ?? message.match(/custom program error: (0x[0-9a-f]+)/i);
+  const code = match ? Number(match[1]) : NaN;
+  const known = errors.find((e) => e.code === code);
+  return known ? `${known.name}: ${known.msg}` : message;
+}
+
 // Like Anchor's .rpc(), but reports which of the two waits the user is in, so
 // the UI can tell "approve in your wallet" apart from "confirming on chain".
 export async function sendWithPhases(

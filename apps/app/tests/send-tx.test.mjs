@@ -57,3 +57,22 @@ test("on-chain error throws", async () => {
   const { connection, sendTransaction } = fakes({ chainErr: { InstructionError: [0, "x"] } });
   await assert.rejects(sendWithPhases(connection, sendTransaction, {}, () => {}), /failed on chain/);
 });
+
+const { describeTxError } = exportsObject;
+const idlErrors = [{ code: 6008, name: "DeadlinePassed", msg: "Challenge's join/deposit deadline has passed" }];
+
+test("describeTxError maps an on-chain Custom code to the IDL error", () => {
+  const err = new Error('transaction failed on chain: {"InstructionError":[0,{"Custom":6008}]}');
+  assert.match(describeTxError(err, idlErrors), /^DeadlinePassed: Challenge's join\/deposit deadline has passed$/);
+});
+
+test("describeTxError maps a hex custom program error from wallet simulation", () => {
+  const err = new Error("Transaction simulation failed: Error processing Instruction 0: custom program error: 0x1778");
+  assert.match(describeTxError(err, idlErrors), /^DeadlinePassed:/);
+});
+
+test("describeTxError leaves other errors unchanged", () => {
+  assert.equal(describeTxError(new Error("User rejected the request."), idlErrors), "User rejected the request.");
+  assert.equal(describeTxError(new Error('{"Custom":1}'), idlErrors), '{"Custom":1}');
+  assert.equal(describeTxError("plain string", idlErrors), "plain string");
+});
