@@ -22,8 +22,9 @@ then compared with the existing local `.isolated/ci-repair/` copies after CRLF
 normalization. All matched before subsequent edits. The local evidence manifest
 records the original per-file SHA-256 values. Recovered paths:
 
-- Seven files under `programs/commitment-stakes/`: ignore file, workspace Cargo
-  manifest, README, account contract, program Cargo
+- Eight files under `programs/commitment-stakes/`: ignore file, workspace Cargo
+  manifest, README, account contract, historical Chert report (later removed
+  from this fork), program Cargo
   manifest, `lib.rs`, and `math.rs`.
 - `scripts/check-repository.mjs` and `tests/repository.test.js`.
 

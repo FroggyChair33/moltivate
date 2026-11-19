@@ -25,15 +25,15 @@ isn't at the repo root:
 
 - Root `.node-version` pins `24.22.1`; root `package.json` has
   `"engines": { "node": ">=24 <25" }`.
-- `apps/app/package.json` did **not** have an `engines` field (this repo's
+- `apps/app/package.json` needs its own `engines` field (this repo's
   root `engines` field is irrelevant to Vercel once Root Directory is
   `apps/app` -- Vercel reads `engines.node` from the `package.json` inside
   the configured root directory). Vercel's current default Node.js version
   for new projects is **26.x** (22.x, 24.x and 26.x are the available major
   versions as of this writing), which would silently build this app on a
   newer Node than it's developed/tested against.
-- Fixed by adding the same `"engines": { "node": ">=24 <25" }` to
-  `apps/app/package.json`. Per Vercel's docs, a semver range in `engines.node`
+- So `apps/app/package.json` carries the same
+  `"engines": { "node": ">=24 <25" }`. Per Vercel's docs, a semver range in `engines.node`
   resolves to the highest available major version satisfying it -- `>=24 <25`
   resolves to the latest 24.x build/function runtime, matching
   `.node-version`. Confirmed this doesn't break `npm ci`/build locally (no
@@ -53,7 +53,7 @@ Everything else is server-only and must never be marked public.
 
 | Variable | Scope | Used by | Notes |
 |---|---|---|---|
-| `NEXT_PUBLIC_SOLANA_NETWORK` | Public | `app/providers.tsx` | Keep `devnet` per root `AGENTS.md` "Financial correctness"; mainnet needs a separate reviewed release. |
+| `NEXT_PUBLIC_SOLANA_NETWORK` | Public | Not read by code | The network is hard-coded to devnet in `app/providers.tsx`; this variable is kept as documentation. Mainnet needs a separate reviewed release (root `AGENTS.md` "Financial correctness"). |
 | `NEXT_PUBLIC_SOLANA_RPC_URL` | Public | `app/providers.tsx`, `lib/oracle.ts`, `lib/server-program.ts` | A **devnet-only** RPC URL (e.g. Helius `devnet.helius-rpc.com`). It ships in the browser bundle, so never use a key that also works on mainnet. Falls back to the public devnet endpoint if unset. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | `lib/supabase-server.ts` | The fork's own Supabase project URL. |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Server-only secret** | `lib/supabase-server.ts` | Bypasses RLS. Never expose to the client, never commit. |
@@ -69,7 +69,7 @@ two secrets are read only at request time.
 
 - Grepped the whole `apps/app/app` tree for `export const runtime`: no route
   opts into the Edge runtime. Next.js API routes default to Node.js, which is
-  what both `/api/workout-sessions` and (once merged) `/api/oracle/settle`
+  what both `/api/workout-sessions` and `/api/oracle/settle`
   need, since `@solana/web3.js` and `@coral-xyz/anchor` require Node APIs and
   do not run on Edge.
 - **Do not add `export const runtime = "nodejs"` to these routes.** This repo
@@ -82,8 +82,7 @@ two secrets are read only at request time.
   applies with no `runtime` export needed, so the fix is to leave it out --
   which also matches Vercel's own current guidance (omit `runtime` entirely
   rather than writing `nodejs`, since Node.js is the default and Edge is
-  legacy). Apply this same "don't add it" rule to `/api/oracle/settle` once
-  that route merges.
+  legacy). The same "don't add it" rule applies to `/api/oracle/settle`.
 
 ## Hobby plan serverless function duration limits
 
@@ -133,6 +132,11 @@ crons, custom headers/redirects, multiple regions) apply, so no
 `crons` entry) -- don't add it speculatively.
 
 ## Verification done for this doc
+
+- 2026-11-18 (solo-fork cleanup): `npm ci`, `npm run lint`, `npm test` and
+  `npm run build` in `apps/app/`, all clean. Not deployed.
+
+Earlier, when this doc was first written:
 
 - `npm ci --ignore-scripts && npm run build && npm run lint` in `apps/app/`
   -- both clean (build succeeds, Turbopack production build, no lint errors).

@@ -71,7 +71,7 @@ test("ignores caller-asserted trust", async () => {
 });
 
 test("rejects non-integer or negative reps", async () => {
-  for (const reps of [2.5, -1, "10"]) {
+  for (const reps of [2.5, -1, "10", 10_001, 2_147_483_647]) {
     const res = await post({ ...valid, reps });
     assert.equal(res.status, 400, String(reps));
   }

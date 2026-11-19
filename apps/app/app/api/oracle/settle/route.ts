@@ -3,6 +3,7 @@ import { PublicKey } from "@solana/web3.js";
 import { fetchChallengeMembers, teamPda } from "@/lib/anchor";
 import { getOracleKeypair, getOracleProgram } from "@/lib/oracle";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { memberCount } from "@/lib/settle-counts";
 
 // Settles one challenge (body: { challenge: "<pubkey>" }), or every eligible
 // challenge on chain if no body is given (for a cron trigger). "Eligible"
@@ -71,7 +72,7 @@ async function settleOne(program: ReturnType<typeof getOracleProgram>, challenge
       if (error) {
         return { challenge: base58, status: "error", message: `reading sessions for ${m.publicKey.toBase58()}: ${error.message}` };
       }
-      counts.push((data ?? []).reduce((sum, row) => sum + row.reps, 0));
+      counts.push(memberCount(data ?? []));
     }
 
     const oracle = getOracleKeypair();

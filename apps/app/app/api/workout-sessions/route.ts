@@ -7,6 +7,9 @@ import { getSupabaseServerClient } from "@/lib/supabase-server";
 // is stored as trust_level 'unverified' and nothing a caller sends can raise it.
 // Settlement (app/api/oracle/settle/route.ts) still counts these rows 1:1 --
 // a known, documented gap: a determined user can fake browser-reported reps.
+// Far above any real single session; stops one row from swamping the totals.
+const MAX_REPS_PER_SESSION = 10_000;
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
 
@@ -18,6 +21,7 @@ export async function POST(request: Request) {
     typeof body.reps !== "number" ||
     !Number.isInteger(body.reps) ||
     body.reps < 0 ||
+    body.reps > MAX_REPS_PER_SESSION ||
     body.source !== "browser_mediapipe"
   ) {
     return NextResponse.json({ error: "invalid session payload" }, { status: 400 });
