@@ -11,14 +11,11 @@ import { getSupabaseServerClient } from "@/lib/supabase-server";
 // transaction, not the actual authority on either check.
 //
 // Workout counts come from summing every `accepted` workout_sessions row for
-// each member, with no trust_level filter. That's a real, known gap: right
-// now every recorded session is `unverified` (see app/api/workout-sessions/
-// route.ts - there's no CV/Chert verifier wired up yet), so this counts
-// self-reported claims 1:1. Once a real verifier exists, this should almost
-// certainly filter to trust_level in ('verified', 'low_trust') and drop
-// plain `unverified` sessions - deliberately not doing that yet, since it
-// would make the whole create->join->record->settle->claim loop uncountable
-// and undemoable before any real capture path lands.
+// each member, with no trust_level filter. That's a real, known gap: this
+// version has no server-side verifier, so every session is `unverified`
+// browser-reported reps (see app/api/workout-sessions/route.ts) and they are
+// counted 1:1. Filtering by trust level only makes sense once a reviewed
+// verifier exists; until then it would make every challenge unsettleable.
 export async function POST(request: Request) {
   // Wrapping the whole handler: any of getOracleProgram()/program.account
   // calls/PublicKey parsing can throw before ever reaching settleOne's own

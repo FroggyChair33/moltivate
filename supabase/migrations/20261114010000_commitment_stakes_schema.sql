@@ -104,7 +104,7 @@ create trigger team_members_set_challenge_id
 create table workout_sessions (
     id uuid primary key default gen_random_uuid(),
     team_member_id uuid not null references team_members(id) on delete cascade,
-    source text not null check (source in ('chert_facetime', 'browser_mediapipe')),
+    source text not null check (source in ('browser_mediapipe')),
     reps integer not null check (reps >= 0),
     trust_level text not null check (trust_level in ('verified', 'low_trust', 'unverified')),
     liveness_result text not null default 'not_run'
