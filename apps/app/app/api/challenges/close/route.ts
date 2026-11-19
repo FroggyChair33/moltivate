@@ -3,6 +3,8 @@ import { PublicKey } from "@solana/web3.js";
 import { getReadOnlyProgram } from "@/lib/server-program";
 import { fetchChallengeMembers } from "@/lib/anchor";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
+import { closeChallengeMessage } from "@/lib/close-challenge-message";
+import nacl from "tweetnacl";
 
 // Batch "is this challenge closed" lookup, e.g.
 // GET /api/challenges/close?challenges=id1,id2.
@@ -35,24 +37,40 @@ export async function GET(request: Request) {
 // has an unclaimed payout sitting in it, which would make it easy to
 // forget about money that's still legitimately claimable.
 //
-// Authorization is "wallet is the creator or a joined member, checked
-// against real on-chain state" rather than a signed message (contrast
-// app/api/users): nothing here moves funds or asserts an identity other
-// callers could spoof to their benefit, so the lighter check is
-// proportionate to what's actually at stake (closing early would only risk
-// prematurely hiding a challenge, not losing anything).
+// Authorization: the caller signs closeChallengeMessage(wallet, challenge)
+// (same pattern as app/api/users), and that wallet must be the creator or a
+// joined member on chain. The signature has no expiry or nonce on purpose:
+// it binds this wallet and this challenge, and closing is idempotent, so a
+// replayed signature can only repeat a close that already happened.
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
-  if (!body || typeof body.challengePubkey !== "string" || typeof body.wallet !== "string") {
-    return NextResponse.json({ error: "challengePubkey and wallet required" }, { status: 400 });
+  if (
+    !body ||
+    typeof body.challengePubkey !== "string" ||
+    typeof body.wallet !== "string" ||
+    typeof body.signature !== "string"
+  ) {
+    return NextResponse.json({ error: "challengePubkey, wallet and signature required" }, { status: 400 });
   }
 
   let challengePk: PublicKey;
+  let walletPk: PublicKey;
   try {
     challengePk = new PublicKey(body.challengePubkey);
-    new PublicKey(body.wallet);
+    walletPk = new PublicKey(body.wallet);
   } catch {
     return NextResponse.json({ error: "challengePubkey and wallet must be valid pubkeys" }, { status: 400 });
+  }
+
+  const message = new TextEncoder().encode(closeChallengeMessage(body.wallet, body.challengePubkey));
+  try {
+    // verify throws on a malformed signature (wrong length), hence the try.
+    const verified = nacl.sign.detached.verify(message, Buffer.from(body.signature, "base64"), walletPk.toBytes());
+    if (!verified) {
+      return NextResponse.json({ error: "signature does not match wallet and challenge" }, { status: 401 });
+    }
+  } catch {
+    return NextResponse.json({ error: "malformed signature" }, { status: 400 });
   }
 
   try {
