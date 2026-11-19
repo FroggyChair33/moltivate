@@ -22,8 +22,7 @@ The settlement rules are in the root [readme](../../readme.md#settlement-rules).
 
 - **Settlement math:** `programs/commitment-stakes/src/math.rs` has 10 unit
   tests (cap boundaries, odd-target precision, basis-point bounds, rounding,
-  maximum inputs). A CI job runs them with `cargo test`; its first run is
-  still pending.
+  maximum inputs). CI runs them on every push and pull request (`cargo test`).
 - **Instructions:** `tests/commitment-stakes.ts` has 9 tests against a local
   validator: the worked example, both teams failing, both passing, double
   settle, claim before settle, double claim, settle by a non-oracle, settle

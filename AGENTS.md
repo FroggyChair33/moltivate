@@ -62,7 +62,7 @@ versions in lockfiles and record why.
 | `programs/commitment-stakes/` | Anchor program; `src/math.rs` holds the settlement math and its unit tests |
 | `supabase/migrations/` | Database schema, applied in filename order |
 | `scripts/check-repository.mjs`, `tests/repository.test.js` | Repo guard: rejects gitlinks, keypairs, `.env` files and build output from the index |
-| `.github/workflows/` | CI: repo guard, `apps/app` lint/test/build, program unit tests (first CI run pending) |
+| `.github/workflows/` | CI: repo guard, `apps/app` lint/test/build, program unit tests |
 
 ## Working on the app (`apps/app`)
 
