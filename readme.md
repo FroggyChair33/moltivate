@@ -12,11 +12,12 @@ devnet test SOL only, fixed house rules, no promises of returns.
 
 Live app (devnet): https://moltivate-solo.vercel.app
 
-> Status (2026-11-18): the full loop (create → join → camera workout → settle →
+> Status (2026-11-19): the full loop (create → join → camera workout → settle →
 > claim) was run end to end on devnet from a local build of the original team
-> project. This fork is deployed at moltivate-solo.vercel.app; its pages and
-> workout API were checked live (2026-11-19), but a full two-wallet devnet loop
-> on the deployment has not been run yet.
+> project. On 2026-11-19 the same loop was run on this fork's deployment
+> (moltivate-solo.vercel.app) with two wallets: create, join both teams, camera
+> squats, settle after the deadline, claim on both wallets, close. Phone camera
+> and layout have not been checked on a real device yet.
 
 ## How it works
 
