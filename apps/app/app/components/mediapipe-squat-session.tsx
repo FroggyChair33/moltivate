@@ -11,14 +11,12 @@ import {
   type LivenessPrompt,
 } from "@/lib/pose-squat-counter";
 
-// Real in-browser MediaPipe fallback capture (see MVP doc "Workout CV
-// (fallback)" and AGENTS.md's technical-direction table). Reps are counted
-// client-side from live webcam pose landmarks -- lower trust than the
-// Chert/server-CV primary path, which is why /api/workout-sessions forces
-// every unauthenticated caller (this one included) to trust_level
-// 'unverified' regardless of what's reported here. The liveness check below
-// is a local demo signal only, not a cryptographic assertion sent to the
-// backend as authoritative.
+// In-browser MediaPipe capture -- the app's only workout capture path. Reps
+// are counted client-side from live webcam pose landmarks; video never leaves
+// the device, only the count is POSTed. With no server-side verifier,
+// /api/workout-sessions stores every session as trust_level 'unverified'.
+// The liveness check below is a local deterrent only, not a cryptographic
+// assertion sent to the backend as authoritative.
 //
 // shortcut: pose model and wasm runtime load from Google's/jsDelivr's CDN at
 // runtime (no bundled/self-hosted model file) -- fine for a hackathon demo

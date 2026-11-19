@@ -1,13 +1,16 @@
 # Deploying apps/app to Vercel (Hobby tier)
 
-This covers only the Next.js app in this directory. The Chert/MediaPipe video
-pipeline is a separate service a teammate runs on its own VM (see root
-`AGENTS.md` "Technical direction") and is out of scope here.
+This covers the Next.js app in this directory, which is the whole product:
+pages, API routes and the settlement oracle.
+
+**Never link or deploy this fork to the original project's `moltivate` Vercel
+project.** Before `vercel --prod`, check that `apps/app/.vercel/project.json`
+names this fork's own project.
 
 ## Monorepo: set Root Directory
 
-This repo is a monorepo (`apps/app/`, `apps/web/`, `programs/commitment-stakes/`
-all live at the repo root). Vercel's project needs to be told the Next.js app
+This repo is a monorepo (`apps/app/`, `programs/commitment-stakes/` and
+`supabase/` all live at the repo root). Vercel's project needs to be told the Next.js app
 isn't at the repo root:
 
 - Vercel dashboard -> Project -> Settings -> Build and Deployment -> **Root
@@ -22,15 +25,15 @@ isn't at the repo root:
 
 - Root `.node-version` pins `24.22.1`; root `package.json` has
   `"engines": { "node": ">=24 <25" }`.
-- `apps/app/package.json` did **not** have an `engines` field (this repo's
+- `apps/app/package.json` needs its own `engines` field (this repo's
   root `engines` field is irrelevant to Vercel once Root Directory is
   `apps/app` -- Vercel reads `engines.node` from the `package.json` inside
   the configured root directory). Vercel's current default Node.js version
   for new projects is **26.x** (22.x, 24.x and 26.x are the available major
   versions as of this writing), which would silently build this app on a
   newer Node than it's developed/tested against.
-- Fixed by adding the same `"engines": { "node": ">=24 <25" }` to
-  `apps/app/package.json`. Per Vercel's docs, a semver range in `engines.node`
+- So `apps/app/package.json` carries the same
+  `"engines": { "node": ">=24 <25" }`. Per Vercel's docs, a semver range in `engines.node`
   resolves to the highest available major version satisfying it -- `>=24 <25`
   resolves to the latest 24.x build/function runtime, matching
   `.node-version`. Confirmed this doesn't break `npm ci`/build locally (no
@@ -48,32 +51,25 @@ variables are embedded into the client bundle at build time and are visible
 to anyone in the browser -- only put values there that are safe to expose.
 Everything else is server-only and must never be marked public.
 
-| Variable | Scope | In `.env.example`? | Status in this repo | Notes |
-|---|---|---|---|---|
-| `NEXT_PUBLIC_SOLANA_NETWORK` | Public (client+server) | Yes | Used (`devnet` default) | Keep `devnet` per root `AGENTS.md` "Financial correctness" -- mainnet needs a separate reviewed release. |
-| `NEXT_PUBLIC_SOLANA_RPC_URL` | Public (client+server) | Yes | Used (`app/providers.tsx`) | Devnet RPC endpoint, e.g. `https://api.devnet.solana.com`. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Public (client+server) | Yes | In `.env.example`, not yet read by any code on `main` | Supabase project REST URL. Safe to expose (anon key is what gates access). |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public (client+server) | Yes | Same as above | Supabase anon/public API key -- safe to expose by design, RLS enforces access. |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Server-only secret** | Yes (empty) | Same as above | Bypasses RLS. Never expose to the client, never commit a real value. |
-| `NEXT_PUBLIC_ORACLE_PUBKEY` | Public (client+server) | **No** | Not yet in `.env.example`; not wired into `main` (lives on the unmerged `stephen/wire-frontend-to-anchor-program` branch / PR #16) | The oracle keypair's public half. Safe to expose -- it's what challenges set as their on-chain `oracle` field. Add to `.env.example` when that branch merges. |
-| `ORACLE_SECRET_KEY` | **Server-only secret** | **No** | Same as above | The oracle keypair's secret (64-byte JSON array from `Keypair.generate()`), used server-side to sign `settle()`. Never expose, never commit. |
-| `WORKOUT_INGEST_SECRET` | **Server-only secret** | **No** | Not referenced anywhere in this repo yet (planned, not implemented) | Planned bearer token for the Chert/MediaPipe VM to authenticate its POSTs to `/api/workout-sessions`. See "Chert/MediaPipe VM integration" below -- the current stub route does not check any `Authorization` header, so there is nothing to configure yet beyond reserving the name. |
+| Variable | Scope | Used by | Notes |
+|---|---|---|---|
+| `NEXT_PUBLIC_SOLANA_NETWORK` | Public | Not read by code | The network is hard-coded to devnet in `app/providers.tsx`; this variable is kept as documentation. Mainnet needs a separate reviewed release (root `AGENTS.md` "Financial correctness"). |
+| `NEXT_PUBLIC_SOLANA_RPC_URL` | Public | `app/providers.tsx`, `lib/oracle.ts`, `lib/server-program.ts` | A **devnet-only** RPC URL (e.g. Helius `devnet.helius-rpc.com`). It ships in the browser bundle, so never use a key that also works on mainnet. Falls back to the public devnet endpoint if unset. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Public | `lib/supabase-server.ts` | The fork's own Supabase project URL. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Server-only secret** | `lib/supabase-server.ts` | Bypasses RLS. Never expose to the client, never commit. |
+| `NEXT_PUBLIC_ORACLE_PUBKEY` | Public | create form | The oracle keypair's public half; new challenges set it as their on-chain `oracle`. |
+| `ORACLE_SECRET_KEY` | **Server-only secret** | `lib/oracle.ts` | 64-byte JSON array; signs `settle()` in `/api/oracle/settle`. Never expose, never commit. |
 
-**Important caveat for whoever deploys this**: as of the commit this doc was
-written against, `apps/app/app/api/oracle/settle/route.ts` does not exist on
-`main` -- it exists only on the open, unmerged `stephen/wire-frontend-to-anchor-program`
-branch (PR #16). `apps/app/package.json` on `main` also has no
-`@coral-xyz/anchor` dependency yet. The `NEXT_PUBLIC_ORACLE_PUBKEY`,
-`ORACLE_SECRET_KEY`, and `WORKOUT_INGEST_SECRET` variables above are
-documented here because the real app needs them once that work merges, not
-because `main` reads them today. Re-check this table (and the "Runtime"
-section below) after that branch lands.
+`next build` succeeds with none of these set (CI relies on this). But
+`NEXT_PUBLIC_*` values are inlined into the bundle at build time, so set them
+in Vercel before the production build, and redeploy after changing one. The
+two secrets are read only at request time.
 
 ## Runtime: Node.js, not Edge (and don't force it either way)
 
 - Grepped the whole `apps/app/app` tree for `export const runtime`: no route
   opts into the Edge runtime. Next.js API routes default to Node.js, which is
-  what both `/api/workout-sessions` and (once merged) `/api/oracle/settle`
+  what both `/api/workout-sessions` and `/api/oracle/settle`
   need, since `@solana/web3.js` and `@coral-xyz/anchor` require Node APIs and
   do not run on Edge.
 - **Do not add `export const runtime = "nodejs"` to these routes.** This repo
@@ -86,8 +82,7 @@ section below) after that branch lands.
   applies with no `runtime` export needed, so the fix is to leave it out --
   which also matches Vercel's own current guidance (omit `runtime` entirely
   rather than writing `nodejs`, since Node.js is the default and Edge is
-  legacy). Apply this same "don't add it" rule to `/api/oracle/settle` once
-  that route merges.
+  legacy). The same "don't add it" rule applies to `/api/oracle/settle`.
 
 ## Hobby plan serverless function duration limits
 
@@ -103,10 +98,7 @@ Hobby's default and max are the same 300 seconds with Fluid Compute (the
 current default execution model) -- there's no `maxDuration` headroom to
 configure on Hobby, and setting one above 300s there has no effect.
 
-**Risk assessment for `/api/oracle/settle`** (read from the unmerged
-`stephen/wire-frontend-to-anchor-program` branch's version of this file,
-since it doesn't exist on `main` yet -- this is forward-looking risk
-analysis, not a change made to that route): it fetches on-chain challenge
+**Risk assessment for `/api/oracle/settle`**: it fetches on-chain challenge
 accounts, then for each target challenge, sequentially queries Supabase once
 per team member (summing `workout_sessions.reps`), then submits one
 `settle()` transaction per challenge. For the hackathon's realistic demo
@@ -128,40 +120,6 @@ problem. If challenge/member counts grow materially, the fix is parallelizing
 the per-member Supabase reads (not a duration-limit workaround, a real
 scaling fix) or upgrading to Pro for 800s, not a Hobby-only config tweak.
 
-## Chert/MediaPipe VM integration point
-
-Once the teammate's Chert/MediaPipe VM is ready, it is expected to reach this
-app over the public internet by POSTing to:
-
-```
-https://<vercel-deployment-url>/api/workout-sessions
-Authorization: Bearer <WORKOUT_INGEST_SECRET>
-Content-Type: application/json
-```
-
-**Current reality, not the planned end state**: the body shape the *existing
-stub* route (`apps/app/app/api/workout-sessions/route.ts` on `main`) validates
-today is:
-
-```json
-{
-  "teamMemberId": "string",
-  "idempotencyKey": "string",
-  "source": "chert_facetime" | "browser_mediapipe",
-  "reps": 10
-}
-```
-
-It currently has no `Authorization` header check at all, and responds `501`
-("No verifier or database is wired up yet. This session was not recorded.")
-to any structurally valid payload -- see the route's own header comment.
-There is nothing for the Chert VM to integrate against yet; `WORKOUT_INGEST_SECRET`
-above is reserved for when that bearer-token check is added alongside the
-real handler. Don't point the VM at this endpoint until that lands and this
-doc is updated to match the real contract (including whatever on-chain
-`challengePubkey`/`teamMemberPubkey` fields the merged `wire-frontend-to-anchor-program`
-work ends up using instead of the mocked `teamMemberId`).
-
 ## Why no `vercel.json`
 
 Checked: there is no `vercel.json` in this repo. Per Vercel's docs, a
@@ -174,6 +132,11 @@ crons, custom headers/redirects, multiple regions) apply, so no
 `crons` entry) -- don't add it speculatively.
 
 ## Verification done for this doc
+
+- 2026-11-18 (solo-fork cleanup): `npm ci`, `npm run lint`, `npm test` and
+  `npm run build` in `apps/app/`, all clean. Not deployed.
+
+Earlier, when this doc was first written:
 
 - `npm ci --ignore-scripts && npm run build && npm run lint` in `apps/app/`
   -- both clean (build succeeds, Turbopack production build, no lint errors).

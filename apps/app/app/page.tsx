@@ -17,7 +17,7 @@ export default function Home() {
     </section>
     <div className="club-ribbon"><span>SMALL WINS, SHARED.</span><span aria-hidden="true">✳</span><span>PUT YOUR MONEY WHERE YOUR MUSCLES ARE.</span><span aria-hidden="true">✳</span><span>STAY MOLTIVATED.</span></div>
     <section className="home-grid">
-      <Link href="/coach" className="coach-teaser"><div className="section-topline"><span className="kicker">In your corner</span><ClubIcon kind="arrow" /></div><CoachMark /><h2>A little nudge.<br />One more rep.</h2><p>Meet your AI workout coach and get ready for your next set.</p><span className="tag tag-light">Explore coaching ↗</span></Link>
+      <Link href="/coach" className="coach-teaser"><div className="section-topline"><span className="kicker">In your corner</span><ClubIcon kind="arrow" /></div><CoachMark /><h2>A little nudge.<br />One more rep.</h2><p>Set up your camera and get ready for your next set.</p><span className="tag tag-light">Explore coaching ↗</span></Link>
       <div id="your-challenges" className="paper-panel"><div className="section-topline"><p className="kicker">The commitments</p><ClubIcon kind="club" /></div><h2>Your people.<br /><em>Your progress.</em></h2><CurrentChallengeLink /><Link href="/club" className="text-link">Open your club ↗</Link></div>
     </section>
     <blockquote className="motivation">“You don’t need a perfect day. Just a little start.”</blockquote>

@@ -1,709 +1,216 @@
-# Handoff: Moltivate / Commitment Stakes
+# Handoff: make this fork solo-owned (remove Chert and the Vultr VM)
 
-Written mid-session for a fresh agent to pick up. Committed for convenience
-(so a fresh clone sees it immediately) - fine to remove from tracking later
-once it's served its purpose.
+Written 2026-11-17 against `main` at `b58c2bd` of the original repo.
+Put this file at the fork's root as `HANDOFF.md`, replacing the old one.
+`AGENTS.md` tells agents to read `HANDOFF.md` first, so it will be picked up.
 
-## Current handoff — live coaching (15 November 2026)
+## Goal
 
-Start with [docs/live/CODEX_START.md](docs/live/CODEX_START.md). Branch
-`codex/live-coaching-handoff` combines main at `ef623a3640c0ea60718fbc7b741b561202cd4ab1`,
-worker v0.3.2 source from PR #18 (`3e89e755864c93bed6073abd5d3d9f9cd83123f4`),
-and countdown source from PR #19 (`22a65796ec8b5dd0d75e4cb140e6a77bcbe19475`).
-PR #16 and #17 are merged. Older statements below about open PRs, missing app
-implementation, private worktrees, and transfer patches are historical; inspect
-current files before taking action. Do not run recovery/reset commands from old notes.
+This fork is Stephen's own copy of Moltivate, for showing to recruiters.
+Remove every feature that depends on infrastructure his teammate owns: the
+Chert FaceTime coach and the Vultr VM that runs it. After this, workouts
+come only from the in-browser MediaPipe squat counter, which already works.
+Also remove the static landing page (`apps/web`) and the tooling that only
+serves it. The repo becomes the Next.js app, the Anchor program and the
+Supabase migrations.
 
-The user selected Expo for the eventual native client, Vercel for the general/Web3
-backend, and Vultr for the live coaching/MediaPipe process. Preserve the existing
-Next.js app and coordinate API edits with its owner. The Chert managed service owns
-the FaceTime bridge; the VM owns our agent. Live transport, voice, endpoints and TLS
-are not implemented/deployed by this handoff. Existing experimental counters are
-not payout verification. No secrets, private videos or pose CSVs are committed.
+Keep everything else exactly as it is: wallet, create, join, scoreboard,
+settle, claim, rematch, display names, and the Anchor program.
 
-Read [architecture](docs/live/ARCHITECTURE.md), [endpoint contract](docs/live/ENDPOINT_CONTRACT.md),
-and [deployment runbook](docs/live/VULTR_DEPLOYMENT.md). Local Codex has the intended
-laptop SSH route; this cloud workspace cannot authenticate to the VM. Complete one
-real call and measured deployment checks before claiming integration works.
+## What the app does today (so you know what not to break)
 
-## Historical snapshot (14 November 2026; do not reapply patches blindly)
+- `apps/app` is a Next.js app deployed on Vercel. It talks to an Anchor program on Solana devnet (`DhWeNpUmpxjSXdZ6iN1VCbP1WJVAYg9Yrprtx1LBPDum`) and to Supabase.
+- **Browser capture path (keep):** `app/components/mediapipe-squat-session.tsx` runs MediaPipe Pose in the browser, counts squats with `lib/pose-squat-counter.ts` (knee angle below 110°, then above 160°), and POSTs the count to `/api/workout-sessions`. It is stored as `trust_level: 'unverified'`, `source: 'browser_mediapipe'`.
+- **Settlement (keep):** `/api/oracle/settle` sums each member's accepted sessions from Supabase and signs `settle()` with the oracle key. It already counts `unverified` sessions, so the browser path alone completes the full money loop.
+- **Chert/VM path (remove):** a "Start live coach call" button reserves a session on the teammate's VM (`https://worker.staymoltivated.club`) through `/api/live-coach/*`. The VM can send results back to `/api/vision/events`. Those results were never written into `workout_sessions` and never affected settlement, so removing this path changes no money logic.
 
-Start from [PR #16](https://github.com/betrji/moltivate/pull/16), which is
-open at `78cf4f0a46b416a2b2c9ce65614935b2ffcd81fe`. This handoff is on
-`main`. The older sections record the original work and environment audit.
+## Changes in `apps/app`
 
-The user has no access to the old machine or a backup of the
-`wip oracle backend work` stash. No recovery copy was found in this clone or
-the remote branches. The old oracle route, Supabase server client, and
-migration described below were never recovered or published.
+### Delete these files
 
-### Changes to carry forward
+| Path | Why it exists |
+| --- | --- |
+| `app/components/live-coach-call.tsx` | The "Start live coach call" button and the hardcoded Chert phone number |
+| `lib/live-coach-client.ts` | Signs outbound requests to the VM |
+| `lib/moltivate-signature.ts` | Verifies inbound signed requests from the VM; only `/api/vision/events` imports it |
+| `app/api/live-coach/session/route.ts` | Start a VM session |
+| `app/api/live-coach/session/[id]/route.ts` | Poll a VM session |
+| `app/api/live-coach/session/[id]/end/route.ts` | End a VM session |
+| `app/api/vision/events/route.ts` | Receives results from the VM |
 
-- **Challenge creation.** Anchor could not resolve the `pot` account during
-  `initialize`. The create page now passes the group pot PDA it already
-  derived through `.accountsPartial()`.
-- **Workout storage.** The new migration adds the Anchor Challenge and
-  TeamMember references while preserving legacy UUID references. It enforces
-  scoped submission-key uniqueness, enables row-level security, and rejects
-  acceptance of unverified on-chain-keyed sessions. The app README
-  documents that boundary.
-- The three files exist locally in the `frontend-pot-account` worktree.
-  Only this handoff is being pushed. On a clean checkout of the PR head,
-  copy the inline diff below to a temporary patch file outside the repo.
-  Run `git apply --check <patch-file>` and then `git apply <patch-file>`.
-  Inspect existing edits first if using an active checkout.
+Delete the now-empty `app/api/live-coach/` and `app/api/vision/` folders too.
+Before deleting, grep for each file's exports to confirm nothing else
+imports them. As of `b58c2bd`, only the files in this table and
+`app/challenges/[id]/client.tsx` do.
 
-### What passed
+### Edit these files
 
-- Lint and the Next.js production build passed on the patched PR snapshot.
-- Browser smoke testing used an injected Phantom test double with a disposable
-  signer on a loopback Solana validator. It confirmed creation, join/deposit,
-  scoreboard and results loading, and creation of a second challenge using
-  the same group pot. Challenge and member accounts were checked through RPC.
-  React hydration error #418 occurred on reloads with a selected wallet.
-  Physical Phantom, devnet, browser claims, and oracle settlement remain
-  unverified.
-- Both migrations applied in disposable PGlite PostgreSQL on a fresh database
-  and as an upgrade with an existing workout row. Checks covered legacy
-  preservation, reference validation, duplicate rejection, acceptance on insert
-  and update, and denial of direct reads and writes by a client role.
-  The migration has not been applied to live Supabase.
+1. **`app/challenges/[id]/client.tsx`**
+   - Remove the `LiveCoachCall` import (line 9).
+   - Remove `<LiveCoachCall ... />` (around line 285). The fragment then holds only `<MediaPipeSquatSession ... />`, so drop the `<>…</>` wrapper as well.
 
-### Next backend increment
+2. **`app/api/workout-sessions/route.ts`**
+   - Accept only `source === "browser_mediapipe"`. Remove `"chert_facetime"` from the validation.
+   - Delete the trusted-caller path: `isTrustedCaller()`, the `TRUSTED_LEVELS` set, and the branch that lets a caller assert `trustLevel` or `livenessResult`. With no server verifier, nothing should be able to write `verified` or `low_trust`. Every row is `unverified`.
+   - Rewrite the header comment so it no longer mentions the Chert verifier or `WORKOUT_INGEST_SECRET`.
+   - Keep all the other validation (pubkeys, idempotency key, integer reps, deadline and membership checks). That is the trust boundary.
 
-The workout POST route still returns a stub. Implement wallet authentication
-using a signed, expiring, single-use challenge bound to the app, wallet and
-session. Derive membership from the authenticated wallet and verify the
-Challenge and TeamMember accounts and eligibility on-chain before writing.
-Use the submission key to reconcile retries. Treat client counts and
-simulated workouts as unverified data. Settlement needs trusted verifier
-output, cutoff rules, authorization, and transaction reconciliation before
-it can run. Supabase and oracle credentials are unavailable in this checkout.
-Keep any future credentials out of Git and patch exports.
+3. **`app/api/oracle/settle/route.ts`** — comment only. Lines 12–20 say counts will be filtered by trust level "once a real verifier exists". Reword: there is no verifier in this version, so settlement counts browser-reported reps. Don't change the logic.
 
-### Transfer patch
+4. **`app/components/mediapipe-squat-session.tsx`** — comment only. Lines 15–19 call this the lower-trust fallback to a Chert primary path. Reword it as the only capture path. The UI is fine as is.
 
-```diff
-diff --git a/apps/app/README.md b/apps/app/README.md
-index e215bc4..452024b 100644
---- a/apps/app/README.md
-+++ b/apps/app/README.md
-@@ -16,6 +16,19 @@ bun dev
- 
- Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
- 
-+## Workout session storage
-+
-+The migrations in [supabase/migrations](../../supabase/migrations) support
-+workout records keyed by the Anchor Challenge and TeamMember accounts. The
-+existing UUID membership reference remains valid for older rows. Submission
-+keys must be unique per challenge and member. The database rejects an
-+accepted on-chain-keyed record with an unverified trust level.
-+
-+Workout sessions use row-level security. The app server must authenticate the
-+wallet and verify the member's ownership, challenge and eligibility on-chain
-+before writing a session. The current workout route still returns a stub
-+response. Capture, verification and oracle settlement need their own wiring.
-+
- You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
- 
- This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-diff --git a/apps/app/app/challenges/new/page.tsx b/apps/app/app/challenges/new/page.tsx
-index e22b287..337cfae 100644
---- a/apps/app/app/challenges/new/page.tsx
-+++ b/apps/app/app/challenges/new/page.tsx
-@@ -63,7 +63,8 @@ export default function NewChallengePage() {
-           teamAName,
-           teamBName,
-         })
--        .accounts({
-+        .accountsPartial({
-+          pot,
-           teamA: teamPda(challenge, 0),
-           teamB: teamPda(challenge, 1),
-         })
-diff --git a/supabase/migrations/20261115013000_workout_sessions_onchain_membership.sql b/supabase/migrations/20261115013000_workout_sessions_onchain_membership.sql
-new file mode 100644
-index 0000000..f5b839f
---- /dev/null
-+++ b/supabase/migrations/20261115013000_workout_sessions_onchain_membership.sql
-@@ -0,0 +1,27 @@
-+-- The app enrolls members in Anchor. Accept those account addresses without
-+-- requiring a duplicate roster in Postgres. Preserve existing UUID references.
-+alter table public.workout_sessions
-+    alter column team_member_id drop not null,
-+    add column challenge_pubkey text,
-+    add column team_member_pubkey text,
-+    add constraint workout_sessions_membership_reference_check check (
-+        (team_member_id is not null and challenge_pubkey is null and team_member_pubkey is null)
-+        or (
-+            team_member_id is null
-+            and challenge_pubkey is not null
-+            and challenge_pubkey ~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$'
-+            and team_member_pubkey is not null
-+            and team_member_pubkey ~ '^[1-9A-HJ-NP-Za-km-z]{32,44}$'
-+        )
-+    ),
-+    add constraint workout_sessions_onchain_idempotency_key
-+        unique (challenge_pubkey, team_member_pubkey, idempotency_key),
-+    add constraint workout_sessions_onchain_acceptance_check check (
-+        team_member_pubkey is null or status <> 'accepted' or trust_level <> 'unverified'
-+    ),
-+    enable row level security;
-+
-+comment on column public.workout_sessions.challenge_pubkey is
-+    'Anchor Challenge account. The server must verify the challenge and member relationship on-chain.';
-+comment on column public.workout_sessions.team_member_pubkey is
-+    'Anchor TeamMember account. The server must verify that the authenticated wallet owns this membership.';
-```
+5. **`app/coach/page.tsx`** — this page is a placeholder for the FaceTime coach. It shows a "FaceTime coach" tag, "App connection pending", and "FaceTime calling will open here…".
+   - Turn it into a pre-workout page for the browser camera. Keep the existing "pre-workout ritual" sidebar, the `#choose-challenge` anchor, the Polaroid photo and the layout. Replace the FaceTime wording in the left panel with camera-setup guidance: good light, whole body in frame, stand side-on, and video stays on your device.
+   - Keep the nav label "Coach" and the route `/coach`. `tests/ui-smoke.mjs` clicks that nav link and expects `**/coach#choose-challenge`. If you rename either, update the test.
+   - Also check the "Meet your coach" link and the "In your corner" teaser on `app/page.tsx`. They link to `/coach`, which is fine, but make sure their wording doesn't promise an AI or voice coach.
 
-## Frontend continuation (14 November 2026)
+6. **`DEPLOYMENT.md`**
+   - Remove the `WORKOUT_INGEST_SECRET` row and its mentions (around lines 60 and 67).
+   - Delete the "Chert/MediaPipe VM integration point" section (around lines 131–160).
+   - Drop `chert_facetime` from the documented payload.
+   - Remove the opening sentence that points to the teammate's VM.
 
-- GitHub reports [PR #16](https://github.com/betrji/moltivate/pull/16) open at
-  `78cf4f0`. The local stash, Git history and the current GitHub branch list
-  yielded no recovery copy of the stashed oracle/backend changes.
-- A browser run against the local validator reproduced a create failure on
-  the PR head. Anchor could not infer the `pot` account because its seeds
-  include the existing pot's own stored ID. The create page now supplies the
-  already derived pot address through `.accountsPartial()` in the attached
-  `frontend-pot-account` worktree based on the PR head. The fix is local.
-- The patched snapshot passed lint and the Next.js production build. With an
-  injected Phantom test double and a disposable signer on loopback, the
-  browser created a challenge, joined and deposited, loaded the scoreboard and
-  results, and created a second challenge using the same pot. The challenge
-  and member accounts were checked independently through RPC. React emitted
-  hydration error #418 on reloads with the selected wallet. The flow still
-  passed. Physical Phantom, devnet, oracle settlement and browser claims
-  remain unverified.
-- Resuming the old backend changes requires a code-only copy of the
-  `wip oracle backend work` stash or equivalent source files. Keep local
-  environment files, wallet keys and credentials out of the patch.
+7. **`PWA_IMPLEMENTATION.md`** — line 4 mentions live-coach branch history. Remove or reword it.
 
-## Windows and WSL compatibility audit (14 November 2026)
+## Changes outside `apps/app`
 
-The audit resumed on `main` at `d998294`. The results here supersede the
-initial setup status below. The checkout still has the stubs described below
-and the old oracle/backend stash is absent. The audit changed local setup and
-this handoff only.
+### Delete (teammate-owned or VM-only)
 
-- Windows Node **24.22.1** and npm **11.19.1** run from the existing
-  `.local-tools/node-v24.22.1-win-x64/` directory. All three repository npm
-  installs succeeded with `npm ci --ignore-scripts` using their lockfiles.
-  Windows owns the root and `apps/app/` installs. Ubuntu owns the
-  `programs/commitment-stakes/` install. System PATH was left alone.
-- In PowerShell from the repo root, use the following environment for root
-  checks and browser tests. Playwright's pinned Chromium headless shell was
-  installed here with `npm.cmd exec --offline -- playwright install --only-shell chromium`.
+| Path | What it is |
+| --- | --- |
+| `services/vision-worker/` | The Python worker that runs on the VM |
+| `ops/vultr/` | systemd units and preflight for the VM |
+| `docs/live/` | Chert/VM architecture, endpoint contract and deployment runbooks |
+| `MOLTIVATE_AI_COACH_BRIEF.md` | Proposal for the VM coach |
+| `.github/workflows/vision-worker.yml` | CI for `services/vision-worker` |
+| `packages/workout-prep/` and `.github/workflows/workout-prep.yml` | Countdown component for the planned Expo client. `apps/app` doesn't import it; confirm with a grep before deleting |
 
-  ```powershell
-  $env:PATH = "$PWD\.local-tools\node-v24.22.1-win-x64;$env:PATH"
-  $env:PLAYWRIGHT_BROWSERS_PATH = "$PWD\.local-tools\playwright-headless"
-  npm.cmd run ci
-  ```
+Also delete the two stray files at the root, `agent-mention-test.txt` and `codex-test.txt`, after checking that they hold nothing meaningful.
 
-  The full root CI command passed syntax and build checks and reported
-  **34 Playwright tests passed, 8 skipped** across three viewport profiles.
-- On Windows, `npm.cmd --prefix apps/app run lint` and
-  `npm.cmd --prefix apps/app run build` passed. A production-server smoke
-  test returned HTTP 200 on all five app pages. The workout API returned
-  400 for invalid input and 501 for a valid stub submission. Next.js warned
-  about multiple lockfiles and inferred the repo root. npm reported dependency
-  peer and deprecation warnings. The app build reached its Google Fonts sources.
-- Ubuntu's Bash login shell picks up Anchor **0.32.1**, Solana and the local
-  validator **2.3.0**, and host Rust **1.100.0**. Linux Node **24.22.1** was
-  downloaded from nodejs.org, verified against the published SHA-256, and
-  installed in `.local-tools/node-v24.22.1-linux-x64/`. Run contract commands
-  with `wsl -d Ubuntu` and source `.local-tools/audit-wsl-node.sh` from the repo
-  root before changing directories for npm. Ubuntu otherwise finds Windows npm.
-  `cargo test --locked` in `programs/commitment-stakes/` passed **11 tests**,
-  with Anchor macro `unexpected_cfgs` warnings.
-- `anchor idl build` with `--locked` regenerated both IDL files into
-  `target/audit-idl/` under the contract workspace. The JSON matched the
-  committed IDL semantically and the TypeScript differed only in line endings.
-- On Node 24, plain `npm test` in the contract workspace stopped during
-  test loading with `ERR_IMPORT_ATTRIBUTE_MISSING` for the JSON IDL.
-  Use `NODE_OPTIONS=--no-strip-types npm test` in Ubuntu so the test runner
-  uses the suite's CommonJS TypeScript configuration. The local validator
-  helper applies the flag to that command only.
-- Solana 2.3.0 compiled the locked SBF program with
-  `cargo build-sbf --jobs 4 --tools-version v1.58 -- --locked` and an
-  explicit ignored output directory. The selected SBF Rust compiler was
-  **1.95.0-dev**. The first run also initialized Solana 2.3.0's default
-  v1.48 SDK tools for the post-build strip step. No manual SDK cache symlink
-  was needed. See [Anza's platform-tools v1.58 release](https://github.com/anza-xyz/platform-tools/releases/tag/v1.58).
-- **9 transaction tests passed** on the Solana 2.3.0 local validator. The
-  audit loaded the compiled program at its declared address at genesis on
-  loopback, funded a disposable local provider wallet there, and used the
-  checked-in TypeScript suite. The repeat SBF build produced a byte-identical
-  binary. The helper stops its validator and removes the disposable wallet.
-  To repeat from the repo root on this machine, run these ignored local
-  helpers from PowerShell.
+### Database
 
-  ```powershell
-  wsl -d Ubuntu -- bash -lc 'bash .local-tools/audit-wsl-sbf.sh'
-  wsl -d Ubuntu -- bash -lc 'bash .local-tools/audit-wsl-validator.sh'
-  ```
+Decided: the fork gets a **brand-new Supabase project** owned by Stephen.
+The old project (`fmqorjvuwlobhcchrsav`) stays with the original deployment
+and must not be touched or referenced from the fork.
 
-- The configured WSL provider wallet file exists and parses. This audit
-  used the disposable wallet and local ledger. Devnet, Supabase and physical
-  wallet/camera use were outside the audit. The app environment files and
-  previous oracle/backend stash are absent from this checkout.
-- This Codex sandbox denied WSL, external downloads, and loopback HTTP by
-  default. The respective checks ran after automatic review approved escalation.
+- Delete `supabase/migrations/20261115020000_vision_events.sql`. It creates `vision_event_nonces` and `vision_events`, which only `/api/vision/events` used. Nothing has been applied to the new project yet, so deleting it is safe.
+- In the same first schema migration, `workout_sessions.source` allows `'chert_facetime'` (line 107). Because the new project starts empty, edit that check to `source in ('browser_mediapipe')` directly instead of adding a follow-up migration.
+- Apply the remaining migrations to the new project in filename order. Stephen creates the project and provides credentials; you don't create accounts.
+- Old data does not carry over. Display names and workout history live in the old project, so existing devnet challenges will show no workouts or names in the fork's app. That's expected; use fresh challenges.
 
-## Initial findings: new machine environment audit (14 November 2026)
+### Docs
 
-This section supersedes the older machine-specific assumptions and immediate
-next steps below. The user is starting a new Codex project/conversation in this
-same directory. **Finish checking and fixing this machine's environment before
-beginning product work.** The audit was interrupted for this handoff; setup is
-not complete. No product code was changed, no branch was switched, and no
-application, browser, Rust, validator, or devnet tests were run in this session.
+- **`readme.md`**
+  - Delete the "Live coaching handoff" section and every link into `docs/live/`.
+  - Delete the "Live coach" row in "The functional app" table, and the status-line sentence about live FaceTime coaching.
+  - In "Planned stack (historical)" and "Outside the first MVP", remove the Chert, Vultr and FaceTime items.
+  - Remove the `services/vision-worker/` row from the repository guide.
+- **`AGENTS.md`**
+  - Rewrite the "Latest user direction" block at the top. It sends agents to `docs/live/CODEX_START.md` and describes Vultr/Chert.
+  - In the stack table, delete the "Workout capture (primary)" Chert row and the "Server CV (primary)" row. Promote in-browser MediaPipe to the only capture path.
+  - Remove the CV-worker hosting note and the sentences about a separate CV worker (around lines 56 and 79).
+  - Keep every "Financial correctness" and security rule. They still apply.
+- **Old `HANDOFF.md`** is replaced by this file. It's a long Chert-era history, so don't carry it over.
 
-### Repository and work recovery
+### Remove the landing page (`apps/web`) entirely
 
-- Current directory: `C:\Users\adhit\EmoryHacksDevEnvironment\moltivate`.
-  Native shell is Windows PowerShell on Windows 11 Home, x64.
-- Checkout is `main`, at `d998294` when inspected, tracking `origin/main`.
-  Remote: `https://github.com/betrji/moltivate`.
-- **`git stash list` is empty.** The oracle/backend stash described below did
-  not transfer to this clone. Do not run the old `git stash pop` instructions
-  or assume that work/secrets are present. Recovery requires the old machine
-  or another copy; do not recreate financial/backend behavior as an environment
-  fix.
-- The remote-tracking branch `origin/stephen/wire-frontend-to-anchor-program`
-  exists. Live `gh pr view 16 --repo betrji/moltivate` confirmed PR #16 is still
-  OPEN and unmerged. No fetch, checkout, merge, commit, or push was performed.
-- Native Git is 2.49.0; GitHub CLI is 2.104.0. GitHub authentication works as
-  **betrji**, which differs from the earlier handoff's user/account assumption.
-  Do not print authentication tokens. Git has `core.autocrlf=true` and
-  `core.symlinks=false`. No tracked gitlinks were found.
-- Root `AGENTS.md`, `readme.md`, `architecture.md`, and `apps/app/AGENTS.md`
-  were read. Several older status descriptions are stale relative to the
-  committed Anchor implementation; distinguish source inspection from tests
-  actually rerun here.
+Decided: Stephen doesn't want the marketing site in the fork. It's a static
+preview with simulated data and none of the app's real functionality. The
+teammate owns `staymoltivated.club`, which hosts it, so the fork must not
+link to that domain anywhere. `apps/app` is the whole product.
 
-### Node and dependency setup
+`apps/app` does not depend on it. Its fonts, colours and styles were copied
+into `apps/app` earlier; only comments mention `apps/web`. Confirm with a
+grep that no import or path reaches into `apps/web` before deleting.
 
-- System Node is **22.13.1**, npm **10.9.2**. Root `.node-version` requires
-  **24.22.1** and root `package.json` requires Node >=24 <25.
-- Downloaded Node **24.22.1** Windows x64 from nodejs.org into
-  `.local-tools/node-v24.22.1-win-x64/`. The download command verified its ZIP
-  against the official `SHASUMS256.txt` before extraction. A subsequent direct
-  invocation of its `node.exe --version` confirmed `v24.22.1`.
-- System Node/PATH were not modified. For each PowerShell tool call that needs
-  the local version, prepend it explicitly:
+**Delete:**
 
-  ```powershell
-  $env:PATH = "$PWD\.local-tools\node-v24.22.1-win-x64;$env:PATH"
-  node --version
-  npm --version
-  ```
+| Path | Why |
+| --- | --- |
+| `apps/web/` | The landing page itself, including its photos, sponsor assets, fonts and `IMAGE-SLOTS.md` |
+| `scripts/build.mjs`, `scripts/verify-build.mjs`, `scripts/serve.mjs` | Build, link-check and preview the landing page into `dist/` |
+| `playwright.config.js` and `tests/e2e/` | Browser tests for the landing page only |
+| `.github/workflows/demo.yml` | CI and GitHub Pages delivery for the landing page |
+| `docs/ci-cd.md` | Documents that pipeline |
+| `docs/motion-design.md` | Scroll-story direction for the landing page |
 
-  Run that from the repository root before changing to a package directory.
-- `.gitignore` has one uncommitted addition: `.local-tools/`, to keep the
-  downloaded runtime/archive/checksums and diagnostic script out of source.
-  Preserve it. No lockfiles or package manifests were changed.
-- At handoff, **none** of root `node_modules`, `apps/app/node_modules`, or
-  `programs/commitment-stakes/node_modules` exists. A proposed root `npm ci`
-  tool call was interrupted; do not assume it executed. All three package
-  roots have committed npm lockfiles. Install from those locks, avoiding
-  dependency upgrades during setup. Browser binaries are not yet verified.
+**Keep, but slim down:**
 
-### WSL / Rust / Solana
+- `scripts/check-repository.mjs` and `tests/repository.test.js` stay. They block committing gitlinks, keypairs, `.env` files and build output, which matters even more in a public portfolio repo.
+  - `tests/repository.test.js` line 27 uses `apps/web/assets/fonts/dm-sans.woff2` as a sample allowed path. It's only a string, but swap it for an `apps/app` path so nothing references the deleted folder.
+- `scripts/check.mjs` currently syntax-checks `apps/web` and `playwright.config.js`, then runs the repository guard. Reduce it to the guard only.
+- Root `package.json`:
+  - Keep only `"check"`, and point `"ci"` at the check plus `node --test tests/repository.test.js`.
+  - Remove `build`, `check:build`, `preview` and `test:e2e`.
+  - Move the `@playwright/test` dev dependency rather than dropping it. `apps/app/tests/ui-smoke.mjs` imports `@playwright/test`, but `apps/app/package.json` doesn't declare it; it only resolves today because the root `node_modules` has it. Add `"@playwright/test": "1.65.1"` (same pin) to `apps/app` `devDependencies` first, then remove it from the root. Regenerate both lockfiles.
+  - Change the `"description"`, which still says "landing page".
+- **CI:** replace `demo.yml` with one small workflow, for example `.github/workflows/app.yml`:
+  1. the root `npm ci` and `npm run ci`;
+  2. then, in `apps/app`, `npm ci`, `npm run lint` and `npm run build`.
 
-- WSL2 has `Ubuntu` and `docker-desktop`; explicitly use `wsl -d Ubuntu`
-  because Docker's distribution is the default. Ubuntu starts successfully
-  despite a warning about nested virtualization detection
-  (`ERROR_INVALID_DATA`). Do not treat that warning alone as failure.
-- Ubuntu is **26.04.1 LTS**, x86_64, user `adhit`. At inspection it had about
-  12 GiB available memory, 4 GiB swap, and 950 GiB free in its filesystem;
-  Windows had 10.56 GiB free physical RAM and about 381 GiB disk space.
-- Existing installations were found under `/home/adhit/.cargo/bin`,
-  `/home/adhit/.avm/bin`, and
-  `/home/adhit/.local/share/solana/install/active_release/bin`. The host Rust
-  executable reports **rustc 1.100.0**. AVM has an `anchor-0.32.1` executable.
-  Solana executables and a `~/.cache/solana/v1.51.1` directory exist, but their
-  versions and usability have **not** been established.
-- A non-login Bash invocation lacks Cargo/AVM/Solana on PATH and has no Linux
-  Node. It finds Windows npm through the inherited Windows PATH. Ensure
-  validator tests use Linux Node/npm and Linux dependencies, not Windows npm
-  or Windows-installed native packages.
-- `~/.profile` sources `~/.cargo/env` and adds Solana to PATH; `~/.bashrc`
-  returns early for noninteractive shells. Verify login-shell behavior and AVM
-  selection before concluding installations are broken. An absolute-path
-  Anchor invocation without Rust on PATH failed with
-  `listing linked Rust toolchains / No such file or directory`.
-- `.local-tools/inspect-wsl.sh` is a throwaway diagnostic script written by
-  PowerShell with **CRLF**. Its final `solana --version` failed because Bash
-  passed `--version\r`. Rewrite any shell scripts with LF before using them;
-  this error does not establish that Solana itself is broken. Windows native
-  argument quoting also mangled an earlier complex inline `bash -c` command;
-  prefer LF script files and simple WSL invocations.
-- Repository pins Anchor **0.32.1** and documents Solana **2.3.0**. The old
-  machine's platform-tools symlink workaround did not transfer. Verify SBF
-  compiler compatibility explicitly; do not assume host rustc is the SBF
-  compiler or blindly alter caches.
-- `Anchor.toml` expects `~/.config/solana/devnet-throwaway.json`; existence,
-  identity and funding have not been checked. Deployment keypairs did not
-  transfer with Git. Never overwrite existing keys or change program IDs as
-  a setup shortcut. Do not deploy or transact as part of this audit.
+  Check whether `next build` needs any env vars at build time. If it does, give CI placeholder public values, never real secrets. Only Stephen can make the workflow a required check in GitHub settings; tell him rather than assuming it.
+- **`docs/APP_DESIGN.md`** is about `apps/app`, so keep it. Remove its references to the marketing site only if they read as broken.
+- **Comments in `apps/app`** (`app/layout.tsx`, `app/globals.css`, `app/components/eyebrow.tsx`) say "same as the apps/web marketing site". Reword them so they don't point at a folder that no longer exists. Comments only; no style changes.
+- **`apps/app/DEPLOYMENT.md`** line 9 lists `apps/web/` in the monorepo layout. Update it.
 
-### Configuration, permissions, and next actions
+**Docs:**
 
-- Root `.env`, root `.env.local`, and `apps/app/.env.local` are absent.
-  `apps/app/.env.example` on main has devnet defaults and empty Supabase keys;
-  it does not contain the stashed oracle additions. The old oracle secret and
-  the old `C:\Users\steph\...\slack-agent\.env` are not available here.
-  Do not fabricate credentials, print secrets, or apply database migrations.
-- No listeners on ports 3000, 4173, 5173, 8899, or 8900 were returned by the
-  initial native check; recheck before starting servers.
-- The previous session used workspace-write restrictions. WSL inspection and
-  GitHub/network operations needed escalation; sandbox `Access denied` did
-  not mean WSL was absent. An approval prefix for `wsl -d Ubuntu` was granted,
-  but permissions may differ in the new conversation. Respect its actual
-  policy. The user plans to select automatic approval review in the new app.
-- Next: verify local Node/npm; install locked dependencies; verify WSL login
-  PATH, Linux Node, Anchor/Solana versions, required build tools and SBF
-  compilation. Keep OS-specific dependencies separate. Then run root static
-  checks/build/browser suite, app lint/build, and appropriate local contract
-  checks, reporting exactly what passes and what remains blocked. App builds
-  may need network access for `next/font/google`. No setup checks have passed
-  yet beyond the version/access checks listed above.
-- Only after environment readiness is established should the next agent
-  resume product work and determine how to recover the missing oracle stash.
+- **`readme.md`:**
+  - Delete the whole "Landing page (`apps/web`)" section and its "Run locally" commands.
+  - Delete the `staymoltivated.club` link and the Demo CI and CI/CD guide links at the top.
+  - Remove the `apps/web/` and `scripts/build.mjs` rows from the repository guide.
+  - Remove the sentence about "the complete demo source lives in `apps/web/`".
+  - Make `https://<new fork Vercel URL>` the main link once it exists.
+- **`AGENTS.md`:**
+  - Delete the "Working on the landing/preview site (apps/web)" section.
+  - Delete the paragraphs in "Product direction" and "Technical direction" saying `apps/web` coexists with the app and stays vanilla JS.
+  - Delete the "Preserve `.github/workflows/demo.yml` deployment gating" rule.
+  - Keep the brand lines and tone guidance; they apply to the app too.
 
-## What this project is
+## Infrastructure Stephen needs to own
 
-**Moltivate** — a hackathon app ("Entertainment" track). **Commitment
-Stakes**: friends form two teams, each member stakes devnet SOL, teams
-compete to hit a weekly workout goal, losing-side members forfeit part of
-their stake weighted by their own shortfall, winners split the forfeits.
+For "full control", every item below must belong to Stephen. Confirmed 2026-11-17 unless marked otherwise:
 
-**Source of truth for product rules**: `C:\Users\steph\Downloads\Commitment
-Stakes — Team Workout Accountability MVP.md` (also copy-pasted into
-`AGENTS.md` at the repo root, which is itself the contributor-instructions
-file every agent should read first — it supersedes `readme.md`/
-`architecture.md` wherever they conflict, since those predate the MVP doc's
-stack pivot).
+| Thing | Status | Action |
+| --- | --- | --- |
+| GitHub repo | Original is `betrji/moltivate` (the teammate) | Work only in this fork |
+| Vercel project | Decided: the fork gets a **new** Vercel project. The existing `moltivate` project stays with the original repo's code at `moltivate.vercel.app` | From `apps/app`, run `vercel link` and create a new project; don't select `moltivate`. Set Root Directory to `apps/app`. Add the six "Keep" env vars below to Production, using the new Supabase values. Never deploy the fork to the `moltivate` project |
+| Solana program | Confirmed: the upgrade authority `P5qbjwm5AptPtWoxyDtwz5Lh6GdyETBpzUkXKSaQAxr` is on Stephen's machine | Keep the same program ID. No redeploy needed, since the Chert removal touches no on-chain code |
+| Oracle keypair | `2Cx6Gw…UwS`, secret in Stephen's `apps/app/.env.local` | Keep |
+| Supabase | Confirmed: Stephen owns the old project, but the fork gets a **new** one (see "Database") | New project; new `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` |
+| Devnet RPC | The old Helius key was rotated and is dead. Production currently uses the public `https://api.devnet.solana.com` | Stephen sets `NEXT_PUBLIC_SOLANA_RPC_URL` to his new Helius **devnet** URL (`devnet.helius-rpc.com`, never `mainnet`). It is public in the browser bundle |
+| `staymoltivated.club` | The teammate owns it; it hosts the landing page | Not used by the fork. The landing page is removed, and the fork must not link to this domain |
 
-**Stack** (decided and locked in, see `AGENTS.md` "Technical direction"):
-mobile-first **Next.js web app** (`apps/app/`) — no native app — with
-**Next.js API routes** as the backend (no separate FastAPI/Python service).
-Anchor/Rust program on Solana devnet for escrow+settlement. Supabase
-(Postgres) for off-chain workout-session evidence only. `apps/web/` is a
-*separate*, pre-existing marketing/landing page (vanilla JS, untouched,
-unrelated to the functional app).
+### Vercel env vars after the change
 
-GitHub repo: `betrji/moltivate` (private). User's GitHub: `FroggyChair33`.
-This machine's git/gh auth already works natively on Windows and inside
-WSL2 Ubuntu (both configured this session).
+| Keep | Remove |
+| --- | --- |
+| `NEXT_PUBLIC_SOLANA_NETWORK`, `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_ORACLE_PUBKEY`, `ORACLE_SECRET_KEY` | `WORKOUT_INGEST_SECRET`, `LIVE_COACH_BASE_URL`, `LIVE_COACH_KEY_ID`, `LIVE_COACH_SECRET`, `LIVE_COACH_EVENT_KEY_ID`, `LIVE_COACH_EVENT_SECRET` |
 
-## Repo layout that matters
+The new project starts empty, so just never add the "Remove" column. Delete those names from the fork's `apps/app/.env.local` too. Never commit or print any value.
 
-- `programs/commitment-stakes/` — the Anchor program. **Done and tested.**
-  - `programs/commitment-stakes/src/lib.rs` — `initialize`,
-    `initialize_group`, `join_team`, `settle`, `claim`. Accounts: Challenge,
-    Vault, Treasury, Pot (persistent per-creator group pot), Team (x2),
-    TeamMember.
-  - `src/math.rs` — pure settlement math (`member_loss_lamports`,
-    `house_cut_lamports`, `winner_share_lamports`, `bonus_pool_lamports`,
-    `team_goal_units`/`team_passes`), unit-tested against the MVP doc's
-    exact worked example (two teams of 3, S=1 SOL, alpha=2000bps,
-    rake=300bps) — 11/11 pass.
-  - `tests/commitment-stakes.ts` — **real local-validator** integration
-    tests (not just unit tests), 9/9 pass: full worked example end-to-end,
-    both-lose, both-win, and 6 negative/guard tests (duplicate settle,
-    claim-before-settle, double-claim, non-oracle settle,
-    settle-before-deadline, double-join).
-  - `idl/commitment_stakes.json` + `.ts` — committed, generated IDL/types
-    (not hand-authored). **Copy these into `apps/app/lib/idl/` any time the
-    program changes** — that's a manual step, nothing automates it.
-  - This is all merged to `main` (PRs #12, #13, #15).
+`vercel link` writes `apps/app/.vercel/` (gitignored) and may append a `VERCEL_OIDC_TOKEN` line to `.env.local`. If the fork was copied from a folder already linked to `moltivate`, delete `apps/app/.vercel/` before linking.
 
-- `apps/app/` — the real Next.js app. **PR #16 wires it to the real
-  program (create/join/scoreboard/results) - confirmed still OPEN/
-  unmerged** (`stephen/wire-frontend-to-anchor-program` branch; `main` as
-  of this writing still has the old mocked pages from PR #14). Check
-  `gh pr view 16 --repo betrji/moltivate` for current status before
-  assuming either way.
-  - `lib/anchor.ts` — program client + every PDA derivation helper
-    (`challengePda`, `vaultPda`, `treasuryPda`, `potPda`, `teamPda`,
-    `memberPda`, `fetchChallengeMembers`). Mirrors `lib.rs`'s seeds exactly.
-  - `lib/use-program.ts` — `useProgram()` hook, wallet-adapter-aware,
-    returns `null` until a wallet is connected.
-  - `lib/oracle.ts` — **server-only** (`import "server-only"`). Builds an
-    `AnchorProvider`/`Program` signed by a dedicated oracle `Keypair`
-    (`ORACLE_SECRET_KEY` env var), not the user's wallet.
-  - `lib/supabase-server.ts` — **server-only** Supabase client using the
-    service-role key.
-  - Pages: `app/challenges/new/page.tsx` (create — calls `initialize`),
-    `app/join/[code]/*` (join — calls `join_team`; the invite "code" is just
-    the challenge account's own base58 address, nothing separate to look
-    up), `app/challenges/[id]/*` (scoreboard — reads real TeamMember
-    accounts via `getProgramAccounts`) and `.../results/*` (results/claim —
-    reads settlement state, `ClaimButton` calls `claim`, has a **"Settle
-    now" button** that POSTs to the oracle route below).
-  - `app/api/workout-sessions/route.ts` — records a claimed workout session
-    into Supabase. **Honest gap**: there is no real CV/Chert verifier
-    wired up anywhere, so every session this records is `trust_level:
-    'unverified'` regardless of which "source" button was clicked. Don't
-    let a future pass accidentally claim verification that isn't there.
-  - `app/api/oracle/settle/route.ts` — **the piece built this session,
-    least-verified of everything here.** POST `{ challenge: "<pubkey>" }`
-    to settle one challenge, or POST `{}` to scan on-chain for every
-    challenge past its deadline and settle all of them (cron-friendly).
-    Sums `workout_sessions.reps` (status='accepted', **no trust_level
-    filter — known gap**, see the file's own comment) per member, calls
-    `settle()` signed by the oracle keypair.
+## Do not touch
 
-- `supabase/migrations/`
-  - `20261114010000_commitment_stakes_schema.sql` — original schema from an
-    earlier PR. Defines `users`/`challenges`/`teams`/`team_members` as a
-    full off-chain mirror, which **nothing populates** — create/join call
-    the Anchor program directly and never write these tables. They're not
-    wrong, just currently inert/unused placeholders for later off-chain
-    indexing (e.g. a cross-challenge dashboard by wallet).
-  - `20261114020000_workout_sessions_onchain_keys.sql` — **written this
-    session.** Re-keys `workout_sessions` away from `team_members.id` (a
-    table nothing populates) to `challenge_pubkey`/`team_member_pubkey`
-    text columns holding real on-chain addresses directly. Rationale: the
-    chain is already the authoritative roster (every Challenge/Team/
-    TeamMember account is fully queryable), so mirroring it into a parallel
-    off-chain table before `workout_sessions` could reference anything
-    would just be duplicate bookkeeping with sync-drift risk, for no
-    benefit right now. Validated against the real Supabase instance inside
-    a rolled-back transaction (both migrations applied cleanly in
-    sequence) — **not yet actually applied for real** (that's a deliberate
-    "propose, don't auto-apply" choice, not an oversight — someone with
-    intent to actually migrate the live schema should run it, e.g. via the
-    Supabase dashboard's SQL editor or the CLI).
+- `programs/commitment-stakes/`. The program has no Chert code; the settlement math stays as it is.
+- The settlement math, trust tiers in the database, and payout rules, apart from the API change above.
+- `lib/pose-squat-counter.ts` thresholds, unless Stephen asks for that.
+- Anything in the original repo (`betrji/moltivate`). All work happens in the fork.
 
-## State of things right now, precisely
+## Verify before calling it done
 
-1. **Four PRs merged to `main`** this session (#12 AGENTS.md pivot + app
-   scaffold, #13 Anchor build config, #14 Next.js schema/wallet/pages
-   [mocked data], #15 join/settle/claim + tests).
-2. **PR #16 open, unmerged** (`stephen/wire-frontend-to-anchor-program`):
-   wires the frontend to the real program, replacing #14's mocked pages.
-   Build+lint clean, routes smoke-tested at 200, **never click-tested with
-   an actual funded wallet in a real browser** (can't drive a browser/
-   Phantom extension from this session).
-3. **Oracle/backend work (this session, stashed - not committed, not a
-   PR, not even on a branch of its own):**
-   - It currently lives in a `git stash` entry (message "wip oracle
-     backend work") on top of the `stephen/wire-frontend-to-anchor-program`
-     branch. Run `git stash list` to confirm it's still there, then
-     `git checkout stephen/wire-frontend-to-anchor-program && git stash pop`
-     to bring it back into the working tree before doing anything else
-     with it.
-   - Files created (once popped): `lib/oracle.ts`, `lib/supabase-server.ts`,
-     `app/api/oracle/settle/route.ts`, the new migration file, `.env.local`
-     (gitignored, has the real oracle secret key — see below),
-     `.env.example` additions.
-   - Files modified: `app/api/workout-sessions/route.ts` (501 stub → real
-     insert), `app/components/log-session-stub.tsx` (now sends
-     `challengePubkey`+`teamMemberPubkey`+real `reps`, not a mock id),
-     `app/challenges/[id]/client.tsx` (finds the connected wallet's own
-     TeamMember to pass to the log-session component, instead of
-     hardcoding `members[0]`), `app/challenges/new/page.tsx` (oracle field
-     now defaults to `NEXT_PUBLIC_ORACLE_PUBKEY`, not the creator's own
-     wallet), `app/challenges/[id]/results/client.tsx` (added the "Settle
-     now" button + deadline display).
-   - **Last action taken before stashing**: fixed a TypeScript error in
-     `app/api/oracle/settle/route.ts` (the same Anchor generated-type quirk
-     documented in `claim-button.tsx` — an account with `relations` mixed
-     with `pda` accounts on the same instruction makes TS reject *any*
-     inline object literal with all the right keys; fix is to build the
-     accounts object as its own `const` first, since excess-property
-     checking only applies to inline literals, not variables).
-   - **`npm run build` has NOT been re-run since that last fix.** That's
-     the immediate next step after popping the stash — confirm it's
-     actually clean now.
+1. `grep -rniE "chert|live-coach|livecoach|vision/events|vultr|facetime|WORKOUT_INGEST|LIVE_COACH|apps/web|staymoltivated|playwright" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=.git .` returns nothing outside `apps/app`. Inside `apps/app`, the only allowed `playwright` hits are its own `package.json`, its lockfile and `tests/ui-smoke.mjs`.
+2. In `apps/app`: `npm run lint` and `npm run build` are both clean. The route list should no longer contain `/api/live-coach/*` or `/api/vision/events`.
+3. At the root: `npm ci`, `npm run ci` and `node --test tests/repository.test.js` all pass. Push a branch and confirm the new CI workflow goes green.
+4. Update `apps/app/tests/ui-smoke.mjs` if `/coach` changed, and run it.
+5. Do one real devnet loop on the deployed URL: create → join with a second wallet → squat session on camera → wait for the deadline → Settle now → claim on both wallets → open the Explorer links.
+6. `POST /api/workout-sessions` with `source: "chert_facetime"` returns 400. A request with an `Authorization` header still stores `unverified`.
 
-## Secrets / credentials handling (read before touching any of this)
+## Honest limits to keep in the README (recruiters will ask)
 
-- **`apps/app/.env.local`** (gitignored; will reappear once the stash above
-  is popped) contains:
-  - `ORACLE_SECRET_KEY` — a freshly generated devnet keypair's secret, JSON
-    array of 64 bytes. **This is a real secret.** It was generated this
-    session via plain `Keypair.generate()`, printed once to terminal
-    output (now in this session's transcript — acceptable, devnet-only,
-    no real value, but still don't needlessly re-print it), and written
-    directly to `.env.local`. Never echo it in chat replies.
-  - `NEXT_PUBLIC_ORACLE_PUBKEY=2Cx6GwT6fqMbEQuHxJS42vjgSBvA51AmabMkxqPEcUwS`
-    — the public half, safe to share/display freely, this is what
-    challenges should set as their `oracle` field by default.
-- **This oracle wallet is UNFUNDED.** `solana airdrop` to it hit the same
-  devnet faucet rate-limit seen repeatedly this session. It needs devnet
-  SOL (even a small amount, just for tx fees) before `settle()` can
-  actually succeed on-chain. Fund it via faucet.solana.com (GitHub
-  sign-in gets a higher cap than the CLI) with address
-  `2Cx6GwT6fqMbEQuHxJS42vjgSBvA51AmabMkxqPEcUwS`. This blocks any real
-  end-to-end test of the settle route.
-- **Missing, not yet available to this session**: the actual Supabase
-  project's `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-  `SUPABASE_SERVICE_ROLE_KEY`. The only thing available so far is a raw
-  Postgres connection string (`DATABASE_URL` in `C:\Users\steph\
-  EmoryHacksDevEnvironment\slack-agent\.env`, used purely to validate
-  migration SQL via psycopg2 inside rolled-back transactions) — that is
-  **not** the same thing as the Supabase REST API URL/keys
-  `@supabase/supabase-js` needs. Without these three vars in `.env.local`,
-  `/api/workout-sessions` and `/api/oracle/settle` will throw immediately
-  (`getSupabaseServerClient` throws if either var is unset). Ask the user
-  for these or find them in the Supabase dashboard (Project Settings →
-  API).
-
-## Known environment gotchas (learned the hard way this session — don't
-   rediscover these)
-
-- **WSL2 only, for the Rust/Solana/Anchor toolchain.** Native Windows
-  cannot see anything installed inside WSL2. The toolchain is fully set up
-  inside `wsl -d Ubuntu` on this machine (Rust via rustup, Solana CLI 2.3.0
-  via `release.anza.xyz`, Anchor 0.32.1 via AVM, Node 22, `gh` reusing the
-  Windows gh auth token). `slack-agent`'s own `AGENT_RUN_IN_WSL` feature
-  (separate subsystem, not relevant to this app) exists for the same
-  reason if you ever see it referenced.
-- **`cargo build-sbf`'s default bundled platform-tools (v1.48, rustc
-  1.84.1) can't compile a transitive dependency needing Rust's
-  `edition2024`.** Fixed by symlinking `~/.cache/solana/v1.48/platform-
-  tools/rust` to the newer `v1.58` one (rustc 1.95.0) inside WSL2 — a
-  machine-local cache hack, not a repo change. If `anchor build` ever
-  fails with an `edition2024` error again on a fresh machine, the real fix
-  is `cargo build-sbf --tools-version v1.58` explicitly (or whatever's
-  current) rather than relying on the default.
-- **`anchor idl build` has a nasty self-inflicted bug**: if you redirect
-  its stdout to `target/idl/commitment_stakes.json` directly, the shell
-  truncates that file to 0 bytes *before* the command even runs, and
-  Anchor's own startup scan of `target/idl/` then chokes on its own
-  about-to-be-written empty file (`EOF while parsing a value`). Always
-  write to a scratch path first, then move/copy into place.
-- **WSL2's `/tmp` is tmpfs and gets wiped** whenever the lightweight VM
-  restarts (which happens after idle periods) — don't rely on anything in
-  `/tmp` surviving between separate tool calls. Use the project directory
-  or `~/.cache` instead.
-- **Memory pressure**: this machine has run low on free RAM more than
-  once this session (as low as ~1.2 GB free out of ~16 GB), which once
-  got a long-running `anchor test` killed by Claude Code's own OOM guard.
-  Check `Get-CimInstance Win32_OperatingSystem | Select-Object
-  @{N='FreeGB';E={[math]::Round($_.FreePhysicalMemory/1MB,2)}}` before
-  kicking off anything validator-heavy.
-- **Anchor's generated TS account-resolution types are genuinely quirky**
-  for any instruction mixing a `relations`-based account with `pda`-based
-  accounts (both `claim` and `settle` hit this). The type rejects *every*
-  combination of keys when passed as one inline object literal — not a
-  real logic bug, confirmed empirically by testing every subset. Fix:
-  build the accounts object as its own `const` first, then pass the
-  variable to `.accounts(...)` — TypeScript's excess-property checking
-  only applies to inline literals, so this sidesteps it cleanly without
-  an `any` cast or `@ts-expect-error`.
-- **Local Supabase SQL validation pattern** that's safe to reuse: open a
-  psycopg2 connection via the `DATABASE_URL` in
-  `slack-agent/.env`, `cur.execute(sql)`, then always `conn.rollback()` —
-  confirms a migration applies cleanly against the *real* instance without
-  ever persisting anything. The Claude Code permission system treats this
-  as a sensitive action and will ask for confirmation the first time in a
-  session; that's expected, not a bug.
-- **Vercel/Next.js-side**: this is Next.js 16 with Cache Components
-  enabled (`cacheComponents: true`). Any page reading `params` or doing
-  real data fetching needs `export const instant = false` or it tries
-  (and fails) to prerender a static shell. Every dynamic page already has
-  this; copy the pattern for new ones.
-
-## Historical next steps from the old machine
-
-This checklist records the old session. Use **Resume here** for the current plan.
-
-1. `git stash list` to confirm the oracle work is there, then
-   `git checkout stephen/wire-frontend-to-anchor-program && git stash pop`.
-2. Re-run `npm run build` (and `npm run lint`) in `apps/app/` to confirm
-   the last fix actually resolved the TS error with no new ones.
-3. Get the three real Supabase API env vars from the user and add them to
-   `.env.local` (not `.env.example`) so the two API routes are actually
-   testable.
-4. Get the oracle wallet funded (ask the user to use faucet.solana.com, or
-   retry the CLI airdrop if enough time has passed since the last
-   rate-limit hit).
-5. Decide whether to commit/push this oracle work as its own PR (stacked
-   on `stephen/wire-frontend-to-anchor-program`, same as how #15 stacked
-   on #13) once it passes build/lint.
-6. Real end-to-end test still outstanding regardless of the above: create
-   a challenge, join with a couple of funded devnet wallets, log a few
-   workout sessions, wait past the deadline, hit "Settle now", confirm the
-   results page shows real payouts, claim them. Needs a real browser with
-   Phantom — not drivable from this session.
-7. Longer-term, not blocking: the `apps/web` landing page's teammate (if
-   any) hasn't been involved in this thread of work at all; Chert/MediaPipe
-   capture is still fully unbuilt (intentionally out of scope so far, see
-   `AGENTS.md`); the off-chain `users`/`teams`/`team_members` tables from
-   the first migration remain unpopulated placeholders - decide at some
-   point whether to actually wire create/join to also write them (for a
-   future cross-challenge dashboard) or drop them from the schema entirely.
-
-## Full devnet loop verified end-to-end (15 November 2026)
-
-Everything in "Historical next steps" item 6 above is now done. PRs #16
-and #17 are merged to `main`. The program is deployed to devnet
-(`DhWeNpUmpxjSXdZ6iN1VCbP1WJVAYg9Yrprtx1LBPDum`), Supabase keys and the
-oracle wallet are live, and a real click-through (two separate Phantom
-wallets, two browsers) ran the whole loop for real: create -> join both
-teams -> log workouts via the real in-browser MediaPipe squat capture ->
-settle -> claim. The settlement math matched the on-chain computation
-exactly (verified by hand against the per-member payout numbers).
-
-Real bugs found and fixed along the way (all merged):
-- Program had never actually been deployed to devnet - only ever tested
-  against a local validator. Deployed for real this session.
-- `WalletButton` had a React hydration mismatch (error #418) that left it
-  unresponsive after a real click - `app/components/wallet-button.tsx`
-  now gates the real button behind a post-mount check.
-- Join page had no path forward after a successful deposit (dead end) -
-  now links to the scoreboard.
-- Scoreboard had no way to see/share the invite link at all - now shown
-  with a copy button.
-- Dead `/challenges/demo` links left over from the mock-data era, in both
-  the nav and homepage - removed.
-- Scoreboard showed 0 progress before settle() (on-chain `counted_units`
-  is genuinely zero until then by design) - added a live/unverified
-  preview read from Supabase (`/api/workout-sessions/totals`).
-- Create form's duration field couldn't accept short devnet test
-  durations (min 1 whole day) - now accepts fractions.
-
-### Stretch goal: PWA + mobile wallet connect
-
-A PWA manifest and iOS home-screen install (PR #20, `app/manifest.ts`,
-`app/icon.tsx`, `app/apple-icon.tsx`, `appleWebApp` metadata in
-`layout.tsx`) is implemented and verified via build/lint/curl, but
-**not yet verified on a real iPhone** - real-device testing this session
-was blocked by tooling, not app bugs:
-- `localtunnel` (`npx localtunnel`) was repeatedly flaky (random process
-  deaths, 502s, timeouts) independent of anything in this app.
-- `cloudflared`'s quick tunnel (installed via
-  `winget install Cloudflare.cloudflared`) never printed a URL at all
-  when run from the test network (a college guest Wi-Fi) - strongly
-  suggests that network blocks outbound tunnel connections, a common
-  campus-network security policy, not a bug here.
-- Separately, Phantom's actual mobile connect flow (deep-link to the
-  Phantom app, which opens the site in Phantom's own in-app browser) was
-  tested for real once a tunnel briefly worked, and rendered a **blank
-  screen** inside Phantom's in-app browser specifically (the PWA itself,
-  opened directly in Safari, rendered correctly). Root cause not
-  diagnosed - needs real console access (Mac + Safari Web Inspector
-  over USB, or a working tunnel long enough to debug) to see the actual
-  JS error inside that specific WebView.
-
-Given that unresolved blank-screen issue, `app/components/wallet-button.tsx`
-now detects a mobile user agent and shows a disabled "Use a computer to
-connect" button instead of attempting the broken mobile flow. Every other
-page (scoreboard, results, the real MediaPipe camera capture) works fine
-on a phone/PWA - only the wallet-connect action itself is gated to
-desktop for now. This was an explicit, deliberate scope cut for this
-session, not an oversight - next steps when picked back up:
-1. Get real browser console access on the phone (Mac + Safari Web
-   Inspector via USB is the most direct path) to see why Phantom's
-   in-app browser shows a blank screen.
-2. Retry real-device testing from a non-restrictive network (e.g.
-   cellular data, or a home/non-campus Wi-Fi) before assuming the tunnel
-   tooling itself is the problem again.
-3. Once mobile wallet connect actually works, remove the `isMobile` gate
-   in `wallet-button.tsx`.
+- Reps are counted in the user's browser, so a determined user can fake them. The pose tracking and liveness prompt only deter casual cheating.
+- The oracle and the program upgrade authority are single keys. Don't call it trustless.
+- There's no timeout refund if settlement never happens.
+- Phantom wallet connect does not work on phones yet; desktop works.
+- Devnet only.

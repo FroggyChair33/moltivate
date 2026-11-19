@@ -3,7 +3,7 @@
 This Rust workspace, present as ordinary files in `programs/commitment-stakes/`,
 begins the Commitment Stakes track. It is independent of the native-versus-mobile-web
 decision. The recovery also adds a repository path guard and its Demo CI regression
-checks; it leaves `apps/web` and deployment gating unchanged.
+checks.
 
 The source was recovered from PR #5's patch and compared byte-for-byte with the
 existing local recovery checkout before edits. The bundle was preserved as opaque
@@ -20,7 +20,7 @@ No local-validator, devnet, device or CV integration has run.
 ## Source specification gate
 
 Requested source: MVP attached to Slack thread `1794673082.957109`. The current
-Slack connection returned no results for Moltivate, Chert or a Moltivate channel;
+Slack connection returned no results for Moltivate or a Moltivate channel;
 the attachment and exact numerical example could not be retrieved. The repository
 baseline instead proposes equal stakes and full forfeiture, which is materially
 different from the requested Commitment Stakes rules. Do not substitute it.
@@ -73,5 +73,4 @@ Devnet execution is permitted only after review and merge. No mainnet, real
 money, paid infrastructure, private recordings or secrets are part of this work.
 The oracle remains a trusted result authority, separate from upgrade authority.
 
-See [draft account contract](docs/account-contract.md) and
-[bounded Chert capability report](docs/chert-capability.md).
+See [draft account contract](docs/account-contract.md).

@@ -49,7 +49,7 @@ try {
   await page.getByRole('button', { name: 'Review invitation' }).click();
   await page.getByRole('alert').filter({ hasText: 'Paste a valid' }).waitFor();
   await page.getByRole('navigation').getByRole('link', { name: 'Coach', exact: true }).click();
-  await page.getByText('App connection pending').waitFor();
+  await page.getByText('Runs in your browser').waitFor();
   await page.getByRole('link', { name: 'Find my workout' }).click();
   await page.waitForURL('**/coach#choose-challenge');
   await context.close();

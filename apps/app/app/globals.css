@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
-/* The marketing site (apps/web) has no dark mode at all -- fixed light
-   theme (see its styles.css: color-scheme:light). Matching that means
+/* The brand is a fixed light theme with no dark mode. That means
    `dark:` utilities scattered through existing components must stop
    firing too, not just lose their color tokens, or they'd apply
    mismatched colors (e.g. near-invisible white/15 borders) against this
@@ -10,8 +9,7 @@
    `dark` class, so it never matches. */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Same palette as the apps/web marketing site (see its styles.css :root)
-   -- fixed light theme, no dark mode, matching that site exactly. */
+/* Brand palette -- fixed light theme, no dark mode. */
 :root {
   --paper: #f9f8f2;
   --green: #173e2c;
@@ -69,7 +67,7 @@ h3 {
     color: var(--foreground);
   }
 
-  /* Same approach as apps/web's .ethos-strip/.ethos-track: the track holds
+  /* The track holds
      the content twice back-to-back and scrolls exactly one copy's width,
      so the loop point is invisible. */
   .marquee-track {
