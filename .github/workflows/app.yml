@@ -1,0 +1,49 @@
+name: App CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  checks:
+    name: Repo guard, lint, test, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/app/package-lock.json
+      - name: Install root dependencies
+        run: npm ci --ignore-scripts
+      - name: Repository guard and its tests
+        run: npm run ci
+      - name: Install app dependencies
+        working-directory: apps/app
+        run: npm ci
+      - name: Lint app
+        working-directory: apps/app
+        run: npm run lint
+      - name: Unit tests
+        working-directory: apps/app
+        run: npm test
+      # No env vars needed: secrets are read at request time, not build time.
+      - name: Build app
+        working-directory: apps/app
+        run: npm run build

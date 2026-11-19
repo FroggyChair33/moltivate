@@ -24,7 +24,7 @@ test('allows reviewed source, manifests, lockfiles, docs and redacted examples',
   for (const file of ['programs/commitment-stakes/programs/commitment-stakes/src/lib.rs',
     'programs/commitment-stakes/Cargo.toml', 'programs/commitment-stakes/Cargo.lock',
     'programs/commitment-stakes/docs/account-contract.md', '.env.example',
-    'nested/.env.example', 'apps/web/assets/fonts/dm-sans.woff2']) {
+    'nested/.env.example', 'apps/app/public/photos/gym-team.jpg']) {
     assert.deepEqual(invalidEntries(entry(file)), [], file);
   }
 });
