@@ -10,11 +10,13 @@ devnet test SOL only, fixed house rules, no promises of returns.
 
 **Are you Moltivated?**
 
-Live app (devnet): TODO, the fork's own Vercel URL once it's deployed.
+Live app (devnet): https://moltivate-solo.vercel.app
 
 > Status (2026-11-18): the full loop (create → join → camera workout → settle →
 > claim) was run end to end on devnet from a local build of the original team
-> project. This fork's own deployment has not yet been verified end to end.
+> project. This fork is deployed at moltivate-solo.vercel.app; its pages and
+> workout API were checked live (2026-11-19), but a full two-wallet devnet loop
+> on the deployment has not been run yet.
 
 ## How it works
 
