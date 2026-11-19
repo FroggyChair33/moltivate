@@ -55,9 +55,6 @@ npm.cmd --prefix apps/app run build
 npm.cmd --prefix apps/app run start -- --hostname 127.0.0.1 --port 13000
 # In another terminal (needs `npx playwright install chromium` once):
 node apps/app/tests/ui-smoke.mjs
-# The smoke test mocks only https://api.devnet.solana.com. If .env.local sets a
-# different NEXT_PUBLIC_SOLANA_RPC_URL, build and start with
-# NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com first.
 ```
 
 The browser script uses a simulated Phantom wallet, synthetic Anchor account

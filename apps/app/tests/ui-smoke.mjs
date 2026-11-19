@@ -67,8 +67,12 @@ try {
   });
   await connected.route('**/api/users?**', route => route.fulfill({ json: { names: { [owner.toBase58()]: 'You', [peer.toBase58()]: 'Sam' } } }));
   await connected.route('**/api/challenges/close?**', route => route.fulfill({ json: { closed: [] } }));
-  await connected.route('https://api.devnet.solana.com/**', async route => {
-    const body = route.request().postDataJSON();
+  // Any JSON-RPC POST, whatever RPC URL the build has baked in (.env.local may set Helius).
+  await connected.route('**/*', async route => {
+    let body = null;
+    try { body = route.request().method() === 'POST' ? route.request().postDataJSON() : null; } catch {}
+    const first = Array.isArray(body) ? body[0] : body;
+    if (!first || first.jsonrpc !== '2.0') return route.fallback();
     const respond = request => {
       let result;
       if (request.method === 'getAccountInfo') result = { context: { slot: 1 }, value: records.get(request.params[0]) || null };
