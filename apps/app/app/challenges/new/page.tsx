@@ -1,14 +1,15 @@
 "use client";
 
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useRef, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { WalletButton } from "@/app/components/wallet-button";
 import { Eyebrow } from "@/app/components/eyebrow";
 import { useProgram } from "@/lib/use-program";
 import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
+import { sendWithPhases, type TxPhase } from "@/lib/send-tx";
 
 // Real on-chain create: initializes the creator's persistent group pot the
 // first time it's needed, then calls `initialize`, which atomically creates
@@ -40,7 +41,8 @@ export default function NewChallengePage() {
 function NewChallengeForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const { publicKey } = useWallet();
+  const { publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
   const program = useProgram();
 
   const [title, setTitle] = useState(params.get("title") ?? "Push-up Pact");
@@ -51,7 +53,10 @@ function NewChallengeForm() {
   const [durationDays, setDurationDays] = useState("7");
   const [teamAName, setTeamAName] = useState(params.get("teamAName") ?? "Sunrise Squad");
   const [teamBName, setTeamBName] = useState(params.get("teamBName") ?? "Night Owls");
-  const [submitting, setSubmitting] = useState(false);
+  const [phase, setPhase] = useState<TxPhase | null>(null);
+  // Bumped on every attempt and on Cancel, so a late wallet answer from an
+  // abandoned attempt can't overwrite the current UI state.
+  const attempt = useRef(0);
   const [error, setError] = useState<string | null>(null);
 
   const isRematch = params.get("rematchOf") !== null;
@@ -59,7 +64,10 @@ function NewChallengeForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!program || !publicKey) return;
-    setSubmitting(true);
+    const mine = ++attempt.current;
+    const onPhase = (p: TxPhase) => {
+      if (attempt.current === mine) setPhase(p);
+    };
     setError(null);
     try {
       // Always the real backend oracle (app/api/oracle/settle) -- only that
@@ -73,17 +81,20 @@ function NewChallengeForm() {
       const pot = potPda(publicKey, DEFAULT_GROUP_ID);
       const potAccount = await program.provider.connection.getAccountInfo(pot);
       if (!potAccount) {
-        await program.methods
+        const groupTx = await program.methods
           .initializeGroup(DEFAULT_GROUP_ID)
           .accounts({ creator: publicKey })
-          .rpc();
+          .transaction();
+        groupTx.feePayer = publicKey;
+        await sendWithPhases(connection, sendTransaction, groupTx, onPhase);
+        if (attempt.current !== mine) return;
       }
 
       const challengeId = new BN(Date.now());
       const challenge = challengePda(publicKey, challengeId);
       const deadlineUnix = new BN(Math.floor(Date.now() / 1000 + Number(durationDays) * 86400));
 
-      await program.methods
+      const createTx = await program.methods
         .initialize({
           id: challengeId,
           oracle: oracleKey,
@@ -108,15 +119,25 @@ function NewChallengeForm() {
           teamA: teamPda(challenge, 0),
           teamB: teamPda(challenge, 1),
         })
-        .rpc();
+        .transaction();
+      createTx.feePayer = publicKey;
+      await sendWithPhases(connection, sendTransaction, createTx, onPhase);
+      if (attempt.current !== mine) return;
 
       window.dispatchEvent(new Event("moltivate:updated"));
       router.push(`/join/${challenge.toBase58()}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (attempt.current === mine) setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSubmitting(false);
+      if (attempt.current === mine) setPhase(null);
     }
+  }
+
+  // Cancel only stops waiting: Phantom's pending request can't be withdrawn,
+  // so approving it later can still create a challenge (deferred design problem).
+  function cancelApproval() {
+    attempt.current++;
+    setPhase(null);
   }
 
   if (!publicKey) {
@@ -222,11 +243,25 @@ function NewChallengeForm() {
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={phase !== null}
           className="button-primary mt-2 disabled:opacity-50"
         >
-          {submitting ? "Creating on devnet..." : isRematch ? "Start rematch" : "Create"}
+          {phase === "approve"
+            ? "Approve in Phantom…"
+            : phase === "confirm"
+              ? "Confirming on devnet…"
+              : isRematch
+                ? "Start rematch"
+                : "Create"}
         </button>
+        {phase === "approve" && (
+          <p className="text-center text-xs text-zinc-500" role="status">
+            No Phantom window? Open the Phantom extension.{" "}
+            <button type="button" onClick={cancelApproval} className="underline">
+              Cancel
+            </button>
+          </p>
+        )}
 
         <p className="text-center text-[11px] leading-relaxed text-zinc-500">
           House rules, not yours to set: {HOUSE_ALPHA_PERCENT}% of your stake is always at
