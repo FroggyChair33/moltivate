@@ -24,6 +24,8 @@ type Loaded = {
   title: string;
   target: number;
   settled: boolean;
+  // Evaluated on each 5s refresh, so it can lag the real deadline by a few seconds.
+  deadlinePassed: boolean;
   teamAName: string;
   teamBName: string;
   members: MemberRow[];
@@ -109,6 +111,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
           title: `${teamA.name} vs ${teamB.name}`,
           target: challengeAcc.target,
           settled: challengeAcc.settled,
+          deadlinePassed: Date.now() / 1000 >= challengeAcc.deadlineUnix.toNumber(),
           teamAName: teamA.name,
           teamBName: teamB.name,
           members,
@@ -279,8 +282,15 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
 
       <blockquote className="motivation">“Someone’s showing up because you are.”</blockquote>
       <div id="workout" className="mt-10 flex flex-col gap-6">
-        {state.settled ? <p>This challenge has ended. Open results to review your claim.</p> : myMember ? (
+        {state.settled ? <p>This challenge has ended. Open results to review your claim.</p> : state.deadlinePassed ? (
+          <p className="text-sm text-muted">The deadline has passed, so new workouts can&apos;t be recorded. Open results to settle and claim.</p>
+        ) : myMember ? (
           <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
+        ) : publicKey ? (
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-sm text-muted">You&apos;re not on a team in this challenge yet.</p>
+            <Link href={`/join/${id}`} className="button-primary">Join a team</Link>
+          </div>
         ) : (
           <p className="text-sm text-muted">Connect the wallet you joined with to log a workout.</p>
         )}

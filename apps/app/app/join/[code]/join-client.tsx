@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton } from "@/app/components/wallet-button";
 import { Eyebrow } from "@/app/components/eyebrow";
 import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
 import { teamPda } from "@/lib/anchor";
+import { describeTxError, sendWithPhases, type TxPhase } from "@/lib/send-tx";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 // The invite "code" is the challenge account's own base58 address -- every
@@ -33,13 +34,17 @@ export function JoinClient({ code }: { code: string }) {
 }
 
 function JoinClientView({ code }: { code: string }) {
-  const { connected, publicKey } = useWallet();
+  const { connected, publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
   const program = useProgram();
 
   const [view, setView] = useState<ChallengeView | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [teamIndex, setTeamIndex] = useState<0 | 1 | null>(null);
-  const [depositing, setDepositing] = useState(false);
+  const [phase, setPhase] = useState<TxPhase | null>(null);
+  // Bumped on every attempt and on Cancel, so a late wallet answer from an
+  // abandoned attempt can't overwrite the current UI state.
+  const attempt = useRef(0);
   const [deposited, setDeposited] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const myName = useDisplayNames(publicKey ? [publicKey.toBase58()] : []);
@@ -86,21 +91,28 @@ function JoinClientView({ code }: { code: string }) {
 
   async function handleDeposit() {
     if (!program || !publicKey || !challengePk || teamIndex === null) return;
-    setDepositing(true);
+    const mine = ++attempt.current;
+    setPhase("approve"); // lock the button now, before any await
     setError(null);
     try {
-      await program.methods
+      const tx = await program.methods
         .joinTeam(teamIndex)
         .accounts({
           memberAuthority: publicKey,
           challenge: challengePk,
           team: teamPda(challengePk, teamIndex),
         })
-        .rpc();
+        .transaction();
+      tx.feePayer = publicKey;
+      await sendWithPhases(connection, sendTransaction, tx, (p) => {
+        if (attempt.current === mine) setPhase(p);
+      });
+      if (attempt.current !== mine) return;
       setDeposited(true);
       window.dispatchEvent(new Event("moltivate:updated"));
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+      if (attempt.current !== mine) return;
+      const message = describeTxError(err, program.idl.errors ?? []);
       // The deadline could have passed in the gap between loading this page
       // and submitting (or Phantom's own preflight simulation can reject
       // without a clean AnchorError at all -- see wallet-button.tsx's
@@ -113,8 +125,15 @@ function JoinClientView({ code }: { code: string }) {
           : message,
       );
     } finally {
-      setDepositing(false);
+      if (attempt.current === mine) setPhase(null);
     }
+  }
+
+  // Cancel only stops waiting: Phantom's pending request can't be withdrawn,
+  // and approving it later still joins (the program allows one join per wallet).
+  function cancelApproval() {
+    attempt.current++;
+    setPhase(null);
   }
 
   if (!challengePk) {
@@ -207,12 +226,26 @@ function JoinClientView({ code }: { code: string }) {
 
           <button
             type="button"
-            disabled={teamIndex === null || depositing || deposited}
+            disabled={teamIndex === null || phase !== null || deposited}
             onClick={handleDeposit}
             className="rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-colors disabled:opacity-50"
           >
-            {deposited ? "Deposited" : depositing ? "Depositing..." : `Deposit ${stakeSol} SOL`}
+            {deposited
+              ? "Deposited"
+              : phase === "approve"
+                ? "Approve in Phantom…"
+                : phase === "confirm"
+                  ? "Confirming on devnet…"
+                  : `Deposit ${stakeSol} SOL`}
           </button>
+          {phase === "approve" && (
+            <p className="text-xs text-zinc-500" role="status">
+              No Phantom window? Open the Phantom extension.{" "}
+              <button type="button" onClick={cancelApproval} className="underline">
+                Cancel
+              </button>
+            </p>
+          )}
           {deposited ? (
             <Link
               href={`/challenges/${code}`}

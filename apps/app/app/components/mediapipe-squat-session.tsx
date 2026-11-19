@@ -192,13 +192,15 @@ export function MediaPipeSquatSession({
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Could not save your workout. Retry submission.");
+      // Only server errors (5xx) are worth retrying; 4xx (closed, not a member) never succeed.
+      if (!res.ok) throw Object.assign(new Error(data.error ?? "Could not save your workout. Retry submission."), { retryable: res.status >= 500 });
       window.dispatchEvent(new Event("moltivate:updated"));
       setSubmitFailed(false);
       setResult(data.status ? `${data.status} (reps: ${reps}, unverified)` : `HTTP ${res.status}`);
       setPhase("done");
     } catch (err) {
-      setSubmitFailed(true);
+      // Network failures (fetch throws, no flag) stay retryable.
+      setSubmitFailed((err as { retryable?: boolean }).retryable !== false);
       setError(err instanceof Error ? err.message : String(err));
       setPhase("error");
     }
