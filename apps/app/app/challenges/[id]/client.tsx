@@ -281,6 +281,11 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
       <div id="workout" className="mt-10 flex flex-col gap-6">
         {state.settled ? <p>This challenge has ended. Open results to review your claim.</p> : myMember ? (
           <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
+        ) : publicKey ? (
+          <div className="flex flex-col items-start gap-3">
+            <p className="text-sm text-muted">You&apos;re not on a team in this challenge yet.</p>
+            <Link href={`/join/${id}`} className="button-primary">Join a team</Link>
+          </div>
         ) : (
           <p className="text-sm text-muted">Connect the wallet you joined with to log a workout.</p>
         )}
