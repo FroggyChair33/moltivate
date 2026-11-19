@@ -11,8 +11,8 @@ button's pale green glass treatment. Wallet-adapter owns connection behavior.
 
 - Home introduces the club, coaching, commitments, invitations, and installation.
 - `/coach` provides preparation guidance and links to the user's challenges.
-  App-linked FaceTime remains explicitly pending in this checkout. There is no
-  fake call button, pretend video, streaming count, or fabricated conversation.
+  The in-browser camera is the only capture path. There is no fake call
+  button, pretend video, streaming count, or fabricated conversation.
 - `/club` collects challenge discovery, results links, invitations, and the
   existing display-name editor.
 - Create, invite, leaderboard, browser workout, and results screens share the
@@ -37,14 +37,13 @@ and retains the previous standings with an error state if a refresh fails.
 Rolling digits animate actual fetched values and respect reduced motion.
 On-chain half-rep units are converted to reps for presentation only.
 
-These are saved workout totals, not a per-frame FaceTime rep stream. Whether a
+These are saved workout totals, not a per-frame rep stream. Whether a
 workout appears still depends on the existing backend's storage and status rules.
 Counts remain experimental and do not establish payout eligibility.
 
 No API routes, worker code, Anchor contracts, financial rules, signing, deposit,
 settlement, or claim handlers were changed for this design increment. The browser
-camera uses the existing local counter. App-linked FaceTime integration remains
-separate work with the backend owner.
+camera uses the existing local counter, which is the only capture path.
 
 ## Verification
 
@@ -54,7 +53,7 @@ Use Node 24 and the existing lockfiles. From the repository root:
 npm.cmd --prefix apps/app run lint
 npm.cmd --prefix apps/app run build
 npm.cmd --prefix apps/app run start -- --hostname 127.0.0.1 --port 13000
-# In another terminal, with root Playwright dependencies/browser installed:
+# In another terminal (needs `npx playwright install chromium` once):
 node apps/app/tests/ui-smoke.mjs
 ```
 
@@ -65,5 +64,4 @@ retention/recovery, camera denial, and reduced motion. Screenshots are written
 under ignored `test-results/app-design/`.
 
 These checks do not establish real iPhone camera/wallet behavior, deployment,
-or a completed end-to-end FaceTime workout. Existing unrelated marketing demo
-link changes remain separate from this app design increment.
+or a completed end-to-end devnet workout.

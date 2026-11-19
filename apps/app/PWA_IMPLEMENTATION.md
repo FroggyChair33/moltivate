@@ -1,7 +1,7 @@
 # PWA implementation checkpoint
 
-November 15, 2026. Branch codex/pwa-functional-flow incorporates Stephen's
-7acf508 baseline and the existing live-coach branch history.
+November 15, 2026. Branch codex/pwa-functional-flow, built on Stephen's
+7acf508 baseline.
 
 ## Implemented
 
@@ -19,7 +19,6 @@ November 15, 2026. Branch codex/pwa-functional-flow incorporates Stephen's
   last successful result on transient errors.
 - Browser squat submissions retain their idempotency key on retry, report HTTP
   failures and refresh standings after saving. Camera-start failures stop tracks.
-  The FaceTime placeholder now reports that app linkage is unavailable.
 - Claim success refreshes results and discovery. The close button is creator-only
   and remains gated on all claims. Existing server close authentication still
   accepts a supplied wallet address and should be coordinated with the backend
@@ -62,10 +61,8 @@ behavior is implemented in CSS but was not tested with an OS preference change.
 ## Integration boundary
 
 The current app endpoint POST /api/workout-sessions is a completed-workout
-submission. Browser submissions remain unverified. It is not used to start
-FaceTime sessions. Stephen must coordinate the live start/status/end and signed
-callback contract before wiring app-authorized FaceTime calls. See
-../../docs/live/TEAMMATE_HANDOFF.md and ENDPOINT_CONTRACT.md.
+submission from the in-browser counter, the only capture path. Every
+submission is stored as unverified.
 
 The current backend's treatment of unverified workout rows at settlement is
 existing demo behavior. This UI increment does not establish payout verification.

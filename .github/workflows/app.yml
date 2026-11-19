@@ -43,7 +43,7 @@ jobs:
       - name: Unit tests
         working-directory: apps/app
         run: npm test
-      # No env vars needed: secrets are read at request time, not build time.
+      # Builds with no env vars set; secrets are only read at request time.
       - name: Build app
         working-directory: apps/app
         run: npm run build

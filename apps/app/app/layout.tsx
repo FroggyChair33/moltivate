@@ -4,9 +4,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Nav } from "./components/nav";
 
-// Same self-hosted fonts as the apps/web marketing site (see its
-// assets/fonts/ -- license files copied alongside these), so the
-// functional app reads as the same brand. DM Sans is body text, Fraunces
+// Self-hosted brand fonts (app/fonts/, OFL license files alongside).
+// DM Sans is body text, Fraunces
 // is the serif used for headings, La Belle Aurore is a handwritten
 // accent font for sparing use (not body or heading text).
 const dmSans = localFont({

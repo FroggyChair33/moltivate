@@ -22,8 +22,8 @@ then compared with the existing local `.isolated/ci-repair/` copies after CRLF
 normalization. All matched before subsequent edits. The local evidence manifest
 records the original per-file SHA-256 values. Recovered paths:
 
-- Eight files under `programs/commitment-stakes/`: ignore file, workspace Cargo
-  manifest, README, account contract, historical Chert report, program Cargo
+- Seven files under `programs/commitment-stakes/`: ignore file, workspace Cargo
+  manifest, README, account contract, program Cargo
   manifest, `lib.rs`, and `math.rs`.
 - `scripts/check-repository.mjs` and `tests/repository.test.js`.
 
@@ -49,7 +49,7 @@ financial rules or label a replacement fixture the exact MVP example.
 
 Initialize/account definitions and math helpers are recovered source, not verified
 on-chain behavior. Join, settlement, payouts, refunds, generated IDL, lockfile and
-transaction tests remain missing. Chert access is unrelated to these blockers.
+transaction tests remain missing.
 
 ## Checks run in this recovery
 

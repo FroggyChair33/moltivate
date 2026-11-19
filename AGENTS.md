@@ -120,7 +120,7 @@ let it silently rewrite an already-funded challenge.
 - Browser-counted reps can be faked by a determined user.
 - No timeout refund if settlement never happens.
 - Phone wallet connect is blank in Phantom's in-app browser; desktop works.
-- The scoreboard updates on reload or tab focus, not live.
+- The scoreboard polls every 5 seconds (and on tab focus); updates aren't pushed live.
 - A creator isn't automatically a player; they must join a team too.
 
 ## UX expectations
