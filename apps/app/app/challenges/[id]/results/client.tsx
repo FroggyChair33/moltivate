@@ -357,7 +357,6 @@ function ResultsClientView({ id }: { id: string }) {
           </div>
         ))}
       </div>
-      <blockquote className="motivation">“Look at you. Keeping promises to yourself.”</blockquote>
     </div>
   );
 }

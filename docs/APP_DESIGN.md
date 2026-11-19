@@ -9,18 +9,18 @@ button's pale green glass treatment. Wallet-adapter owns connection behavior.
 
 ## Pages and assets
 
-- Home introduces the club, coaching, commitments, invitations, and installation.
-- `/coach` provides preparation guidance and links to the user's challenges.
-  The in-browser camera is the only capture path. There is no fake call
-  button, pretend video, streaming count, or fabricated conversation.
-- `/club` collects challenge discovery, results links, invitations, and the
-  existing display-name editor.
-- Create, invite, leaderboard, browser workout, and results screens share the
-  typography, panels, mobile navigation, and short original motivational notes.
-- `apps/app/app/components/club-art.tsx` owns the polaroid placeholders and
-  original SVG doodles. Future supplied photos should replace the interior of
-  `Polaroid`, preserving the frame and caption and adding meaningful alt text.
-  No user photographs are bundled or uploaded by this change.
+- **Navigation has two items:** Challenges (`/`) and New challenge
+  (`/challenges/new`). Creating a challenge has no other entry point.
+- **Home (`/`) is the dashboard:** your display name, your challenges, and
+  joining by invite. `/club` and `/coach` redirect here; they were merged
+  into it (2026-11-20 UI simplification).
+- Create, join, leaderboard, browser workout, and results pages share the
+  typography, paper panels and buttons. Headings say what the page does;
+  decorative quotes, photos and ribbons were removed.
+- Camera setup guidance lives inside the workout session itself. The
+  in-browser camera is the only capture path.
+- `apps/app/app/components/club-art.tsx` holds the nav icons and the
+  camera placeholder mascot.
 
 Visual references were [Folk](https://www.folk.com/) for friendly coaching,
 [HeyClicky](https://www.heyclicky.com/) for playful physical details, and

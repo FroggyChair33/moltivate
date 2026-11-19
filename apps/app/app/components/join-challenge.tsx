@@ -19,11 +19,10 @@ export function JoinChallenge() {
       setError("Paste a valid challenge address or invite link.");
     }
   }}>
-    <p className="kicker">There’s room for you</p>
-    <h2 className="text-2xl">Got an invite?</h2>
+    <h2 className="text-xl">Join with an invite</h2>
     <label htmlFor="challenge-invite" className="block text-sm">Challenge address or invite link</label>
     <input id="challenge-invite" className="input w-full" value={invite} onChange={(event) => setInvite(event.target.value)} required aria-describedby={error ? "invite-error" : undefined} />
     {error && <p id="invite-error" role="alert" className="text-sm text-red-700">{error}</p>}
-    <button className="button-primary" type="submit">Review invitation <span aria-hidden="true">↗</span></button>
+    <button className="button-primary" type="submit">Review invitation</button>
   </form>;
 }

@@ -7,7 +7,6 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { RollingNumber } from "@/app/components/rolling-number";
 import { MediaPipeSquatSession } from "@/app/components/mediapipe-squat-session";
 import { Eyebrow } from "@/app/components/eyebrow";
-import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda } from "@/lib/anchor";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
@@ -181,15 +180,10 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
   return (
     <div className="app-page">
       {error && <p role="alert" className="mb-4 text-sm text-red-700">Refresh failed. Showing the last loaded standings. <button className="underline" onClick={() => setReloadKey((key) => key + 1)}>Retry</button></p>}
-      <Eyebrow>{state.settled ? "Challenge results" : "Your club, in motion"}</Eyebrow>
-      <h1 className="mb-8">Show up for<br /><em>each other.</em></h1>
-      <CommitmentSlip
-        label="The challenge"
-        value={state.title}
-        detail={`${state.target} reps per member${state.settled ? " · settled" : ""}`}
-      />
-      <p className="mt-3 mb-6 text-xs uppercase tracking-wide text-muted">
-        Challenge {id.slice(0, 4)}...{id.slice(-4)}
+      <Eyebrow>{state.settled ? "Challenge results" : "Live challenge"}</Eyebrow>
+      <h1 className="mb-3">{state.title}</h1>
+      <p className="mb-6 text-xs uppercase tracking-wide text-muted">
+        {state.target} reps per member · Challenge {id.slice(0, 4)}...{id.slice(-4)}
         {!state.settled && " · progress below is live/unverified until settled"}
       </p>
 
@@ -280,7 +274,6 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
         </p>
       </section>
 
-      <blockquote className="motivation">“Someone’s showing up because you are.”</blockquote>
       <div id="workout" className="mt-10 flex flex-col gap-6">
         {state.settled ? <p>This challenge has ended. Open results to review your claim.</p> : state.deadlinePassed ? (
           <p className="text-sm text-muted">The deadline has passed, so new workouts can&apos;t be recorded. Open results to settle and claim.</p>

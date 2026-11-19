@@ -6,7 +6,6 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { WalletButton } from "@/app/components/wallet-button";
-import { Eyebrow } from "@/app/components/eyebrow";
 import { useProgram } from "@/lib/use-program";
 import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
 import { describeTxError, sendWithPhases, type TxPhase } from "@/lib/send-tx";
@@ -144,24 +143,18 @@ function NewChallengeForm() {
   if (!publicKey) {
     return (
       <div className="app-page form-page">
-        <Eyebrow>New challenge</Eyebrow>
-        <h1>Make a pact.<br /><em>Make it happen.</em></h1>
-        <p className="page-intro">Bring your friends, pick a goal, and give yourselves a reason to show up.</p>
+        <h1>New challenge</h1>
         <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
           Connect your Phantom wallet (devnet) to create a challenge.
         </p>
         <WalletButton />
-        <blockquote className="motivation">“The first step counts, too.”</blockquote>
       </div>
     );
   }
 
   return (
     <div className="app-page form-page">
-      <Eyebrow>{isRematch ? "Run it back" : "New challenge"}</Eyebrow>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        {isRematch ? "One more round?" : <>Make a pact.<br /><em>Make it happen.</em></>}
-      </h1>
+      <h1 className="mb-6">{isRematch ? "Rematch" : "New challenge"}</h1>
       {isRematch && (
         <p className="mb-6 rounded-lg bg-black/[.03] p-3 text-sm text-zinc-600 dark:bg-white/[.06] dark:text-zinc-400">
           Prefilled from the challenge you just settled -- the group pot carries
@@ -170,7 +163,6 @@ function NewChallengeForm() {
           invite link, same as before.
         </p>
       )}
-      <p className="page-intro">A goal, a little accountability, and your favorite people. Let’s set it up.</p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Field label="Title">
           <input
@@ -271,7 +263,6 @@ function NewChallengeForm() {
           teams pass).
         </p>
       </form>
-      <blockquote className="motivation">“Small promises. Kept daily. That’s where it starts.”</blockquote>
     </div>
   );
 }

@@ -155,7 +155,7 @@ function JoinClientView({ code }: { code: string }) {
   }
 
   if (!program) {
-    return <section className="app-page form-page"><Eyebrow>Your people are waiting</Eyebrow><h1>You’re invited.<br /><em>Come on in.</em></h1><p className="page-intro">Connect your wallet to review the teams, goal, and devnet stake before joining.</p><WalletButton /><blockquote className="motivation">“Good things start with showing up.”</blockquote></section>;
+    return <section className="app-page form-page"><Eyebrow>You&apos;re invited</Eyebrow><h1>Join a challenge</h1><p className="page-intro">Connect your wallet to review the teams, goal, and devnet stake before joining.</p><WalletButton /></section>;
   }
 
   if (!view) {
@@ -173,12 +173,11 @@ function JoinClientView({ code }: { code: string }) {
   return (
     <div className="app-page form-page">
       <Eyebrow>You&apos;re invited</Eyebrow>
-      <h1 className="mb-8">Pick your people.<br /><em>Keep your word.</em></h1>
+      <h1 className="mb-8">Join this challenge</h1>
       <CommitmentSlip
         label="The challenge"
         value={view.title}
         detail={`${view.target} reps/week · stake ${stakeSol} SOL (devnet)`}
-        signoff="see you there."
       />
       <p className="mt-3 mb-6 text-xs uppercase tracking-wide text-muted">
         Invite code: {code.slice(0, 4)}...{code.slice(-4)}
@@ -260,7 +259,6 @@ function JoinClientView({ code }: { code: string }) {
           )}
         </div>
       )}
-      <blockquote className="motivation">“A promise feels better when you keep it together.”</blockquote>
     </div>
   );
 }
