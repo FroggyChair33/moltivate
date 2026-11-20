@@ -1,11 +1,13 @@
 # Mobile app design checkpoint
 
-Updated 2026-11-15 on `codex/pwa-functional-flow`.
+Updated 2026-11-20 on `experimental`.
 
-The Next.js app now carries the marketing site's cream paper, forest green,
-copper accents, Fraunces headings, DM Sans interface text, and La Belle Aurore
-handwritten notes. The Solana wallet control uses the marketing App Store
-button's pale green glass treatment. Wallet-adapter owns connection behavior.
+The palette is centered on brand blue `#0496ff`: a cool off-white page,
+white panels, deep navy (`#0a2540`) text and dark cards, and blue for every
+primary action, focus ring and progress bar. Tokens live in `:root` in
+`app/globals.css`. Fraunces is the heading serif and DM Sans the interface
+text. Controls are flat: no paper texture, glossy wallet badge, rotated
+avatars or mascot.
 
 ## Pages and assets
 
@@ -15,12 +17,13 @@ button's pale green glass treatment. Wallet-adapter owns connection behavior.
   joining by invite. `/club` and `/coach` redirect here; they were merged
   into it (2026-11-20 UI simplification).
 - Create, join, leaderboard, browser workout, and results pages share the
-  typography, paper panels and buttons. Headings say what the page does;
+  typography, panels and buttons. Headings say what the page does;
   decorative quotes, photos and ribbons were removed.
 - Camera setup guidance lives inside the workout session itself. The
   in-browser camera is the only capture path.
-- `apps/app/app/components/club-art.tsx` holds the nav icons and the
-  camera placeholder mascot.
+- `apps/app/app/components/club-art.tsx` holds the two nav icons.
+- The leaderboard is a plain ranked list: rank number, team name, reps and
+  a blue progress bar, with members listed by name and count.
 
 Visual references were [Folk](https://www.folk.com/) for friendly coaching,
 [HeyClicky](https://www.heyclicky.com/) for playful physical details, and

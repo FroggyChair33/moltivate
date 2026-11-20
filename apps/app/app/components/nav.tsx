@@ -6,7 +6,7 @@ import { WalletButton } from "./wallet-button";
 import { ClubIcon } from "./club-art";
 
 const links = [
-  { href: "/", label: "Challenges", icon: "club" },
+  { href: "/", label: "Challenges", icon: "list" },
   { href: "/challenges/new", label: "New challenge", icon: "plus" },
 ] as const;
 

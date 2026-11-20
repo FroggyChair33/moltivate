@@ -108,7 +108,7 @@ function DisplayNameEditorView() {
         type="button"
         disabled={saving}
         onClick={handleSave}
-        className="rounded-full bg-foreground px-3 py-1 text-xs font-medium text-background disabled:opacity-50"
+        className="rounded-full bg-accent px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
       >
         {saving ? "Saving..." : "Save"}
       </button>

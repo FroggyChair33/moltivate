@@ -187,22 +187,15 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
         {!state.settled && " · progress below is live/unverified until settled"}
       </p>
 
-      <section className="overflow-hidden rounded-[22px] border border-[#2c4838] bg-[#132e23] text-[#f3f5e8] shadow-[0_20px_50px_rgba(24,60,37,0.25)]">
-        <div className="flex items-center justify-between gap-4 border-b border-white/10 px-6 py-5">
-          <div className="flex items-center gap-2.5">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ecd17f" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M8 3h8v6a4 4 0 0 1-8 0V3ZM8 5H4v3a4 4 0 0 0 4 4m8-7h4v3a4 4 0 0 1-4 4m-4 1v5m-4 3h8m-6-3h4" />
-            </svg>
-            <strong className="text-base font-semibold tracking-tight">Leaderboard</strong>
-          </div>
-          <span className="rounded-md border border-[#455747] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#c1ccbd]">
-            {state.settled ? "Final · devnet" : error ? "Update paused" : "Auto-updating"}
+      <section className="overflow-hidden rounded-[20px] bg-[#0a2540] text-white">
+        <div className="flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4">
+          <strong className="text-base font-semibold">Leaderboard</strong>
+          <span className="text-xs text-[#a9bdd1]">
+            <span>{state.settled ? "Final" : error ? "Update paused" : "Auto-updating"}</span> · {state.updatedAt}
           </span>
         </div>
-
-        <div className="board-meta"><span>{state.settled ? "Settled on-chain" : "Experimental rep standings · refreshes every 5s"}</span><span>Updated {state.updatedAt}</span></div>
         <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-6 py-3 text-sm">
-          <span className="min-w-0 flex-1 break-all select-all text-[#b9cdbf]">{origin}/join/{id}</span>
+          <span className="min-w-0 flex-1 break-all select-all text-[#a9bdd1]">{origin}/join/{id}</span>
           <button
             type="button"
             onClick={async () => {
@@ -213,7 +206,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
                 setTimeout(() => setCopied(false), 2000);
               } catch { setCopyError(true); }
             }}
-            className="shrink-0 rounded-full border border-[#455747] px-3 py-1 text-xs font-medium text-[#dcf0cf]"
+            className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs font-medium hover:bg-white/15"
           >
             {copied ? "Copied" : "Copy invite link"}
           </button>
@@ -224,53 +217,49 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
           {teams.map((team, rank) => (
             <div key={team.index} className="board-row">
               <div className="board-main">
-                <span className="w-6 font-mono text-xs text-[#90a78e]">{String(rank + 1).padStart(2, "0")}</span>
-                <TeamAvatar name={team.name} teamIndex={team.index} />
-                <div className="min-w-0 flex-1">
+                <span className="font-mono text-sm text-[#a9bdd1]">{rank + 1}</span>
+                <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{team.name}</p>
-                  <p className="text-xs text-[#93aa94]">
+                  <p className="text-xs text-[#a9bdd1]">
                     {team.members.length} {team.members.length === 1 ? "member" : "members"}
                   </p>
                 </div>
                 <div className="board-detail">
-                  <p className="board-score"><RollingNumber value={team.total / 2} /><span className="ml-1 text-xs text-[#c2d1ba]"> / {team.goal / 2} reps</span></p>
-                  <div className="mt-1.5 h-[3px] w-full overflow-hidden rounded-full bg-[#38513f]">
-                    <div className="board-progress h-full rounded-full bg-[#c7d785]" style={{ width: `${team.percent}%` }} />
+                  <p className="board-score"><RollingNumber value={team.total / 2} /><span className="ml-1 text-xs text-[#a9bdd1]"> / {team.goal / 2} reps</span></p>
+                  <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-white/10">
+                    <div className="board-progress h-full rounded-full bg-[#0496ff]" style={{ width: `${team.percent}%` }} />
                   </div>
                 </div>
               </div>
 
               {team.members.length === 0 ? (
-                <p className="mt-3 pl-9 text-xs text-[#93aa94]">No one has joined yet.</p>
+                <p className="mt-3 pl-8 text-xs text-[#a9bdd1]">No one has joined yet.</p>
               ) : (
-                <div className="mt-4 flex flex-col gap-2.5 pl-9">
+                <ul className="mt-3 flex flex-col gap-2 pl-8">
                   {team.members.map((member) => {
                     const pct = goalUnits > 0 ? Math.min(100, Math.round((member.countedUnits / goalUnits) * 100)) : 0;
                     return (
-                      <div key={member.pubkey} className="flex items-center gap-3">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/15 bg-[#78957a] font-mono text-[9px] text-[#132e23]">
-                          {member.owner.slice(0, 1).toUpperCase()}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-xs text-[#dce7d5]">
+                      <li key={member.pubkey} className="flex items-center gap-3 text-xs">
+                        <span className="min-w-0 flex-1 truncate text-[#dbe7f3]">
                           {displayNameOrShort(member.owner, names)}
-                          {member.owner === publicKey?.toBase58() && <span className="text-[#91a993]"> (you)</span>}
+                          {member.owner === publicKey?.toBase58() && <span className="text-[#8fd0ff]"> (you)</span>}
                         </span>
-                        <span className="w-24 shrink-0 text-right text-xs text-[#91a993]">
+                        <span className="shrink-0 text-right text-[#a9bdd1]">
                           <RollingNumber value={member.countedUnits / 2} />/{goalUnits / 2} ({pct}%)
                         </span>
-                      </div>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               )}
             </div>
           ))}
         </div>
 
-        <p className="border-t border-white/10 px-6 py-4 text-xs leading-relaxed text-[#bdcbb3]">
+        <p className="border-t border-white/10 px-6 py-4 text-xs leading-relaxed text-[#a9bdd1]">
           {state.settled
             ? "Final reps, converted from the settled on-chain half-rep units."
-            : "Logged workout progress. Experimental until settled; live counts do not establish payout eligibility."}
+            : "Experimental standings, refreshed every 5 seconds. Live counts are unverified and don't establish payout eligibility until settled."}
         </p>
       </section>
 
@@ -297,26 +286,5 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
         </div>
       </div>
     </div>
-  );
-}
-
-// Same visual idea as the marketing site's club-board avatars: initials in a
-// rotated circle, colored distinctly per team.
-function TeamAvatar({ name, teamIndex }: { name: string; teamIndex: 0 | 1 }) {
-  const bg = teamIndex === 0 ? "#f0d57b" : "#df633b";
-  const ink = teamIndex === 0 ? "#3b4226" : "#fff6df";
-  const initials = name
-    .split(/\s+/)
-    .map((word) => word[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  return (
-    <span
-      className="flex h-9 w-9 shrink-0 -rotate-6 items-center justify-center rounded-full border-[3px] border-white/10 font-serif text-xs font-semibold"
-      style={{ background: bg, color: ink }}
-    >
-      {initials}
-    </span>
   );
 }

@@ -227,7 +227,7 @@ function ResultsClientView({ id }: { id: string }) {
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
       </p>
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        {state.settled ? <>The effort.<br /><em>The outcome.</em></> : <>Every rep matters.<br /><em>Results to come.</em></>}
+        {state.settled ? "Results" : "Results pending"}
       </h1>
 
       <p className="mb-4 result-panel text-sm">{outcomeLabel}</p>
@@ -299,7 +299,7 @@ function ResultsClientView({ id }: { id: string }) {
             type="button"
             disabled={settling}
             onClick={handleSettleNow}
-            className="w-fit rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background disabled:opacity-50"
+            className="w-fit rounded-full bg-accent px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {settling ? "Settling..." : "Settle now"}
           </button>

@@ -209,7 +209,7 @@ function JoinClientView({ code }: { code: string }) {
                 onClick={() => setTeamIndex(idx)}
                 aria-pressed={teamIndex === idx}
                 className={`rounded-2xl border px-5 py-5 text-left text-sm ${
-                  teamIndex === idx ? "border-foreground bg-[#e8ecd9]" : "border-black/10 dark:border-white/15"
+                  teamIndex === idx ? "border-accent bg-[#e3f2ff]" : "border-line"
                 }`}
               >
                 {idx === 0 ? view.teamAName : view.teamBName}
@@ -227,7 +227,7 @@ function JoinClientView({ code }: { code: string }) {
             type="button"
             disabled={teamIndex === null || phase !== null || deposited}
             onClick={handleDeposit}
-            className="rounded-full bg-foreground px-6 py-3 text-sm font-medium text-background transition-colors disabled:opacity-50"
+            className="rounded-full bg-accent px-6 py-3 text-sm font-medium text-white transition-colors disabled:opacity-50"
           >
             {deposited
               ? "Deposited"
