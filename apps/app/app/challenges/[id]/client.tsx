@@ -147,7 +147,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
   if (error && !state) {
     return (
       <div className="app-page">
-        <p role="alert" className="text-sm text-red-700">{error}</p>
+        <p role="alert" className="text-sm text-red-300">{error}</p>
         <button onClick={() => setReloadKey((key) => key + 1)} className="mt-4 underline">Retry</button>
       </div>
     );
@@ -179,7 +179,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
 
   return (
     <div className="app-page">
-      {error && <p role="alert" className="mb-4 text-sm text-red-700">Refresh failed. Showing the last loaded standings. <button className="underline" onClick={() => setReloadKey((key) => key + 1)}>Retry</button></p>}
+      {error && <p role="alert" className="mb-4 text-sm text-red-300">Refresh failed. Showing the last loaded standings. <button className="underline" onClick={() => setReloadKey((key) => key + 1)}>Retry</button></p>}
       <Eyebrow>{state.settled ? "Challenge results" : "Live challenge"}</Eyebrow>
       <h1 className="mb-3">{state.title}</h1>
       <p className="mb-6 text-xs uppercase tracking-wide text-muted">
@@ -187,7 +187,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
         {!state.settled && " · progress below is live/unverified until settled"}
       </p>
 
-      <section className="overflow-hidden rounded-[20px] bg-[#0a2540] text-white">
+      <section className="overflow-hidden rounded-[20px] border border-line bg-surface text-white">
         <div className="flex items-center justify-between gap-4 border-b border-white/10 px-6 py-4">
           <strong className="text-base font-semibold">Leaderboard</strong>
           <span className="text-xs text-[#a9bdd1]">
@@ -279,7 +279,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
         <div>
           <Link
             href={`/challenges/${id}/results`}
-            className="rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04]"
+            className="rounded-full border border-line px-5 py-2.5 text-sm font-medium transition-colors hover:bg-white/[.06]"
           >
             View results / claim
           </Link>

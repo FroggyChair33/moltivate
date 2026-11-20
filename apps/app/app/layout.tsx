@@ -4,22 +4,11 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Nav } from "./components/nav";
 
-// Self-hosted brand fonts (app/fonts/, OFL license files alongside).
-// DM Sans is body text, Fraunces
-// is the serif used for headings.
+// Self-hosted brand font (app/fonts/, OFL license alongside): DM Sans for all text.
 const dmSans = localFont({
   src: "./fonts/dm-sans.woff2",
   weight: "400 700",
   variable: "--font-dm-sans",
-  display: "swap",
-});
-
-const fraunces = localFont({
-  src: [
-    { path: "./fonts/fraunces.woff2", weight: "500 700", style: "normal" },
-    { path: "./fonts/fraunces-italic.woff2", weight: "500 600", style: "italic" },
-  ],
-  variable: "--font-fraunces",
   display: "swap",
 });
 
@@ -36,7 +25,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0496ff",
+  themeColor: "#07121f",
   viewportFit: "cover",
 };
 
@@ -44,7 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${fraunces.variable} h-full antialiased`}
+      className={`${dmSans.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>

@@ -80,7 +80,7 @@ function ChallengeList() {
           <h3 className="text-xl">{settled ? "Results" : "Active challenges"}</h3>
           {entries.map((entry) => <Link key={entry.id}
             href={`/challenges/${entry.id}${entry.settled ? "/results" : ""}`}
-            className="block rounded-2xl border border-line bg-white/60 p-5 hover:border-foreground">
+            className="block rounded-2xl border border-line bg-surface p-5 hover:border-accent">
             <span className="block font-medium">{entry.claimPending ? "Claim pending" : entry.settled ? "View results" : "Open challenge"}</span>
             <span className="mt-1 block break-all text-xs text-muted">{entry.id}</span>
             <span className="mt-2 block text-sm">{entry.creator ? "Created by you" : "Your team"} · Devnet</span>

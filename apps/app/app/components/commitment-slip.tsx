@@ -9,9 +9,9 @@ export function CommitmentSlip({
   detail: string;
 }) {
   return (
-    <div className="w-fit rounded-xl border border-line bg-white px-5 py-4">
+    <div className="w-fit rounded-xl border border-line bg-surface px-5 py-4">
       <span className="block text-[9px] font-bold uppercase tracking-[0.14em] text-muted">{label}</span>
-      <strong className="mt-1 block font-serif text-xl leading-tight font-semibold text-foreground">{value}</strong>
+      <strong className="mt-1 block text-xl leading-tight font-semibold text-foreground">{value}</strong>
       <span className="mt-1 block text-xs text-muted">{detail}</span>
     </div>
   );

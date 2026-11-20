@@ -115,7 +115,7 @@ function DisplayNameEditorView() {
       <button type="button" onClick={() => setEditing(false)} className="text-xs text-muted">
         Cancel
       </button>
-      {error && <p className="text-xs text-red-700">{error}</p>}
+      {error && <p className="text-xs text-red-300">{error}</p>}
     </div>
   );
 }

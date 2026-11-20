@@ -139,7 +139,7 @@ function JoinClientView({ code }: { code: string }) {
   if (!challengePk) {
     return (
       <div className="app-page form-page">
-        <p className="text-sm text-red-700 dark:text-red-300">
+        <p className="text-sm text-red-300">
           That invite link doesn&apos;t look like a valid challenge address.
         </p>
       </div>
@@ -149,7 +149,7 @@ function JoinClientView({ code }: { code: string }) {
   if (loadError) {
     return (
       <div className="app-page form-page">
-        <p className="text-sm text-red-700 dark:text-red-300">{loadError}</p>
+        <p className="text-sm text-red-300">{loadError}</p>
       </div>
     );
   }
@@ -161,7 +161,7 @@ function JoinClientView({ code }: { code: string }) {
   if (!view) {
     return (
       <div className="app-page form-page">
-        <p className="text-sm text-zinc-500">Loading challenge from devnet...</p>
+        <p className="text-sm text-muted">Loading challenge from devnet...</p>
       </div>
     );
   }
@@ -184,7 +184,7 @@ function JoinClientView({ code }: { code: string }) {
       </p>
 
       {closed ? (
-        <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+        <p className="rounded-lg bg-red-950/40 p-3 text-sm text-red-300">
           {view.settled
             ? "This challenge has already been settled -- it's closed to new members."
             : "This challenge's deadline has already passed -- it's closed to new members."}
@@ -196,7 +196,7 @@ function JoinClientView({ code }: { code: string }) {
         </div>
       ) : (
         <div className="flex flex-col gap-5">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted">
             Connected as {publicKey ? displayNameOrShort(publicKey.toBase58(), myName) : ""}
           </p>
 
@@ -209,7 +209,7 @@ function JoinClientView({ code }: { code: string }) {
                 onClick={() => setTeamIndex(idx)}
                 aria-pressed={teamIndex === idx}
                 className={`rounded-2xl border px-5 py-5 text-left text-sm ${
-                  teamIndex === idx ? "border-accent bg-[#e3f2ff]" : "border-line"
+                  teamIndex === idx ? "border-accent bg-accent/15" : "border-line"
                 }`}
               >
                 {idx === 0 ? view.teamAName : view.teamBName}
@@ -218,7 +218,7 @@ function JoinClientView({ code }: { code: string }) {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+            <p className="rounded-lg bg-red-950/40 p-3 text-sm text-red-300">
               {error}
             </p>
           )}
@@ -238,7 +238,7 @@ function JoinClientView({ code }: { code: string }) {
                   : `Deposit ${stakeSol} SOL`}
           </button>
           {phase === "approve" && (
-            <p className="text-xs text-zinc-500" role="status">
+            <p className="text-xs text-muted" role="status">
               No Phantom window? Open the Phantom extension.{" "}
               <button type="button" onClick={cancelApproval} className="underline">
                 Cancel
@@ -248,12 +248,12 @@ function JoinClientView({ code }: { code: string }) {
           {deposited ? (
             <Link
               href={`/challenges/${code}`}
-              className="rounded-full border border-black/10 px-5 py-2.5 text-center text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
+              className="rounded-full border border-line px-5 py-2.5 text-center text-sm font-medium transition-colors hover:bg-white/[.06]"
             >
               Go to scoreboard
             </Link>
           ) : (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               Sends a real devnet transaction via your connected wallet.
             </p>
           )}

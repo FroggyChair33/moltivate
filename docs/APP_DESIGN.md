@@ -2,12 +2,12 @@
 
 Updated 2026-11-20 on `experimental`.
 
-The palette is centered on brand blue `#0496ff`: a cool off-white page,
-white panels, deep navy (`#0a2540`) text and dark cards, and blue for every
-primary action, focus ring and progress bar. Tokens live in `:root` in
-`app/globals.css`. Fraunces is the heading serif and DM Sans the interface
-text. Controls are flat: no paper texture, glossy wallet badge, rotated
-avatars or mascot.
+The app uses one fixed dark theme centered on brand blue `#0496ff`: a
+navy-black page (`#07121f`), slightly lighter panels, light text, and blue
+for every primary action, focus ring and progress bar. Tokens live in
+`:root` in `app/globals.css`. DM Sans is the only typeface (bold headings).
+Controls are flat: no paper texture, glossy wallet badge, rotated avatars or
+mascot.
 
 ## Pages and assets
 

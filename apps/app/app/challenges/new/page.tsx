@@ -144,7 +144,7 @@ function NewChallengeForm() {
     return (
       <div className="app-page form-page">
         <h1>New challenge</h1>
-        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mb-4 text-sm text-muted">
           Connect your Phantom wallet (devnet) to create a challenge.
         </p>
         <WalletButton />
@@ -156,7 +156,7 @@ function NewChallengeForm() {
     <div className="app-page form-page">
       <h1 className="mb-6">{isRematch ? "Rematch" : "New challenge"}</h1>
       {isRematch && (
-        <p className="mb-6 rounded-lg bg-black/[.03] p-3 text-sm text-zinc-600 dark:bg-white/[.06] dark:text-zinc-400">
+        <p className="mb-6 rounded-lg bg-white/[.06] p-3 text-sm text-muted">
           Prefilled from the challenge you just settled -- the group pot carries
           forward automatically since it&apos;s tied to your wallet, not to any one
           challenge. Pick a new duration and everyone rejoins via the new
@@ -229,7 +229,7 @@ function NewChallengeForm() {
         </div>
 
         {error && (
-          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          <p className="rounded-lg bg-red-950/40 p-3 text-sm text-red-300">
             {error}
           </p>
         )}
@@ -248,7 +248,7 @@ function NewChallengeForm() {
                 : "Create"}
         </button>
         {phase === "approve" && (
-          <p className="text-center text-xs text-zinc-500" role="status">
+          <p className="text-center text-xs text-muted" role="status">
             No Phantom window? Open the Phantom extension.{" "}
             <button type="button" onClick={cancelApproval} className="underline">
               Cancel
@@ -256,7 +256,7 @@ function NewChallengeForm() {
           </p>
         )}
 
-        <p className="text-center text-[11px] leading-relaxed text-zinc-500">
+        <p className="text-center text-[11px] leading-relaxed text-muted">
           House rules, not yours to set: {HOUSE_ALPHA_PERCENT}% of your stake is always at
           risk even if you hit your goal, and the house takes a {HOUSE_RAKE_PERCENT}% rake
           from forfeits only (never from a winner&apos;s principal, waived entirely if both

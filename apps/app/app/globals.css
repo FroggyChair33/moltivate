@@ -1,29 +1,20 @@
 @import "tailwindcss";
 
-/* The brand is a fixed light theme with no dark mode. That means
-   `dark:` utilities scattered through existing components must stop
-   firing too, not just lose their color tokens, or they'd apply
-   mismatched colors (e.g. near-invisible white/15 borders) against this
-   light background whenever a visitor's OS is in dark mode. This
-   switches dark: from OS-driven to class-driven; nothing ever adds a
-   `dark` class, so it never matches. */
-@custom-variant dark (&:where(.dark, .dark *));
-
-/* Brand palette, centered on #0496ff -- fixed light theme, no dark mode. */
+/* Brand palette, centered on #0496ff -- one fixed dark theme, regardless of
+   the visitor's OS setting. Components use these tokens, not dark: variants. */
 :root {
-  --paper: #f5f9fd;
-  --surface: #ffffff;
+  --paper: #07121f;
+  --surface: #0f1e31;
   --blue: #0496ff;
-  --blue-dark: #0377d0;
-  --blue-soft: #e3f2ff;
+  --blue-hover: #34abff;
+  --blue-soft: #0496ff26;
   --sky: #8fd0ff;
-  --navy: #0a2540;
-  --ink: #0a2540;
-  --muted: #5a6e83;
-  --line: #d9e4ef;
+  --ink: #e8f1fa;
+  --muted: #8ea3b8;
+  --line: #20344b;
   --background: var(--paper);
   --foreground: var(--ink);
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 @theme inline {
@@ -32,8 +23,8 @@
   --color-accent: var(--blue);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-surface: var(--surface);
   --font-sans: var(--font-dm-sans);
-  --font-serif: var(--font-fraunces);
 }
 
 body {
@@ -56,7 +47,8 @@ main { min-width: 0; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
 h1,
 h2,
 h3 {
-  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
 button, summary { cursor: pointer; }
@@ -65,22 +57,22 @@ html { scroll-padding-top: 24px; }
 .skip-link { position: fixed; top: -100px; left: 16px; z-index: 100; padding: 14px; background: var(--surface); }
 .skip-link:focus { top: 12px; }
 .app-header { width: min(1120px, 100%); margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 32px; }
-.brand-wordmark { font: 600 30px/1 var(--font-fraunces), Georgia, serif; letter-spacing: -1.5px; }
+.brand-wordmark { font: 700 26px/1 var(--font-dm-sans), sans-serif; letter-spacing: -1px; }
 .brand-wordmark span { color: var(--blue); }
 .network-label, .kicker { font-size: 10px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; }
 .network-label { display: flex; align-items: center; gap: 8px; color: var(--muted); }
 .network-label i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
 .app-nav { display: flex; justify-content: center; gap: 6px; width: fit-content; margin: 0 auto; padding: 5px; border: 1px solid var(--line); border-radius: 50px; background: var(--surface); z-index: 30; }
 .app-nav a { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 20px; border-radius: 30px; color: var(--muted); font-size: 13px; font-weight: 600; }
-.app-nav a[aria-current], .app-nav a:hover { color: var(--blue-dark); background: var(--blue-soft); }
+.app-nav a[aria-current], .app-nav a:hover { color: var(--sky); background: var(--blue-soft); }
 .app-page { width: min(1060px, 100%); margin: auto; padding: 48px 32px 40px; }
-.app-page h1 { font-size: clamp(36px, 5vw, 56px); line-height: 1.08; letter-spacing: -2px; font-weight: 500; }
-.app-page h2 { font-size: clamp(24px, 3vw, 32px); line-height: 1.15; letter-spacing: -0.8px; }
-.kicker { margin-bottom: 16px; line-height: 1.7; color: var(--blue-dark); }
+.app-page h1 { font-size: clamp(32px, 4.5vw, 48px); line-height: 1.1; }
+.app-page h2 { font-size: clamp(22px, 2.6vw, 28px); line-height: 1.2; }
+.kicker { margin-bottom: 16px; line-height: 1.7; color: var(--sky); }
 .page-intro { max-width: 430px; color: var(--muted); line-height: 1.7; font-size: 15px; margin: 18px 0; }
 .page-footnote { text-align: center; font-size: 11px; color: var(--muted); margin-top: 40px; }
 .button-primary { display: inline-flex; justify-content: center; align-items: center; gap: 12px; min-height: 46px; border-radius: 999px; padding: 12px 22px; background: var(--blue); color: #fff; font-size: 14px; font-weight: 600; border: 0; transition: background .2s; }
-.button-primary:hover { background: var(--blue-dark); }
+.button-primary:hover { background: var(--blue-hover); }
 .paper-panel { padding: 24px; border: 1px solid var(--line); background: var(--surface); border-radius: 16px; min-width: 0; }
 .paper-panel > h2 { margin-bottom: 20px; }
 .section-topline { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 16px; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--sky); }
@@ -100,23 +92,23 @@ html { scroll-padding-top: 24px; }
 .board-row { padding: 22px 24px; }
 .board-main { display: grid; grid-template-columns: 20px minmax(0,1fr) auto; gap: 12px; align-items: center; }
 .board-detail { width: 160px; text-align: right; }
-.camera-room { border-radius: 20px; padding: 24px; color: #eaf3fc; background: var(--navy); }
-.camera-stage { position: relative; min-height: 300px; overflow: hidden; background: #06182b; border-radius: 14px; margin: 20px 0; }
+.camera-room { border: 1px solid var(--line); border-radius: 16px; padding: 24px; color: var(--ink); background: var(--surface); }
+.camera-stage { position: relative; min-height: 300px; overflow: hidden; background: #050c16; border-radius: 12px; margin: 20px 0; }
 .camera-stage video { width: 100%; max-height: 520px; object-fit: contain; transform: scaleX(-1); }
 .camera-placeholder { min-height: 300px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 32px; }
 .camera-placeholder p { max-width: 280px; color: #a9bdd1; font-size: 13px; line-height: 1.8; }
-.rep-overlay { position: absolute; bottom: 16px; left: 16px; background: #06182be6; border-radius: 14px; padding: 10px 20px; display: flex; align-items: baseline; gap: 10px; }
+.rep-overlay { position: absolute; bottom: 16px; left: 16px; background: #050c16e6; border-radius: 14px; padding: 10px 20px; display: flex; align-items: baseline; gap: 10px; }
 .rep-overlay .rolling-number { font-size: 46px; color: var(--sky); }
 .rep-overlay > span:last-child { font-size: 12px; }
 .camera-room .session-status { font-size: 13px; line-height: 1.8; color: #b8cadb; }
-.camera-room .session-error { background: #fff0ee; color: #9b2c1f; padding: 14px; margin-top: 18px; border-radius: 12px; font-size: 13px; }
+.camera-room .session-error { background: #3a1414; color: #ffb4a8; padding: 14px; margin-top: 18px; border-radius: 12px; font-size: 13px; }
 /* Flat wallet button; wallet-adapter keeps its behavior. */
 .solana-button, .wallet-adapter-button.wallet-adapter-button-trigger, .wallet-adapter-button.wallet-adapter-button-trigger:not([disabled]):hover { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; height: auto; max-width: 100%; padding: 10px 18px; border: 0; border-radius: 999px; color: #fff; background: var(--blue); font-family: var(--font-dm-sans), sans-serif; font-size: 14px; font-weight: 600; line-height: 1; }
-.solana-button:hover, .wallet-adapter-button.wallet-adapter-button-trigger:not([disabled]):hover { background: var(--blue-dark); }
+.solana-button:hover, .wallet-adapter-button.wallet-adapter-button-trigger:not([disabled]):hover { background: var(--blue-hover); }
 .mobile-wallet { position: relative; }
 .mobile-wallet summary { list-style: none; }
 .mobile-wallet summary::-webkit-details-marker { display: none; }
-.mobile-wallet p { position: absolute; top: calc(100% + 12px); right: 0; z-index: 50; width: min(280px, calc(100vw - 48px)); padding: 18px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 30px #0a254020; border-radius: 14px; font-size: 13px; line-height: 1.7; }
+.mobile-wallet p { position: absolute; top: calc(100% + 12px); right: 0; z-index: 50; width: min(280px, calc(100vw - 48px)); padding: 18px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 30px #0008; border-radius: 14px; font-size: 13px; line-height: 1.7; }
 @media (max-width: 700px) {
   body { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
   .app-header { padding: 16px 20px; gap: 12px; flex-wrap: wrap; }
@@ -126,7 +118,6 @@ html { scroll-padding-top: 24px; }
   .app-nav a { flex: 1; flex-direction: column; gap: 4px; padding: 8px 4px; border-radius: 12px; font-size: 11px; }
   .app-nav svg { width: 20px; height: 20px; }
   .app-page { padding: 28px 20px; }
-  .app-page h1 { letter-spacing: -1.5px; }
   .paper-panel { padding: 20px; }
   .form-page form { padding: 20px; }
   .board-row { padding: 18px 16px; }
