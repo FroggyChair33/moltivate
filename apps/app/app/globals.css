@@ -47,8 +47,9 @@ main { min-width: 0; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
 h1,
 h2,
 h3 {
+  font-family: var(--font-redaction), Georgia, serif;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.01em;
 }
 
 button, summary { cursor: pointer; }
@@ -57,7 +58,7 @@ html { scroll-padding-top: 24px; }
 .skip-link { position: fixed; top: -100px; left: 16px; z-index: 100; padding: 14px; background: var(--surface); }
 .skip-link:focus { top: 12px; }
 .app-header { width: min(1120px, 100%); margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 32px; }
-.brand-wordmark { font: 700 26px/1 var(--font-dm-sans), sans-serif; letter-spacing: -1px; }
+.brand-wordmark { font: 700 30px/1 var(--font-redaction), Georgia, serif; letter-spacing: -0.5px; }
 .brand-wordmark span { color: var(--blue); }
 .network-label, .kicker { font-size: 10px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; }
 .network-label { display: flex; align-items: center; gap: 8px; color: var(--muted); }

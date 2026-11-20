@@ -7,4 +7,9 @@ Original family names are retained. Each family is distributed under its bundled
 dm-sans.woff2 — DM Sans, normal, weights 400 700
 https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/DMSans%5Bopsz%2Cwght%5D.ttf
 
+redaction-35-400.woff2, redaction-35-700.woff2 — Redaction 35 (Jeremy Mickel / MCKL, with Forest Young), latin subset, normal 400 and 700.
+Copied unchanged from the Fontsource npm package @fontsource/redaction-35@5.3.0 (files/redaction-35-latin-{400,700}-normal.woff2), retrieved 2026-11-20.
+Dual licensed SIL OFL 1.1 / LGPL 2.1; used here under the OFL.
+
 dmsans-OFL.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/OFL.txt
+redaction-OFL.txt: LICENSE from @fontsource/redaction-35@5.3.0

@@ -5,7 +5,8 @@ Updated 2026-11-20 on `experimental`.
 The app uses one fixed dark theme centered on brand blue `#0496ff`: a
 navy-black page (`#07121f`), slightly lighter panels, light text, and blue
 for every primary action, focus ring and progress bar. Tokens live in
-`:root` in `app/globals.css`. DM Sans is the only typeface (bold headings).
+`:root` in `app/globals.css`. Redaction 35 (OFL) sets headings and the
+wordmark; DM Sans sets everything else.
 Controls are flat: no paper texture, glossy wallet badge, rotated avatars or
 mascot.
 
