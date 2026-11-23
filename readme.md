@@ -110,8 +110,9 @@ Building the Anchor program needs Linux or WSL2 (see `programs/commitment-stakes
 - **Phone wallet connect doesn't work yet** (blank in Phantom's in-app browser);
   desktop works.
 - Workout submissions are checked on chain against the challenge's membership,
-  deadline and settled state, but the caller isn't authenticated per session:
-  anyone who knows a member account could submit reps for it.
+  deadline and settled state. Each one is signed by a throwaway session key that
+  the member's wallet authorizes with one signature per visit (up to 2 hours),
+  so other people can't submit reps for you. It doesn't stop you faking your own.
 - Closing a challenge requires a signature from the creator's or a member's wallet.
 - The scoreboard polls every 5 seconds (and on tab focus); updates aren't pushed live.
 - A challenge creator isn't automatically a player; they must join a team too.

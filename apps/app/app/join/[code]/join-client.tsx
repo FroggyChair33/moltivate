@@ -8,7 +8,7 @@ import { WalletButton } from "@/app/components/wallet-button";
 import { Eyebrow } from "@/app/components/eyebrow";
 import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
-import { teamPda } from "@/lib/anchor";
+import { getReadProgram, memberPda, teamPda } from "@/lib/anchor";
 import { describeTxError, sendWithPhases, type TxPhase } from "@/lib/send-tx";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
@@ -47,7 +47,12 @@ function JoinClientView({ code }: { code: string }) {
   const attempt = useRef(0);
   const [deposited, setDeposited] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const myName = useDisplayNames(publicKey ? [publicKey.toBase58()] : []);
+
+  // Challenge details load without a wallet, so a visitor sees what they're
+  // invited to (and whether it's closed) before connecting.
+  const reader = useMemo(() => getReadProgram(connection), [connection]);
 
   const challengePk = useMemo(() => {
     try {
@@ -58,14 +63,14 @@ function JoinClientView({ code }: { code: string }) {
   }, [code]);
 
   useEffect(() => {
-    if (!program || !challengePk) return;
+    if (!challengePk) return;
     let cancelled = false;
     (async () => {
       try {
         const [challengeAcc, teamA, teamB] = await Promise.all([
-          program.account.challenge.fetch(challengePk),
-          program.account.team.fetch(teamPda(challengePk, 0)),
-          program.account.team.fetch(teamPda(challengePk, 1)),
+          reader.account.challenge.fetch(challengePk),
+          reader.account.team.fetch(teamPda(challengePk, 0)),
+          reader.account.team.fetch(teamPda(challengePk, 1)),
         ]);
         if (cancelled) return;
         setView({
@@ -87,7 +92,16 @@ function JoinClientView({ code }: { code: string }) {
     return () => {
       cancelled = true;
     };
-  }, [program, challengePk]);
+  }, [reader, challengePk]);
+
+  function markJoined(late: boolean) {
+    attempt.current++; // a newer attempt in flight can only fail now
+    setPhase(null);
+    setError(null);
+    setDeposited(true);
+    if (late) setNotice("Your earlier request went through. You're on the team.");
+    window.dispatchEvent(new Event("moltivate:updated"));
+  }
 
   async function handleDeposit() {
     if (!program || !publicKey || !challengePk || teamIndex === null) return;
@@ -107,11 +121,14 @@ function JoinClientView({ code }: { code: string }) {
       await sendWithPhases(connection, sendTransaction, tx, (p) => {
         if (attempt.current === mine) setPhase(p);
       });
-      if (attempt.current !== mine) return;
-      setDeposited(true);
-      window.dispatchEvent(new Event("moltivate:updated"));
+      // Landed after Cancel? You did join: show it rather than drop it.
+      markJoined(attempt.current !== mine);
     } catch (err) {
       if (attempt.current !== mine) return;
+      // A retry fails if a cancelled approval already joined this wallet.
+      if (await reader.account.teamMember.fetchNullable(memberPda(challengePk, publicKey)).catch(() => null)) {
+        return markJoined(true);
+      }
       const message = describeTxError(err, program.idl.errors ?? []);
       // The deadline could have passed in the gap between loading this page
       // and submitting (or Phantom's own preflight simulation can reject
@@ -129,8 +146,8 @@ function JoinClientView({ code }: { code: string }) {
     }
   }
 
-  // Cancel only stops waiting: Phantom's pending request can't be withdrawn,
-  // and approving it later still joins (the program allows one join per wallet).
+  // Cancel only stops waiting: Phantom's pending request can't be withdrawn.
+  // If it's approved later, markJoined reports it (one join per wallet).
   function cancelApproval() {
     attempt.current++;
     setPhase(null);
@@ -152,10 +169,6 @@ function JoinClientView({ code }: { code: string }) {
         <p className="text-sm text-red-300">{loadError}</p>
       </div>
     );
-  }
-
-  if (!program) {
-    return <section className="app-page form-page"><Eyebrow>You&apos;re invited</Eyebrow><h1>Join a challenge</h1><p className="page-intro">Connect your wallet to review the teams, goal, and devnet stake before joining.</p><WalletButton /></section>;
   }
 
   if (!view) {
@@ -222,6 +235,7 @@ function JoinClientView({ code }: { code: string }) {
               {error}
             </p>
           )}
+          {notice && <p className="rounded-lg bg-accent/15 p-3 text-sm" role="status">{notice}</p>}
 
           <button
             type="button"

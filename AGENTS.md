@@ -118,7 +118,7 @@ let it silently rewrite an already-funded challenge.
 ## Known gaps (state them, don't hide them)
 
 - Browser-counted reps can be faked by a determined user.
-- Workout submissions are checked against challenge membership and the deadline, but the caller isn't authenticated: anyone who knows a member account could submit reps for it (deferred design problem).
+- Workout submissions are signed by a per-visit session key that the member's wallet authorizes once (up to 2 hours; `lib/workout-auth.ts`). This stops other people submitting reps for you, not you faking your own reps.
 - No timeout refund if settlement never happens.
 - Phone wallet connect is blank in Phantom's in-app browser; desktop works.
 - The scoreboard polls every 5 seconds (and on tab focus); updates aren't pushed live.

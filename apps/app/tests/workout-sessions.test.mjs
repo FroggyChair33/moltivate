@@ -2,10 +2,25 @@ import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { createRequire } from "node:module";
 import ts from "typescript";
 
 // Loads the route the same way challenge-discovery.test.mjs loads lib/anchor.ts:
 // transpile, then run with stubbed modules so no Supabase or network is touched.
+// Keys and signatures are real (tweetnacl, web3.js).
+const require = createRequire(import.meta.url);
+const nacl = require("tweetnacl");
+const web3 = require("@solana/web3.js");
+
+const load = (file, requireFn) => {
+  const output = ts.transpileModule(fs.readFileSync(file, "utf8"), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const exportsObject = {};
+  vm.runInNewContext(output, { exports: exportsObject, require: requireFn, process, Request, Buffer, TextEncoder, Uint8Array });
+  return exportsObject;
+};
+
 let inserted;
 let nextResult;
 let fakeProgram;
@@ -20,38 +35,49 @@ const fakeSupabase = {
   }),
 };
 
-const output = ts.transpileModule(fs.readFileSync("app/api/workout-sessions/route.ts", "utf8"), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, target: ts.ScriptTarget.ES2022 },
-}).outputText;
-const exportsObject = {};
-vm.runInNewContext(output, {
-  exports: exportsObject,
-  process,
-  Request,
-  require(name) {
-    if (name === "next/server") {
-      return { NextResponse: { json: (body, init) => ({ body, status: init?.status ?? 200 }) } };
-    }
-    if (name === "@solana/web3.js") {
-      return {
-        PublicKey: class {
-          constructor(v) { if (v === "bad") throw new Error("bad pubkey"); this.v = v; }
-          equals(o) { return o.v === this.v; }
-        },
-      };
-    }
-    if (name === "@/lib/supabase-server") return { getSupabaseServerClient: () => fakeSupabase };
-    if (name === "@/lib/server-program") return { getReadOnlyProgram: () => fakeProgram };
-    throw new Error(name);
-  },
+const auth = load("lib/workout-auth.ts", (n) => { throw new Error(n); });
+const { POST } = load("app/api/workout-sessions/route.ts", (name) => {
+  if (name === "next/server") {
+    return { NextResponse: { json: (body, init) => ({ body, status: init?.status ?? 200 }) } };
+  }
+  if (name === "@solana/web3.js") return web3;
+  if (name === "tweetnacl") return nacl;
+  if (name === "@/lib/workout-auth") return auth;
+  if (name === "@/lib/supabase-server") return { getSupabaseServerClient: () => fakeSupabase };
+  if (name === "@/lib/server-program") return { getReadOnlyProgram: () => fakeProgram };
+  throw new Error(name);
 });
-const { POST } = exportsObject;
 
-const valid = { challengePubkey: "c", teamMemberPubkey: "m", idempotencyKey: "k1", reps: 12, source: "browser_mediapipe" };
-const post = (body, headers = {}) =>
+const wallet = nacl.sign.keyPair();
+const walletPk = new web3.PublicKey(wallet.publicKey);
+const session = nacl.sign.keyPair();
+const challengePk = web3.Keypair.generate().publicKey;
+const memberPk = web3.Keypair.generate().publicKey;
+const now = () => Math.floor(Date.now() / 1000);
+const b64 = (bytes) => Buffer.from(bytes).toString("base64");
+const sign = (message, secretKey) => b64(nacl.sign.detached(new TextEncoder().encode(message), secretKey));
+
+const valid = {
+  challengePubkey: challengePk.toBase58(),
+  teamMemberPubkey: memberPk.toBase58(),
+  idempotencyKey: "k1",
+  reps: 12,
+  source: "browser_mediapipe",
+  wallet: walletPk.toBase58(),
+  sessionKey: new web3.PublicKey(session.publicKey).toBase58(),
+  expiresAt: now() + 3600,
+};
+// Adds both signatures for whatever the body says, as the browser would.
+const signed = (body, walletSecret = wallet.secretKey, sessionSecret = session.secretKey) => ({
+  ...body,
+  authSignature: sign(auth.sessionAuthMessage({ wallet: body.wallet, sessionKey: body.sessionKey, challenge: body.challengePubkey, member: body.teamMemberPubkey, expiresAt: body.expiresAt }), walletSecret),
+  signature: sign(auth.workoutMessage({ challenge: body.challengePubkey, member: body.teamMemberPubkey, idempotencyKey: body.idempotencyKey, reps: body.reps }), sessionSecret),
+});
+const postRaw = (body, headers = {}) =>
   POST(new Request("http://x/api/workout-sessions", { method: "POST", headers, body: JSON.stringify(body) }));
+const post = (body, headers = {}) => postRaw(signed(body), headers);
 
-const unix = (offsetSeconds) => ({ toNumber: () => Math.floor(Date.now() / 1000) + offsetSeconds });
+const unix = (offsetSeconds) => ({ toNumber: () => now() + offsetSeconds });
 let challengeAcc;
 let memberAcc;
 beforeEach(() => {
@@ -59,13 +85,74 @@ beforeEach(() => {
   existingRow = null;
   nextResult = { data: { id: "row-1" }, error: null };
   challengeAcc = { settled: false, deadlineUnix: unix(3600) };
-  memberAcc = { challenge: { equals: () => true } };
+  memberAcc = { challenge: challengePk, owner: walletPk };
   fakeProgram = {
     account: {
       challenge: { fetchNullable: async () => challengeAcc },
       teamMember: { fetchNullable: async () => memberAcc },
     },
   };
+});
+
+test("valid signed session is recorded", async () => {
+  const res = await post(valid);
+  assert.equal(res.status, 201);
+  assert.equal(inserted.length, 1);
+});
+
+test("missing session fields are 400", async () => {
+  for (const field of ["wallet", "sessionKey", "expiresAt", "authSignature", "signature"]) {
+    const body = signed(valid);
+    delete body[field];
+    assert.equal((await postRaw(body)).status, 400, field);
+  }
+  assert.equal(inserted.length, 0);
+});
+
+test("reps changed after signing are rejected", async () => {
+  const res = await postRaw({ ...signed(valid), reps: 500 });
+  assert.equal(res.status, 401);
+  assert.equal(inserted.length, 0);
+});
+
+test("a session key the wallet never authorized is rejected", async () => {
+  const other = nacl.sign.keyPair();
+  const res = await postRaw(signed(valid, other.secretKey));
+  assert.equal(res.status, 401);
+  assert.equal(inserted.length, 0);
+});
+
+test("a submission not signed by the session key is rejected", async () => {
+  const other = nacl.sign.keyPair();
+  const res = await postRaw(signed(valid, wallet.secretKey, other.secretKey));
+  assert.equal(res.status, 401);
+  assert.equal(inserted.length, 0);
+});
+
+test("expired authorization is rejected", async () => {
+  const res = await post({ ...valid, expiresAt: now() - 1 });
+  assert.equal(res.status, 401);
+  assert.match(res.body.error, /expired/);
+  assert.equal(inserted.length, 0);
+});
+
+test("authorization lasting longer than the session limit is rejected", async () => {
+  const res = await post({ ...valid, expiresAt: now() + auth.SESSION_KEY_TTL_SECONDS + 600 });
+  assert.equal(res.status, 400);
+  assert.equal(inserted.length, 0);
+});
+
+test("malformed signature is 400", async () => {
+  const res = await postRaw({ ...signed(valid), signature: "AAAA" });
+  assert.equal(res.status, 400);
+  assert.equal(inserted.length, 0);
+});
+
+test("a wallet that doesn't own the member account is 403", async () => {
+  memberAcc = { challenge: challengePk, owner: web3.Keypair.generate().publicKey };
+  const res = await post(valid);
+  assert.equal(res.status, 403);
+  assert.equal(inserted.length, 0);
 });
 
 test("rejects chert_facetime source", async () => {
@@ -128,7 +215,7 @@ test("unknown challenge is 404", async () => {
 });
 
 test("member of another challenge is 403", async () => {
-  memberAcc = { challenge: { equals: () => false } };
+  memberAcc = { challenge: web3.Keypair.generate().publicKey, owner: walletPk };
   assert.equal((await post(valid)).status, 403);
   memberAcc = null;
   assert.equal((await post(valid)).status, 403);
