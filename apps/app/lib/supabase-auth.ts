@@ -14,6 +14,10 @@ export function createAuthClient(request: Request) {
     cookies: {
       getAll: async () =>
         parseCookieHeader(request.headers.get("cookie") ?? "").map(({ name, value }) => ({ name, value: value ?? "" })),
+      // Known limit: this discards rotated tokens. If the access token is expired, getUser() refreshes server-side and
+      // the new tokens are thrown away, so the browser keeps the old refresh token; once Supabase's refresh-token
+      // reuse detection fires, the user is logged out at random. Mitigation: proxy.ts (Task 8) refreshes the session
+      // before route handlers run and forwards the refreshed cookies onto the request.
       setAll: () => {},
     },
   });

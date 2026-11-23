@@ -21,7 +21,16 @@ export async function requireAccount(request: Request): Promise<Result> {
   const user = data?.user;
   if (error || !user) return fail(401, "not signed in");
   if (!user.email_confirmed_at) return fail(403, "verify your email first");
-  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal?.nextLevel === "aal2" && aal.currentLevel !== "aal2") return fail(401, "two-step verification required");
+  // Both MFA inputs must be server-verified, never read from the editable session cookie: the factors come from
+  // getUser(), and the current level from the access token's aal claim via getAuthenticatorAssuranceLevel(jwt),
+  // which re-verifies that token with the Auth server. Any failure here denies (fail closed).
+  if (user.factors?.some((factor) => factor.status === "verified")) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) return fail(401, "not signed in");
+    const { data: aal, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel(token);
+    if (aalError || !aal) return fail(401, "could not verify two-step status");
+    if (aal.currentLevel !== "aal2") return fail(401, "two-step verification required");
+  }
   return { ok: true, account: { userId: user.id, email: user.email ?? "" } };
 }
