@@ -36,7 +36,7 @@ export function JoinClient({ code }: { code: string }) {
 
 function JoinClientView({ code }: { code: string }) {
   const { publicKey, sendTransaction } = useWallet();
-  const { status } = useAccount();
+  const { status, me } = useAccount();
   const { connection } = useConnection();
   const program = useProgram();
 
@@ -206,7 +206,7 @@ function JoinClientView({ code }: { code: string }) {
         </p>
       ) : status === "loading" ? (
         <p className="text-sm text-muted">Checking your account…</p>
-      ) : status === "error" ? (
+      ) : status === "error" && !me ? (
         <AccountLoadError />
       ) : status === "signedOut" ? (
         <div className="flex flex-col gap-3">

@@ -262,10 +262,11 @@ function ChallengeScoreboardClientView({ id, wallets, accountStatus }: { id: str
           <p className="text-sm text-muted">The deadline has passed, so new workouts can&apos;t be recorded. Open results to settle and claim.</p>
         ) : accountStatus === "loading" ? (
           <p className="text-sm text-muted" role="status">Checking your account…</p>
+        ) : myMember ? (
+          // Before the error branch: a failed background refetch keeps `me`, so an unsaved set isn't unmounted.
+          <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
         ) : accountStatus === "error" ? (
           <AccountLoadError />
-        ) : myMember ? (
-          <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
         ) : wallets.length ? (
           <div className="flex flex-col items-start gap-3">
             <p className="text-sm text-muted">You&apos;re not on a team in this challenge yet.</p>

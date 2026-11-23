@@ -66,7 +66,8 @@ async function requestSignature(wallet: string, purpose: "link" | "unlink", sign
 
 export function AccountClient() {
   const { status, me } = useAccount();
-  if (status === "error") return <div className="app-page form-page max-w-md"><h1>Account</h1><AccountLoadError /></div>;
+  // A failed background refetch keeps `me`; keep the page (and any link/unlink in progress) mounted then.
+  if (status === "error" && !me) return <div className="app-page form-page max-w-md"><h1>Account</h1><AccountLoadError /></div>;
   if (status === "signedOut") {
     return <div className="app-page form-page max-w-md"><h1>Account</h1><p><Link href="/login" className="underline">Log in</Link> to see your account.</p></div>;
   }

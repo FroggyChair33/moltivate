@@ -11,7 +11,8 @@ export function LinkedWalletGate({ children }: { children: React.ReactNode }) {
   const { me, status } = useAccount();
   const { publicKey } = useWallet();
   if (status === "loading") return <p className="text-sm text-muted" role="status">Checking your account…</p>;
-  if (status === "error") return <AccountLoadError />;
+  // `me` survives an error only if it was signed in before; keep children (e.g. a claim in flight) mounted then.
+  if (status === "error" && !me) return <AccountLoadError />;
   if (status === "signedOut" || !me) return <p className="text-sm"><Link href="/login" className="underline">Log in</Link> to continue.</p>;
   if (!publicKey) {
     return (
