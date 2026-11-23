@@ -7,9 +7,9 @@ import ts from "typescript";
 
 // Loads the route the same way challenge-discovery.test.mjs loads lib/anchor.ts:
 // transpile, then run with stubbed modules so no Supabase or network is touched.
-// Keys and signatures are real (tweetnacl, web3.js).
+// Keys are real (web3.js). requireAccount is the real lib/account-auth.ts over a fake auth
+// client, so the Origin gate and the 401 are really exercised.
 const require = createRequire(import.meta.url);
-const nacl = require("tweetnacl");
 const web3 = require("@solana/web3.js");
 
 const load = (file, requireFn) => {
@@ -17,14 +17,17 @@ const load = (file, requireFn) => {
     compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, target: ts.ScriptTarget.ES2022 },
   }).outputText;
   const exportsObject = {};
-  vm.runInNewContext(output, { exports: exportsObject, require: requireFn, process, Request, Buffer, TextEncoder, Uint8Array });
+  vm.runInNewContext(output, { exports: exportsObject, require: requireFn, process, Request, Response, URL, Buffer, TextEncoder, Uint8Array });
   return exportsObject;
 };
+const none = (n) => { throw new Error(n); };
 
 let inserted;
 let nextResult;
 let fakeProgram;
 let existingRow; // what a lookup by (member, idempotency key) finds
+let user; // what the fake auth client says is signed in (null = signed out)
+let linkedWallets; // called afresh on every request, like the real getLinkedWallets
 const fakeSupabase = {
   from: () => ({
     insert(row) {
@@ -35,27 +38,29 @@ const fakeSupabase = {
   }),
 };
 
-const auth = load("lib/workout-auth.ts", (n) => { throw new Error(n); });
+const sameOrigin = load("lib/same-origin.ts", none);
+const authClient = { auth: { getUser: async () => ({ data: { user }, error: null }), getSession: async () => ({ data: { session: null } }) } };
+const account = load("lib/account-auth.ts", (n) => {
+  if (n === "./same-origin") return sameOrigin;
+  if (n === "./supabase-auth") return { createAuthClient: () => authClient };
+  return none(n);
+});
 const { POST } = load("app/api/workout-sessions/route.ts", (name) => {
   if (name === "next/server") {
     return { NextResponse: { json: (body, init) => ({ body, status: init?.status ?? 200 }) } };
   }
   if (name === "@solana/web3.js") return web3;
-  if (name === "tweetnacl") return nacl;
-  if (name === "@/lib/workout-auth") return auth;
+  if (name === "@/lib/account-auth") return account;
+  if (name === "@/lib/linked-wallets") return { getLinkedWallets: async () => linkedWallets() };
   if (name === "@/lib/supabase-server") return { getSupabaseServerClient: () => fakeSupabase };
   if (name === "@/lib/server-program") return { getReadOnlyProgram: () => fakeProgram };
   throw new Error(name);
 });
 
-const wallet = nacl.sign.keyPair();
-const walletPk = new web3.PublicKey(wallet.publicKey);
-const session = nacl.sign.keyPair();
+const walletPk = web3.Keypair.generate().publicKey;
 const challengePk = web3.Keypair.generate().publicKey;
 const memberPk = web3.Keypair.generate().publicKey;
 const now = () => Math.floor(Date.now() / 1000);
-const b64 = (bytes) => Buffer.from(bytes).toString("base64");
-const sign = (message, secretKey) => b64(nacl.sign.detached(new TextEncoder().encode(message), secretKey));
 
 const valid = {
   challengePubkey: challengePk.toBase58(),
@@ -63,19 +68,10 @@ const valid = {
   idempotencyKey: "k1",
   reps: 12,
   source: "browser_mediapipe",
-  wallet: walletPk.toBase58(),
-  sessionKey: new web3.PublicKey(session.publicKey).toBase58(),
-  expiresAt: now() + 3600,
 };
-// Adds both signatures for whatever the body says, as the browser would.
-const signed = (body, walletSecret = wallet.secretKey, sessionSecret = session.secretKey) => ({
-  ...body,
-  authSignature: sign(auth.sessionAuthMessage({ wallet: body.wallet, sessionKey: body.sessionKey, challenge: body.challengePubkey, member: body.teamMemberPubkey, expiresAt: body.expiresAt }), walletSecret),
-  signature: sign(auth.workoutMessage({ challenge: body.challengePubkey, member: body.teamMemberPubkey, idempotencyKey: body.idempotencyKey, reps: body.reps }), sessionSecret),
-});
-const postRaw = (body, headers = {}) =>
-  POST(new Request("http://x/api/workout-sessions", { method: "POST", headers, body: JSON.stringify(body) }));
-const post = (body, headers = {}) => postRaw(signed(body), headers);
+const ORIGIN = "http://x";
+const post = (body, headers = { origin: ORIGIN, "content-type": "application/json" }) =>
+  POST(new Request(`${ORIGIN}/api/workout-sessions`, { method: "POST", headers, body: JSON.stringify(body) }));
 
 const unix = (offsetSeconds) => ({ toNumber: () => now() + offsetSeconds });
 let challengeAcc;
@@ -83,6 +79,8 @@ let memberAcc;
 beforeEach(() => {
   inserted = [];
   existingRow = null;
+  user = { id: "u1", email: "a@example.com", email_confirmed_at: "2026-01-01", factors: [] };
+  linkedWallets = () => [walletPk.toBase58()];
   nextResult = { data: { id: "row-1" }, error: null };
   challengeAcc = { settled: false, deadlineUnix: unix(3600) };
   memberAcc = { challenge: challengePk, owner: walletPk };
@@ -94,63 +92,50 @@ beforeEach(() => {
   };
 });
 
-test("valid signed session is recorded", async () => {
+test("a session from a linked wallet is recorded with the account id", async () => {
   const res = await post(valid);
   assert.equal(res.status, 201);
   assert.equal(inserted.length, 1);
+  assert.equal(inserted[0].account_id, "u1");
 });
 
-test("missing session fields are 400", async () => {
-  for (const field of ["wallet", "sessionKey", "expiresAt", "authSignature", "signature"]) {
-    const body = signed(valid);
-    delete body[field];
-    assert.equal((await postRaw(body)).status, 400, field);
-  }
+test("no session is 401 and nothing is inserted", async () => {
+  user = null;
+  assert.equal((await post(valid)).status, 401);
   assert.equal(inserted.length, 0);
 });
 
-test("reps changed after signing are rejected", async () => {
-  const res = await postRaw({ ...signed(valid), reps: 500 });
-  assert.equal(res.status, 401);
+test("a wrong Origin is 403 and nothing is inserted", async () => {
+  const res = await post(valid, { origin: "http://evil.example", "content-type": "application/json" });
+  assert.equal(res.status, 403);
   assert.equal(inserted.length, 0);
 });
 
-test("a session key the wallet never authorized is rejected", async () => {
-  const other = nacl.sign.keyPair();
-  const res = await postRaw(signed(valid, other.secretKey));
-  assert.equal(res.status, 401);
+test("a member owned by a wallet outside the account's linked set is 403", async () => {
+  linkedWallets = () => [web3.Keypair.generate().publicKey.toBase58()];
+  assert.equal((await post(valid)).status, 403);
+  linkedWallets = () => [];
+  assert.equal((await post(valid)).status, 403);
   assert.equal(inserted.length, 0);
 });
 
-test("a submission not signed by the session key is rejected", async () => {
-  const other = nacl.sign.keyPair();
-  const res = await postRaw(signed(valid, wallet.secretKey, other.secretKey));
-  assert.equal(res.status, 401);
-  assert.equal(inserted.length, 0);
+test("unlinking between two submissions takes effect on the next request", async () => {
+  assert.equal((await post(valid)).status, 201);
+  linkedWallets = () => [];
+  assert.equal((await post({ ...valid, idempotencyKey: "k2" })).status, 403);
+  assert.equal(inserted.length, 1);
 });
 
-test("expired authorization is rejected", async () => {
-  const res = await post({ ...valid, expiresAt: now() - 1 });
-  assert.equal(res.status, 401);
-  assert.match(res.body.error, /expired/);
-  assert.equal(inserted.length, 0);
-});
-
-test("authorization lasting longer than the session limit is rejected", async () => {
-  const res = await post({ ...valid, expiresAt: now() + auth.SESSION_KEY_TTL_SECONDS + 600 });
-  assert.equal(res.status, 400);
-  assert.equal(inserted.length, 0);
-});
-
-test("malformed signature is 400", async () => {
-  const res = await postRaw({ ...signed(valid), signature: "AAAA" });
-  assert.equal(res.status, 400);
-  assert.equal(inserted.length, 0);
-});
-
-test("a wallet that doesn't own the member account is 403", async () => {
-  memberAcc = { challenge: challengePk, owner: web3.Keypair.generate().publicKey };
+test("a failing linked-wallet lookup fails closed with a 5xx", async () => {
+  linkedWallets = () => { throw new Error("db down"); };
   const res = await post(valid);
+  assert.ok(res.status >= 500, String(res.status));
+  assert.equal(inserted.length, 0);
+});
+
+test("wallet and session-key fields in the body grant nothing", async () => {
+  linkedWallets = () => [];
+  const res = await post({ ...valid, wallet: walletPk.toBase58(), sessionKey: "y", authSignature: "z", signature: "w", expiresAt: now() + 60 });
   assert.equal(res.status, 403);
   assert.equal(inserted.length, 0);
 });
@@ -162,20 +147,15 @@ test("rejects chert_facetime source", async () => {
 });
 
 test("ignores caller-asserted trust", async () => {
-  process.env.WORKOUT_INGEST_SECRET = "s";
-  try {
-    const res = await post({ ...valid, trustLevel: "verified", livenessResult: "pass" }, { authorization: "Bearer s" });
-    assert.equal(res.status, 201);
-    assert.equal(res.body.trustLevel, "unverified");
-    assert.equal(inserted.length, 1);
-    assert.equal(inserted[0].trust_level, "unverified");
-    assert.equal(inserted[0].liveness_result, "not_run");
-    assert.equal(inserted[0].source, "browser_mediapipe");
-    assert.equal(inserted[0].status, "accepted");
-    assert.equal(inserted[0].reps, 12);
-  } finally {
-    delete process.env.WORKOUT_INGEST_SECRET;
-  }
+  const res = await post({ ...valid, trustLevel: "verified", livenessResult: "pass" });
+  assert.equal(res.status, 201);
+  assert.equal(res.body.trustLevel, "unverified");
+  assert.equal(inserted.length, 1);
+  assert.equal(inserted[0].trust_level, "unverified");
+  assert.equal(inserted[0].liveness_result, "not_run");
+  assert.equal(inserted[0].source, "browser_mediapipe");
+  assert.equal(inserted[0].status, "accepted");
+  assert.equal(inserted[0].reps, 12);
 });
 
 test("rejects non-integer or negative reps", async () => {

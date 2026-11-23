@@ -3,10 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { RollingNumber } from "./rolling-number";
 import { FilesetResolver, PoseLandmarker } from "@mediapipe/tasks-vision";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey } from "@solana/web3.js";
-import nacl from "tweetnacl";
-import { SESSION_KEY_TTL_SECONDS, sessionAuthMessage, workoutMessage } from "@/lib/workout-auth";
 import {
   SquatCounter,
   handRaised,
@@ -29,7 +25,7 @@ const WASM_BASE = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/wa
 const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 
-type Phase = "idle" | "authorizing" | "loading" | "running" | "submitting" | "done" | "error";
+type Phase = "idle" | "loading" | "running" | "submitting" | "done" | "error";
 
 type LoopRefs = {
   videoRef: React.RefObject<HTMLVideoElement | null>;
@@ -123,26 +119,6 @@ export function MediaPipeSquatSession({
     };
   }, []);
 
-  const { publicKey, signMessage } = useWallet();
-  // This visit's session key (lib/workout-auth.ts): the wallet signs once to
-  // authorize it, then it signs every set without another Phantom pop-up.
-  const sessionRef = useRef<{ secretKey: Uint8Array; wallet: string; sessionKey: string; expiresAt: number; authSignature: string } | null>(null);
-
-  async function authorizeSession() {
-    if (!publicKey || !signMessage) throw new Error("Connect a wallet that can sign messages to record workouts.");
-    const wallet = publicKey.toBase58();
-    const current = sessionRef.current;
-    // Reuse it unless it's for another wallet or has under two minutes left.
-    if (current && current.wallet === wallet && current.expiresAt - Date.now() / 1000 > 120) return current;
-    const keypair = nacl.sign.keyPair();
-    const sessionKey = new PublicKey(keypair.publicKey).toBase58();
-    const expiresAt = Math.floor(Date.now() / 1000) + SESSION_KEY_TTL_SECONDS;
-    const message = sessionAuthMessage({ wallet, sessionKey, challenge: challengePubkey, member: teamMemberPubkey, expiresAt });
-    const authSignature = Buffer.from(await signMessage(new TextEncoder().encode(message))).toString("base64");
-    sessionRef.current = { secretKey: keypair.secretKey, wallet, sessionKey, expiresAt, authSignature };
-    return sessionRef.current;
-  }
-
   const submissionKey = useRef<string | null>(null);
   const [submitFailed, setSubmitFailed] = useState(false);
 
@@ -150,7 +126,7 @@ export function MediaPipeSquatSession({
     submissionKey.current = crypto.randomUUID();
     setSubmitFailed(false);
     setResult(null);
-    setPhase("authorizing");
+    setPhase("loading");
     setError(null);
     setReps(0);
     setLivenessPassed(null);
@@ -162,8 +138,6 @@ export function MediaPipeSquatSession({
     setPrompt(newPrompt);
 
     try {
-      await authorizeSession();
-      setPhase("loading");
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -206,10 +180,6 @@ export function MediaPipeSquatSession({
     setError(null);
     try {
       const idempotencyKey = submissionKey.current ?? crypto.randomUUID();
-      // Signs again only if the authorization expired mid-session.
-      const session = await authorizeSession();
-      const submission = workoutMessage({ challenge: challengePubkey, member: teamMemberPubkey, idempotencyKey, reps });
-      const signature = Buffer.from(nacl.sign.detached(new TextEncoder().encode(submission), session.secretKey)).toString("base64");
       const res = await fetch("/api/workout-sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -219,15 +189,15 @@ export function MediaPipeSquatSession({
           source: "browser_mediapipe",
           reps,
           idempotencyKey,
-          wallet: session.wallet,
-          sessionKey: session.sessionKey,
-          expiresAt: session.expiresAt,
-          authSignature: session.authSignature,
-          signature,
         }),
       });
       const data = await res.json().catch(() => ({}));
       // Only server errors (5xx) are worth retrying; 4xx (closed, not a member) never succeed.
+      // 401 and an unlinked wallet are fixable by the user, so they stay retryable with the same key and the count stays on screen.
+      if (res.status === 401) throw Object.assign(new Error("Sign in again to save this set."), { retryable: true });
+      if (res.status === 403 && /linked/i.test(data.error ?? "")) {
+        throw Object.assign(new Error("This wallet isn't linked to your account. Link it on the Account page, then retry."), { retryable: true });
+      }
       if (!res.ok) throw Object.assign(new Error(data.error ?? "Could not save your workout. Retry submission."), { retryable: res.status >= 500 });
       window.dispatchEvent(new Event("moltivate:updated"));
       setSubmitFailed(false);
@@ -244,14 +214,13 @@ export function MediaPipeSquatSession({
   const cameraActive = phase === "loading" || phase === "running";
   return (
     <section className="camera-room" aria-label="Browser squat workout">
-      <div className="section-topline"><span>Squats · browser camera</span><span>{phase === "running" ? "Counting locally" : phase === "loading" || phase === "authorizing" ? "Setting up" : phase === "done" ? "Session saved" : "Your next set"}</span></div>
+      <div className="section-topline"><span>Squats · browser camera</span><span>{phase === "running" ? "Counting locally" : phase === "loading" ? "Setting up" : phase === "done" ? "Session saved" : "Your next set"}</span></div>
       <h2>One rep at a time.</h2>
       <div className="camera-stage">
         <video ref={videoRef} muted playsInline hidden={!cameraActive} />
         {!cameraActive && <div className="camera-placeholder"><p>{phase === "done" ? "You showed up. That matters." : "Your camera stays off until you start. Find good light and keep your whole body in frame."}</p></div>}
         {(phase === "running" || phase === "done" || submitFailed || phase === "submitting") && <div className="rep-overlay" aria-live="polite"><RollingNumber value={reps} /><span>squats · experimental</span></div>}
       </div>
-      {phase === "authorizing" && <p className="session-status" role="status">Approve the one-time session signature in Phantom. It costs nothing and covers every set for the next two hours.</p>}
       {phase === "loading" && <p className="session-status" role="status">Opening your camera and loading the pose model…</p>}
       {phase === "running" && prompt && <p className="session-status">{prompt.text} {livenessPassed === true && "Detected."}{livenessPassed === false && "Not detected in time."}</p>}
       {(phase === "idle" || phase === "done" || (phase === "error" && !submitFailed)) && <button type="button" onClick={start} className="button-primary">{phase === "done" ? "Start another set" : "Start squat session"}</button>}
