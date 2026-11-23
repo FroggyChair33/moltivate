@@ -9,7 +9,6 @@ import { Eyebrow } from "@/app/components/eyebrow";
 import { useProgram } from "@/lib/use-program";
 import { fetchChallengeMembers, teamPda, NO_WINNER } from "@/lib/anchor";
 import { explorerTxUrl } from "@/lib/explorer";
-import { closeChallengeMessage } from "@/lib/close-challenge-message";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 type MemberRow = {
@@ -45,7 +44,7 @@ export function ResultsClient({ id }: { id: string }) {
 
 function ResultsClientView({ id }: { id: string }) {
   const program = useProgram();
-  const { publicKey, signMessage } = useWallet();
+  const { publicKey } = useWallet();
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settling, setSettling] = useState(false);
@@ -129,22 +128,16 @@ function ResultsClientView({ id }: { id: string }) {
   }, [id, reloadKey]);
 
   async function handleClose() {
-    if (!publicKey) return;
-    if (!signMessage) {
-      setCloseError("This wallet can't sign messages.");
-      return;
-    }
     setClosing(true);
     setCloseError(null);
     try {
-      const wallet = publicKey.toBase58();
-      const signed = await signMessage(new TextEncoder().encode(closeChallengeMessage(wallet, id)));
       const res = await fetch("/api/challenges/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengePubkey: id, wallet, signature: Buffer.from(signed).toString("base64") }),
+        body: JSON.stringify({ challengePubkey: id }),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) throw new Error("Sign in again to close this challenge.");
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       setClosed(true);
       window.dispatchEvent(new Event("moltivate:updated"));

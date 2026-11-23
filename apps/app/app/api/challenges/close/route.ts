@@ -3,8 +3,8 @@ import { PublicKey } from "@solana/web3.js";
 import { getReadOnlyProgram } from "@/lib/server-program";
 import { fetchChallengeMembers } from "@/lib/anchor";
 import { getSupabaseServerClient } from "@/lib/supabase-server";
-import { closeChallengeMessage } from "@/lib/close-challenge-message";
-import nacl from "tweetnacl";
+import { requireAccount } from "@/lib/account-auth";
+import { getLinkedWallets } from "@/lib/linked-wallets";
 
 // Batch "is this challenge closed" lookup, e.g.
 // GET /api/challenges/close?challenges=id1,id2.
@@ -37,40 +37,25 @@ export async function GET(request: Request) {
 // has an unclaimed payout sitting in it, which would make it easy to
 // forget about money that's still legitimately claimable.
 //
-// Authorization: the caller signs closeChallengeMessage(wallet, challenge)
-// (same pattern as app/api/users), and that wallet must be the creator or a
-// joined member on chain. The signature has no expiry or nonce on purpose:
-// it binds this wallet and this challenge, and closing is idempotent, so a
-// replayed signature can only repeat a close that already happened.
+// Authorization: the caller must be signed in (requireAccount), and a wallet
+// linked to that account must be the creator or a joined member on chain. The
+// linked wallets are read fresh on every request, so unlinking takes effect
+// immediately, and a failed lookup fails closed. Closing is idempotent.
 export async function POST(request: Request) {
+  const auth = await requireAccount(request);
+  if (!auth.ok) return auth.response;
+  const { account } = auth;
+
   const body = await request.json().catch(() => null);
-  if (
-    !body ||
-    typeof body.challengePubkey !== "string" ||
-    typeof body.wallet !== "string" ||
-    typeof body.signature !== "string"
-  ) {
-    return NextResponse.json({ error: "challengePubkey, wallet and signature required" }, { status: 400 });
+  if (!body || typeof body.challengePubkey !== "string") {
+    return NextResponse.json({ error: "challengePubkey required" }, { status: 400 });
   }
 
   let challengePk: PublicKey;
-  let walletPk: PublicKey;
   try {
     challengePk = new PublicKey(body.challengePubkey);
-    walletPk = new PublicKey(body.wallet);
   } catch {
-    return NextResponse.json({ error: "challengePubkey and wallet must be valid pubkeys" }, { status: 400 });
-  }
-
-  const message = new TextEncoder().encode(closeChallengeMessage(body.wallet, body.challengePubkey));
-  try {
-    // verify throws on a malformed signature (wrong length), hence the try.
-    const verified = nacl.sign.detached.verify(message, Buffer.from(body.signature, "base64"), walletPk.toBytes());
-    if (!verified) {
-      return NextResponse.json({ error: "signature does not match wallet and challenge" }, { status: 401 });
-    }
-  } catch {
-    return NextResponse.json({ error: "malformed signature" }, { status: 400 });
+    return NextResponse.json({ error: "challengePubkey must be a valid pubkey" }, { status: 400 });
   }
 
   try {
@@ -90,16 +75,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "every member must claim their payout before this can be closed" }, { status: 400 });
     }
 
-    const isCreator = challengeAcc.creator.toBase58() === body.wallet;
-    const isMember = members.some((m) => m.account.owner.toBase58() === body.wallet);
-    if (!isCreator && !isMember) {
-      return NextResponse.json({ error: "wallet is not the creator or a member of this challenge" }, { status: 403 });
+    let linked: string[];
+    try {
+      linked = await getLinkedWallets(account.userId);
+    } catch {
+      return NextResponse.json({ error: "could not verify your linked wallets; retry" }, { status: 503 });
+    }
+    // Creator wallet first, so closed_by names it when both qualify.
+    const creator = challengeAcc.creator.toBase58();
+    const memberOwners = new Set(members.map((m) => m.account.owner.toBase58()));
+    const closer = linked.includes(creator) ? creator : linked.find((w) => memberOwners.has(w));
+    if (!closer) {
+      return NextResponse.json({ error: "none of your linked wallets is the creator or a member of this challenge" }, { status: 403 });
     }
 
     const supabase = getSupabaseServerClient();
     const { error } = await supabase
       .from("closed_challenges")
-      .upsert({ challenge_pubkey: body.challengePubkey, closed_by: body.wallet }, { onConflict: "challenge_pubkey" });
+      .upsert({ challenge_pubkey: body.challengePubkey, closed_by: closer }, { onConflict: "challenge_pubkey" });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
