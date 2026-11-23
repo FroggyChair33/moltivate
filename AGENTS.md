@@ -38,7 +38,7 @@ simulated transaction or planned feature as working.
 | --- | --- | --- |
 | App and API | Next.js (React, TypeScript), App Router; API routes are the whole backend | `apps/app` |
 | Hosting | Vercel, Root Directory `apps/app`, Node 24 | Stephen's Vercel project |
-| Wallet | Phantom via `@solana/wallet-adapter`; desktop browsers work. On a phone you can log in, view challenges and record workouts, but deposits, creating a challenge and claims need desktop Phantom until phone signing is built (planned, not started) | `apps/app` |
+| Wallet | Phantom via `@solana/wallet-adapter`; desktop browsers work. A phone is designed to log in, view challenges and record workouts (the camera and layout have not been checked on a real device), but deposits, creating a challenge and claims need desktop Phantom until phone signing is built (planned, not started) | `apps/app` |
 | Accounts | Supabase Auth: email/password accounts, sessions in cookies via `@supabase/ssr` (`proxy.ts`, `lib/account-auth.ts`), optional TOTP 2FA, wallets linked to an account by a signed single-use message (`app/api/wallet-links`, `lib/wallet-proof.ts`) | `apps/app` |
 | Workout capture | MediaPipe Pose (`@mediapipe/tasks-vision`) in the browser; squats counted from the knee angle (`lib/pose-squat-counter.ts`), with a liveness prompt. Video never leaves the device; only the count is sent | `app/components/mediapipe-squat-session.tsx` |
 | On-chain program | Anchor (Rust) on Solana devnet: escrow, settlement math, claims | `programs/commitment-stakes` |
@@ -153,5 +153,5 @@ navigation, focus states, reduced-motion behaviour and phone-width layouts.
 
 - **Program:** `math.rs` unit tests (worked example, conservation, ties, zero scores, rounding, overflow). Add instruction-level tests for authority checks, deadlines, duplicate settlement and double claims when touching `lib.rs`.
 - **API:** validation, idempotency, membership and deadline checks, and the trust level forced to `unverified`.
-- **End to end:** before calling the app demo-ready, run one real devnet loop on the deployed URL with two wallets: create → join both teams → camera squats → settle after the deadline → claim both → inspect the Explorer receipts.
+- **End to end:** before calling the app demo-ready, run one real devnet loop on the deployed URL with two accounts, each with a linked wallet: create → join both teams → camera squats → settle after the deadline → claim both → inspect the Explorer receipts.
 - **Devices:** check camera and layout on a real phone, not only devtools emulation.

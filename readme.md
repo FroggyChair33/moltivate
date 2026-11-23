@@ -16,22 +16,26 @@ Live app (devnet): https://moltivate-solo.vercel.app
 > claim) was run end to end on devnet from a local build of the original team
 > project. On 2026-11-19 the same loop was run on this fork's deployment
 > (moltivate-solo.vercel.app) with two wallets: create, join both teams, camera
-> squats, settle after the deadline, claim on both wallets, close. Phone camera
-> and layout have not been checked on a real device yet.
+> squats, settle after the deadline, claim on both wallets, close. Both runs
+> predate accounts and wallet linking; the accounts version has not been run end
+> to end. Phone camera and layout have not been checked on a real device yet.
 
 ## How it works
 
 1. **Sign up or log in** with an email and password (the app is behind a login;
    an invite link shows a preview while signed out). Pick a unique display name,
    then **link your wallet** by connecting Phantom (desktop) and signing a
-   message that proves you control it. You can log in on a phone or desktop.
+   message that proves you control it. Logging in is designed to work from a
+   phone or desktop; the camera and layout have not been checked on a real
+   phone.
 2. **Create or join** a challenge (needs a linked wallet, on desktop Phantom). Joining a team deposits your stake into the
    program's escrow in the same transaction.
 3. **Record** squats with your camera. MediaPipe Pose runs in the browser and
    counts reps from the knee angle, with a liveness prompt. Video never leaves
    the device; only the count is sent to `/api/workout-sessions`, which accepts it
    only if you're logged in and a wallet linked to your account owns the
-   member account on chain. This works from a phone.
+   member account on chain. This is designed to work from a phone; the camera
+   and layout have not been checked on a real device.
 4. **Score**: the scoreboard shows each member's contribution.
 5. **Settle**: after the deadline, the oracle route sums each member's sessions
    and signs the program's `settle()` instruction.
@@ -113,7 +117,8 @@ Building the Anchor program needs Linux or WSL2 (see `programs/commitment-stakes
   maintainer. This is not a trustless system, and the program's rules can change
   while an upgrade authority exists.
 - **No timeout refund** if settlement never happens.
-- **A phone can log in, view challenges and record workouts, but cannot sign
+- **A phone is designed to log in, view challenges and record workouts (the
+  camera and layout have not been checked on a real device), but cannot sign
   deposits, create a challenge or claim yet.** Phone wallet connect is blank in
   Phantom's in-app browser, so those actions need desktop Phantom. Phantom deep
   links are planned and not started.
