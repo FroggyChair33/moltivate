@@ -35,6 +35,8 @@ export default function ResetPasswordPage() {
             ? "Choose a password different from your current one."
             : "Could not update the password. If you use two-step verification, log in with your code first.");
       }
+      // End every other session after a reset. The new password is already saved, so a failure here is ignored.
+      await auth.signOut({ scope: "others" }).catch(() => {});
       await refresh();
       router.replace("/");
     } catch {

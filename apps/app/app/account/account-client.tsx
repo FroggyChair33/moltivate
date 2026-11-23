@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { createBrowserAuthClient } from "@/lib/supabase-browser";
 import { normalizeDisplayName } from "@/lib/display-name";
-import { useAccount } from "@/app/components/account-provider";
+import { AccountLoadError, useAccount } from "@/app/components/account-provider";
 import { WalletButton, isPhoneWithoutWallet } from "@/app/components/wallet-button";
 
 const MIN_PASSWORD = 12;
@@ -34,11 +34,17 @@ async function postJson(path: string, body: unknown): Promise<Reply> {
   };
 }
 
-// Wallet-link API statuses in plain words. A 503 on unlink means the single-use request was spent.
+// Wallet-link API failures in plain words, matched on the exact error texts in app/api/wallet-links/unlink/route.ts.
+// Every other failure (signature mismatch, expired session, ...) shows the server's own text.
 function linkFailure(status: number, serverError: string | null): string {
-  if (status === 401) return "That password is incorrect.";
+  if (status === 401 && serverError === "incorrect password") return "That password is incorrect.";
   if (status === 429) return "Too many attempts. Wait a few minutes and try again.";
-  if (status === 503) return "Couldn't verify that right now. That request is used up; try again.";
+  if (status === 503 && serverError?.startsWith("could not verify your password")) {
+    return "Couldn't verify your password right now (sign-in may be busy or rate-limited). Wait a minute and try again.";
+  }
+  if (status === 503 && serverError?.startsWith("could not check this wallet's stakes")) {
+    return "Couldn't check this wallet's stakes right now. Nothing was changed; try again.";
+  }
   if (status === 409) return serverError ?? "This wallet has an open stake or an unclaimed payout, or can't be linked.";
   return serverError ?? "Something went wrong. Try again.";
 }
@@ -60,6 +66,7 @@ async function requestSignature(wallet: string, purpose: "link" | "unlink", sign
 
 export function AccountClient() {
   const { status, me } = useAccount();
+  if (status === "error") return <div className="app-page form-page max-w-md"><h1>Account</h1><AccountLoadError /></div>;
   if (status === "signedOut") {
     return <div className="app-page form-page max-w-md"><h1>Account</h1><p><Link href="/login" className="underline">Log in</Link> to see your account.</p></div>;
   }

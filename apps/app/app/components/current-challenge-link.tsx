@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { useAccount } from "@/app/components/account-provider";
+import { AccountLoadError, useAccount } from "@/app/components/account-provider";
 import { fetchWalletChallenges, getReadProgram, mergeWalletChallenges, type WalletChallenge } from "@/lib/anchor";
 
 // Challenges follow the account's linked wallets, so no connected wallet is needed (works on a phone).
@@ -13,6 +13,7 @@ export function CurrentChallengeLink() {
   const { me, status } = useAccount();
   const wallets = me?.wallets ?? [];
   if (status === "loading") return <p className="text-muted">Loading your account…</p>;
+  if (status === "error") return <AccountLoadError />;
   return wallets.length ? <ChallengeList key={wallets.join(",")} wallets={wallets} /> : (
     <div className="rounded-xl border border-dashed border-line p-5"><p className="text-sm font-medium">Your next chapter starts here.</p><p className="mt-2 text-sm leading-relaxed text-muted"><Link href="/account" className="underline">Link a wallet on the Account page</Link> to see your challenges.</p></div>
   );

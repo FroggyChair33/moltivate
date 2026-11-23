@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { useAccount } from "@/app/components/account-provider";
+import { AccountLoadError, useAccount } from "@/app/components/account-provider";
 import { LinkedWalletGate } from "@/app/components/linked-wallet-gate";
 import { ClaimButton } from "@/app/components/claim-button";
 import { Eyebrow } from "@/app/components/eyebrow";
@@ -40,12 +40,12 @@ type Loaded = {
 
 // Reads and Close go through the account's linked wallets; only Claim needs the connected wallet.
 export function ResultsClient({ id }: { id: string }) {
-  const { me } = useAccount();
+  const { me, status } = useAccount();
   const wallets = me?.wallets ?? [];
-  return <ResultsClientView key={id + wallets.join(",")} id={id} wallets={wallets} />;
+  return <ResultsClientView key={id + wallets.join(",")} id={id} wallets={wallets} accountError={status === "error"} />;
 }
 
-function ResultsClientView({ id, wallets }: { id: string; wallets: string[] }) {
+function ResultsClientView({ id, wallets, accountError }: { id: string; wallets: string[]; accountError: boolean }) {
   const { connection } = useConnection();
   const connected = useWallet().publicKey?.toBase58();
   const program = useMemo(() => getReadProgram(connection), [connection]);
@@ -212,6 +212,7 @@ function ResultsClientView({ id, wallets }: { id: string; wallets: string[] }) {
 
   return (
     <div className="app-page form-page">
+      {accountError && <div className="mb-6"><AccountLoadError /></div>}
       <Eyebrow>{state.settled ? "Final results" : "Awaiting settlement"}</Eyebrow>
       <p className="mb-1 text-xs uppercase tracking-wide text-muted">
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
@@ -244,12 +245,19 @@ function ResultsClientView({ id, wallets }: { id: string; wallets: string[] }) {
           >
             Rematch -- same group, new challenge
           </Link>
-          <p className="mt-1 text-xs text-muted">
-            Only you (the creator) see this -- it prefills a new challenge with the same
-            teams, stake, and goal. The group pot carries forward automatically since
-            it&apos;s tied to your wallet. Make sure you&apos;ve claimed your own payout first
-            if you need it to fund the new stake.
-          </p>
+          {connected === state.creator ? (
+            <p className="mt-1 text-xs text-muted">
+              Only you (the creator) see this -- it prefills a new challenge with the same
+              teams, stake, and goal. The group pot carries forward because you&apos;re
+              connected with the creator&apos;s wallet. Make sure you&apos;ve claimed your own payout first
+              if you need it to fund the new stake.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs" role="note">
+              Rematch from the creator&apos;s wallet ({state.creator.slice(0, 4)}...{state.creator.slice(-4)}) to
+              carry the group pot forward. A rematch created from another wallet uses that wallet&apos;s own pot instead.
+            </p>
+          )}
         </div>
       )}
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WalletButton } from "./wallet-button";
 import { ClubIcon } from "./club-art";
-import { useAccount } from "./account-provider";
+import { AccountLoadError, useAccount } from "./account-provider";
 
 const links = [
   { href: "/", label: "Challenges", icon: "list" },
@@ -27,6 +27,7 @@ export function Nav() {
         </div>
       </>}
       {status === "signedOut" && <Link href="/login" className="account-link">Log in</Link>}
+      {status === "error" && <AccountLoadError />}
     </header>
     {signedIn && <nav aria-label="Main navigation" className="app-nav">
       {links.map(({ href, label, icon }) => {

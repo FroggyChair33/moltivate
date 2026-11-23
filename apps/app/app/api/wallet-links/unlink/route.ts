@@ -10,6 +10,8 @@ import { verifyWalletProof } from "@/lib/wallet-proof";
 // Re-checks the password on a throwaway client so the cookie session is never touched. Returns null on success,
 // otherwise the failure response. The password and email are never logged or echoed. The caller has already spent
 // the nonce, so a failure here always means "request a new one".
+// The check is a real sign-in from this server, so it shares Supabase Auth's per-IP sign-in rate limit with every user
+// of the app: a 503 here can just mean that limit was hit.
 async function checkPassword(email: string, password: string): Promise<Response | null> {
   const unavailable = () =>
     Response.json({ error: "could not verify your password; this request is used up, request a new one and try again" }, { status: 503 });

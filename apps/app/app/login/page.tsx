@@ -142,7 +142,7 @@ function LoginForm() {
           <button type="submit" disabled={busy} className="button-primary disabled:opacity-50">{busy ? "Signing in…" : "Log in"}</button>
           <p className="flex flex-wrap justify-between gap-3 text-sm">
             <Link href="/forgot-password" className="underline">Forgot password?</Link>
-            <Link href="/signup" className="underline">Create an account</Link>
+            <Link href={next === "/" ? "/signup" : `/signup?next=${encodeURIComponent(next)}`} className="underline">Create an account</Link>
           </p>
         </form>
       )}

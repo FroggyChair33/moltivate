@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useConnection } from "@solana/wallet-adapter-react";
-import { useAccount } from "@/app/components/account-provider";
+import { AccountLoadError, useAccount } from "@/app/components/account-provider";
 import { RollingNumber } from "@/app/components/rolling-number";
 import { MediaPipeSquatSession } from "@/app/components/mediapipe-squat-session";
 import { Eyebrow } from "@/app/components/eyebrow";
@@ -33,12 +33,12 @@ type Loaded = {
 
 // "You" is the account's linked wallets, not the connected one: a phone has none connected.
 export function ChallengeScoreboardClient({ id }: { id: string }) {
-  const { me } = useAccount();
+  const { me, status } = useAccount();
   const wallets = me?.wallets ?? [];
-  return <ChallengeScoreboardClientView key={id + wallets.join(",")} id={id} wallets={wallets} />;
+  return <ChallengeScoreboardClientView key={id + wallets.join(",")} id={id} wallets={wallets} accountStatus={status} />;
 }
 
-function ChallengeScoreboardClientView({ id, wallets }: { id: string; wallets: string[] }) {
+function ChallengeScoreboardClientView({ id, wallets, accountStatus }: { id: string; wallets: string[]; accountStatus: ReturnType<typeof useAccount>["status"] }) {
   const { connection } = useConnection();
   const program = useMemo(() => getReadProgram(connection), [connection]);
   const [state, setState] = useState<Loaded | null>(null);
@@ -260,6 +260,10 @@ function ChallengeScoreboardClientView({ id, wallets }: { id: string; wallets: s
       <div id="workout" className="mt-10 flex flex-col gap-6">
         {state.settled ? <p>This challenge has ended. Open results to review your claim.</p> : state.deadlinePassed ? (
           <p className="text-sm text-muted">The deadline has passed, so new workouts can&apos;t be recorded. Open results to settle and claim.</p>
+        ) : accountStatus === "loading" ? (
+          <p className="text-sm text-muted" role="status">Checking your account…</p>
+        ) : accountStatus === "error" ? (
+          <AccountLoadError />
         ) : myMember ? (
           <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
         ) : wallets.length ? (

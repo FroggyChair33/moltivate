@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletButton } from "@/app/components/wallet-button";
-import { useAccount } from "@/app/components/account-provider";
+import { AccountLoadError, useAccount } from "@/app/components/account-provider";
 
 // Wraps only the actions that need the connected wallet's signature (deposit,
 // create, claim). Reads, workouts and Close go through the account instead.
@@ -11,6 +11,7 @@ export function LinkedWalletGate({ children }: { children: React.ReactNode }) {
   const { me, status } = useAccount();
   const { publicKey } = useWallet();
   if (status === "loading") return <p className="text-sm text-muted" role="status">Checking your account…</p>;
+  if (status === "error") return <AccountLoadError />;
   if (status === "signedOut" || !me) return <p className="text-sm"><Link href="/login" className="underline">Log in</Link> to continue.</p>;
   if (!publicKey) {
     return (

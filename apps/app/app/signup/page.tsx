@@ -1,14 +1,28 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { safeNextPath } from "@/lib/safe-next-path";
 import { createBrowserAuthClient } from "@/lib/supabase-browser";
 import { normalizeDisplayName } from "@/lib/display-name";
 import { isNeutralAuthError } from "@/lib/auth-errors";
 
 const MIN_PASSWORD = 12;
 
+// useSearchParams() needs a Suspense boundary under the App Router.
 export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function SignupForm() {
+  // Where to land after confirming the email (an invite, for example); /auth/callback applies safeNextPath again.
+  const next = safeNextPath(useSearchParams().get("next"));
+  const loginHref = next === "/" ? "/login" : `/login?next=${encodeURIComponent(next)}`;
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +46,7 @@ export default function SignupPage() {
       const { error: signUpError } = await createBrowserAuthClient().auth.signUp({
         email,
         password,
-        options: { data: { display_name: parsed.name }, emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { data: { display_name: parsed.name }, emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
       });
       // Every server answer except weak_password shows "check your email", so sign-up never reveals who has an account.
       if (!isNeutralAuthError(signUpError, "signup")) {
@@ -56,7 +70,7 @@ export default function SignupPage() {
         <p role="status" className="page-intro">
           If that address can be used, we&apos;ve sent it a link to confirm your account. Open it on this device to finish signing up.
         </p>
-        <Link href="/login" className="underline">Back to log in</Link>
+        <Link href={loginHref} className="underline">Back to log in</Link>
       </div>
     );
   }
@@ -83,7 +97,7 @@ export default function SignupPage() {
         </label>
         {error && <p role="alert" className="rounded-lg bg-red-950/40 p-3 text-sm text-red-300">{error}</p>}
         <button type="submit" disabled={busy} className="button-primary disabled:opacity-50">{busy ? "Creating…" : "Create account"}</button>
-        <p className="text-sm">Already have an account? <Link href="/login" className="underline">Log in</Link></p>
+        <p className="text-sm">Already have an account? <Link href={loginHref} className="underline">Log in</Link></p>
       </form>
     </div>
   );
