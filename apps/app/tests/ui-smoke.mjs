@@ -98,7 +98,7 @@ try {
   const connected = await browser.newContext({ viewport: { width: 390, height: 844 } });
   await connected.addInitScript(({ bytes, address }) => {
     localStorage.setItem('walletName', JSON.stringify('Phantom'));
-    const wallet = { isPhantom: true, isConnected: true, publicKey: { toBytes: () => Uint8Array.from(bytes), toBase58: () => address }, on() {}, off() {}, connect: async () => {}, disconnect: async () => {}, signTransaction: async () => { throw Error('No transactions in UI tests'); }, signAllTransactions: async () => { throw Error('No transactions in UI tests'); }, signMessage: async () => { throw Error('No signatures in UI tests'); } };
+    const wallet = { isPhantom: true, isConnected: true, publicKey: { toBytes: () => Uint8Array.from(bytes), toBase58: () => address }, on() {}, off() {}, connect: async () => {}, disconnect: async () => {}, signTransaction: async () => { throw Error('No transactions in UI tests'); }, signAllTransactions: async () => { throw Error('No transactions in UI tests'); }, signMessage: async () => ({ signature: new Uint8Array(64) }) };
     window.isPhantomInstalled = true; window.phantom = { solana: wallet }; window.solana = wallet;
   }, { bytes: [...owner.toBytes()], address: owner.toBase58() });
   let total = 6, fail = false, requests = 0;
