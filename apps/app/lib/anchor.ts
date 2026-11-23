@@ -20,6 +20,12 @@ export function getProgram(connection: Connection, wallet: AnchorWallet): Progra
   return new Program(idl as CommitmentStakes, provider);
 }
 
+// Wallet-less client for reading accounts, e.g. before a visitor connects.
+// It has no signer, so it can't send transactions.
+export function getReadProgram(connection: Connection): Program<CommitmentStakes> {
+  return new Program(idl as CommitmentStakes, { connection });
+}
+
 export function challengePda(creator: PublicKey, challengeId: BN): PublicKey {
   const [pda] = PublicKey.findProgramAddressSync(
     [Buffer.from("challenge"), creator.toBuffer(), challengeId.toArrayLike(Buffer, "le", 8)],

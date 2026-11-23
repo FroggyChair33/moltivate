@@ -24,7 +24,33 @@ const challengeRecord = await account(challenge, 'Challenge', {
   stake_lamports: new BN(250000000), deadline_unix: new BN(2000000000), total_staked_lamports: new BN(500000000), winning_team: 2, rules_version: 1, settled: false, bump: 1,
 });
 for (let i=0;i<2;i++) await account(teams[i], 'Team', { challenge, index: i, name: ['Sunrise Squad', 'Night Owls'][i], member_count: 1, bump: 1 });
+// A second challenge whose deadline has passed, for the closed-invite check.
+const expired = key(7);
+await account(expired, 'Challenge', {
+  creator: owner, oracle: owner, group: key(6), id: new BN(2), alpha_bps: 2000, rake_bps: 300, target: 20,
+  stake_lamports: new BN(250000000), deadline_unix: new BN(1000), total_staked_lamports: new BN(0), winning_team: 2, rules_version: 1, settled: false, bump: 1,
+});
+for (let i=0;i<2;i++) await account(PublicKey.findProgramAddressSync([Buffer.from('team'), expired.toBuffer(), Buffer.from([i])], program)[0], 'Team', { challenge: expired, index: i, name: ['Early Birds', 'Late Owls'][i], member_count: 0, bump: 1 });
 const members = await Promise.all([account(member, 'TeamMember', { challenge, team: teams[0], owner, stake_lamports: new BN(250000000), counted_units: new BN(0), payout_lamports: new BN(0), claimed: false, bump: 1 }), account(peerMember, 'TeamMember', { challenge, team: teams[1], owner: peer, stake_lamports: new BN(250000000), counted_units: new BN(0), payout_lamports: new BN(0), claimed: false, bump: 1 })]);
+// Any JSON-RPC POST, whatever RPC URL the build has baked in (.env.local may set Helius).
+async function mockRpc(route) {
+  let body = null;
+  try { body = route.request().method() === 'POST' ? route.request().postDataJSON() : null; } catch {}
+  const first = Array.isArray(body) ? body[0] : body;
+  if (!first || first.jsonrpc !== '2.0') return route.fallback();
+  const respond = request => {
+    let result;
+    if (request.method === 'getAccountInfo') result = { context: { slot: 1 }, value: records.get(request.params[0]) || null };
+    else if (request.method === 'getMultipleAccounts') result = { context: { slot: 1 }, value: request.params[0].map(p => records.get(p) || null) };
+    else if (request.method === 'getProgramAccounts') {
+      const filters = request.params[1].filters;
+      result = filters.some(f => f.memcmp?.offset === 8 && f.memcmp.bytes === owner.toBase58()) ? [challengeRecord] : members;
+    } else if (request.method === 'getBalance') result = { context: { slot: 1 }, value: 1000000000 };
+    else throw Error('Unexpected mock RPC '+request.method);
+    return { jsonrpc: '2.0', id: request.id, result };
+  };
+  await route.fulfill({ json: Array.isArray(body) ? body.map(respond) : respond(body) });
+}
 const base = process.env.UI_BASE_URL || 'http://127.0.0.1:13000';
 const output = new URL('../../../test-results/app-design/', import.meta.url);
 await mkdir(output, { recursive: true });
@@ -32,6 +58,7 @@ const browser = await chromium.launch({ headless: true });
 const errors = [];
 try {
   const context = await browser.newContext();
+  await context.route('**/*', mockRpc);
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   for (const width of [320, 390, 430, 1280]) {
@@ -57,6 +84,12 @@ try {
     await page.goto(base + retired);
     await page.waitForURL(base + '/');
   }
+  // Without a wallet, an invite still shows the challenge, and says when it's closed.
+  await page.goto(base + '/join/' + challenge);
+  await page.getByText('Sunrise Squad vs Night Owls').waitFor();
+  await page.getByText('Connect your Phantom wallet to join.').waitFor();
+  await page.goto(base + '/join/' + expired);
+  await page.getByText("This challenge's deadline has already passed").waitFor();
   await context.close();
 
   const connected = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -72,25 +105,7 @@ try {
   });
   await connected.route('**/api/users?**', route => route.fulfill({ json: { names: { [owner.toBase58()]: 'You', [peer.toBase58()]: 'Sam' } } }));
   await connected.route('**/api/challenges/close?**', route => route.fulfill({ json: { closed: [] } }));
-  // Any JSON-RPC POST, whatever RPC URL the build has baked in (.env.local may set Helius).
-  await connected.route('**/*', async route => {
-    let body = null;
-    try { body = route.request().method() === 'POST' ? route.request().postDataJSON() : null; } catch {}
-    const first = Array.isArray(body) ? body[0] : body;
-    if (!first || first.jsonrpc !== '2.0') return route.fallback();
-    const respond = request => {
-      let result;
-      if (request.method === 'getAccountInfo') result = { context: { slot: 1 }, value: records.get(request.params[0]) || null };
-      else if (request.method === 'getMultipleAccounts') result = { context: { slot: 1 }, value: request.params[0].map(p => records.get(p) || null) };
-      else if (request.method === 'getProgramAccounts') {
-        const filters = request.params[1].filters;
-        result = filters.some(f => f.memcmp?.offset === 8 && f.memcmp.bytes === owner.toBase58()) ? [challengeRecord] : members;
-      } else if (request.method === 'getBalance') result = { context: { slot: 1 }, value: 1000000000 };
-      else throw Error('Unexpected mock RPC '+request.method);
-      return { jsonrpc: '2.0', id: request.id, result };
-    };
-    await route.fulfill({ json: Array.isArray(body) ? body.map(respond) : respond(body) });
-  });
+  await connected.route('**/*', mockRpc);
   const live = await connected.newPage();
   live.on('pageerror', error => errors.push(error.message));
   await live.goto(base + '/challenges/' + challenge);
@@ -119,5 +134,5 @@ try {
     await live.screenshot({ path: new URL('connected-'+path.replaceAll('/','_')+'.png', output).pathname.replace(/^\/(\w:)/,'$1'), fullPage: true });
   }
   assert.deepEqual(errors, []);
-  console.log('PASS: 24 responsive route checks, navigation, invite validation, mocked wallet/RPC standings, 5s updates, rank changes, outage retention/recovery, camera denial, reduced motion. Totals requests:', requests);
+  console.log('PASS: 24 responsive route checks, navigation, invite validation, disconnected invite + closed notice, mocked wallet/RPC standings, 5s updates, rank changes, outage retention/recovery, camera denial, reduced motion. Totals requests:', requests);
 } finally { await browser.close(); }

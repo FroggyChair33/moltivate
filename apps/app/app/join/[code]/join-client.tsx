@@ -8,7 +8,7 @@ import { WalletButton } from "@/app/components/wallet-button";
 import { Eyebrow } from "@/app/components/eyebrow";
 import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
-import { teamPda } from "@/lib/anchor";
+import { getReadProgram, teamPda } from "@/lib/anchor";
 import { describeTxError, sendWithPhases, type TxPhase } from "@/lib/send-tx";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
@@ -49,6 +49,10 @@ function JoinClientView({ code }: { code: string }) {
   const [error, setError] = useState<string | null>(null);
   const myName = useDisplayNames(publicKey ? [publicKey.toBase58()] : []);
 
+  // Challenge details load without a wallet, so a visitor sees what they're
+  // invited to (and whether it's closed) before connecting.
+  const reader = useMemo(() => getReadProgram(connection), [connection]);
+
   const challengePk = useMemo(() => {
     try {
       return new PublicKey(code);
@@ -58,14 +62,14 @@ function JoinClientView({ code }: { code: string }) {
   }, [code]);
 
   useEffect(() => {
-    if (!program || !challengePk) return;
+    if (!challengePk) return;
     let cancelled = false;
     (async () => {
       try {
         const [challengeAcc, teamA, teamB] = await Promise.all([
-          program.account.challenge.fetch(challengePk),
-          program.account.team.fetch(teamPda(challengePk, 0)),
-          program.account.team.fetch(teamPda(challengePk, 1)),
+          reader.account.challenge.fetch(challengePk),
+          reader.account.team.fetch(teamPda(challengePk, 0)),
+          reader.account.team.fetch(teamPda(challengePk, 1)),
         ]);
         if (cancelled) return;
         setView({
@@ -87,7 +91,7 @@ function JoinClientView({ code }: { code: string }) {
     return () => {
       cancelled = true;
     };
-  }, [program, challengePk]);
+  }, [reader, challengePk]);
 
   async function handleDeposit() {
     if (!program || !publicKey || !challengePk || teamIndex === null) return;
@@ -152,10 +156,6 @@ function JoinClientView({ code }: { code: string }) {
         <p className="text-sm text-red-300">{loadError}</p>
       </div>
     );
-  }
-
-  if (!program) {
-    return <section className="app-page form-page"><Eyebrow>You&apos;re invited</Eyebrow><h1>Join a challenge</h1><p className="page-intro">Connect your wallet to review the teams, goal, and devnet stake before joining.</p><WalletButton /></section>;
   }
 
   if (!view) {

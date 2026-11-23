@@ -66,7 +66,7 @@ html { scroll-padding-top: 24px; }
 .app-nav { display: flex; justify-content: center; gap: 6px; width: fit-content; margin: 0 auto; padding: 5px; border: 1px solid var(--line); border-radius: 50px; background: var(--surface); z-index: 30; }
 .app-nav a { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 20px; border-radius: 30px; color: var(--muted); font-size: 13px; font-weight: 600; }
 .app-nav a[aria-current], .app-nav a:hover { color: var(--sky); background: var(--blue-soft); }
-.app-page { width: min(1060px, 100%); margin: auto; padding: 48px 32px 40px; }
+.app-page { width: min(1060px, 100%); margin: 0 auto; padding: 48px 32px 40px; }
 .app-page h1 { font-size: clamp(32px, 4.5vw, 48px); line-height: 1.1; }
 .app-page h2 { font-size: clamp(22px, 2.6vw, 28px); line-height: 1.2; }
 .kicker { margin-bottom: 16px; line-height: 1.7; color: var(--sky); }
