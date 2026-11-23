@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Nav } from "./components/nav";
+import { AccountProvider } from "./components/account-provider";
 
 // Self-hosted brand fonts (app/fonts/, OFL licenses alongside): DM Sans for
 // interface text, Redaction 35 for headings and the wordmark.
@@ -47,8 +48,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <Providers>
-          <Nav />
-          <main id="main-content" className="flex flex-1 flex-col">{children}</main>
+          <AccountProvider>
+            <Nav />
+            <main id="main-content" className="flex flex-1 flex-col">{children}</main>
+          </AccountProvider>
         </Providers>
       </body>
     </html>
