@@ -16,3 +16,21 @@ export function assertServiceKey(key: string): void {
     "SUPABASE_SERVICE_ROLE_KEY must be the project's service_role (or sb_secret_) key, not the anon/publishable key",
   );
 }
+
+// The auth client ships in the browser, so it must use the public key.
+// Refuse a service-role/secret key up front. Never echo the key.
+export function assertPublishableKey(key: string): void {
+  if (key.startsWith("sb_publishable_")) return;
+  const parts = key.split(".");
+  if (parts.length === 3) {
+    try {
+      const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+      if (payload?.role === "anon") return;
+    } catch {
+      // fall through to the error below
+    }
+  }
+  throw new Error(
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY must be the project's publishable (or anon) key, never the service_role/secret key",
+  );
+}
