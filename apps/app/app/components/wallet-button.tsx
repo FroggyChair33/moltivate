@@ -59,7 +59,7 @@ export function WalletButton() {
     return (
       <details className="mobile-wallet">
         <summary className="solana-button" aria-label="Connect Solana wallet on mobile"><ConnectLabel /></summary>
-        <p>Open this site in Phantom’s browser to try connecting. If it opens blank, return to Safari to browse, or connect from a desktop browser. iPhone wallet support is still being tested.</p>
+        <p>On a phone you can view your challenges and record workouts. Deposits and claims need a desktop browser with Phantom for now.</p>
       </details>
     );
   }

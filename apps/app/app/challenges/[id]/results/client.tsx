@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
-import { useConnection } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useAccount } from "@/app/components/account-provider";
 import { LinkedWalletGate } from "@/app/components/linked-wallet-gate";
 import { ClaimButton } from "@/app/components/claim-button";
@@ -47,6 +47,7 @@ export function ResultsClient({ id }: { id: string }) {
 
 function ResultsClientView({ id, wallets }: { id: string; wallets: string[] }) {
   const { connection } = useConnection();
+  const connected = useWallet().publicKey?.toBase58();
   const program = useMemo(() => getReadProgram(connection), [connection]);
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -339,8 +340,8 @@ function ResultsClientView({ id, wallets }: { id: string; wallets: string[] }) {
                         owner={member.owner}
                         alreadyClaimed={member.claimed}
                       />;
-                      // Only the member's own unclaimed row needs the connected wallet; other rows stay inert.
-                      return wallets.includes(member.owner) && !member.claimed ? <LinkedWalletGate>{claim}</LinkedWalletGate> : claim;
+                      // A linked or currently connected owner's unclaimed row signs, so it goes through the gate; other rows stay inert.
+                      return !member.claimed && (wallets.includes(member.owner) || connected === member.owner) ? <LinkedWalletGate>{claim}</LinkedWalletGate> : claim;
                     })()}
                   </div>
                 ))}
