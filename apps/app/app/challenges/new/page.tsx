@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
-import { WalletButton } from "@/app/components/wallet-button";
+import { LinkedWalletGate } from "@/app/components/linked-wallet-gate";
 import { useProgram } from "@/lib/use-program";
 import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
 import { describeTxError, sendWithPhases, type TxPhase } from "@/lib/send-tx";
@@ -76,7 +76,7 @@ function NewChallengeForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!program || !publicKey) return;
+    if (!program || !publicKey) return; // unreachable without a connected linked wallet: the form sits inside LinkedWalletGate
     const mine = ++attempt.current;
     setPhase("approve"); // lock the button now, before the RPC lookups below
     const onPhase = (p: TxPhase) => {
@@ -160,18 +160,6 @@ function NewChallengeForm() {
     setPhase(null);
   }
 
-  if (!publicKey) {
-    return (
-      <div className="app-page form-page">
-        <h1>New challenge</h1>
-        <p className="mb-4 text-sm text-muted">
-          Connect your Phantom wallet (devnet) to create a challenge.
-        </p>
-        <WalletButton />
-      </div>
-    );
-  }
-
   return (
     <div className="app-page form-page">
       <h1 className="mb-6">{isRematch ? "Rematch" : "New challenge"}</h1>
@@ -183,6 +171,7 @@ function NewChallengeForm() {
           invite link, same as before.
         </p>
       )}
+      <LinkedWalletGate>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Field label="Title">
           <input
@@ -284,6 +273,7 @@ function NewChallengeForm() {
           teams pass).
         </p>
       </form>
+      </LinkedWalletGate>
     </div>
   );
 }

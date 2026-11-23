@@ -9,7 +9,7 @@ const output = ts.transpileModule(fs.readFileSync("lib/supabase-key.ts", "utf8")
 }).outputText;
 const exportsObject = {};
 vm.runInNewContext(output, { exports: exportsObject, Buffer });
-const { assertServiceKey } = exportsObject;
+const { assertServiceKey, assertPublishableKey, assertBuildPublishableKey } = exportsObject;
 
 const jwt = (payload) =>
   ["eyJhbGciOiJIUzI1NiJ9", Buffer.from(JSON.stringify(payload)).toString("base64url"), "sig"].join(".");
@@ -39,4 +39,32 @@ test("never echoes the key", () => {
     () => assertServiceKey("sb_publishable_SECRETVALUE"),
     (err) => !err.message.includes("SECRETVALUE"),
   );
+});
+
+test("publishable: accepts sb_publishable keys and anon JWTs", () => {
+  assert.doesNotThrow(() => assertPublishableKey("sb_publishable_abc"));
+  assert.doesNotThrow(() => assertPublishableKey(jwt({ role: "anon" })));
+});
+
+test("publishable: rejects sb_secret keys and service_role JWTs", () => {
+  assert.throws(() => assertPublishableKey("sb_secret_x"), /PUBLISHABLE_KEY/);
+  assert.throws(() => assertPublishableKey(jwt({ role: "service_role" })), /PUBLISHABLE_KEY/);
+});
+
+test("publishable: rejects unrecognized keys and never echoes the key", () => {
+  assert.throws(() => assertPublishableKey("hello"), /PUBLISHABLE_KEY/);
+  assert.throws(
+    () => assertPublishableKey("sb_secret_SECRETVALUE"),
+    (err) => !err.message.includes("SECRETVALUE"),
+  );
+});
+
+// next.config.ts calls this so a secret key can never be inlined into the browser bundle at build time.
+test("build check: unset or empty passes, publishable passes, secret or unrecognized fails without echoing", () => {
+  assert.doesNotThrow(() => assertBuildPublishableKey(undefined));
+  assert.doesNotThrow(() => assertBuildPublishableKey(""));
+  assert.doesNotThrow(() => assertBuildPublishableKey("sb_publishable_abc"));
+  assert.throws(() => assertBuildPublishableKey("sb_secret_SECRETVALUE"), (err) => /PUBLISHABLE_KEY/.test(err.message) && !err.message.includes("SECRETVALUE"));
+  assert.throws(() => assertBuildPublishableKey(jwt({ role: "service_role" })), /PUBLISHABLE_KEY/);
+  assert.throws(() => assertBuildPublishableKey("hello"), /PUBLISHABLE_KEY/);
 });

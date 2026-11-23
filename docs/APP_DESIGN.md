@@ -14,8 +14,8 @@ mascot.
 
 - **Navigation has two items:** Challenges (`/`) and New challenge
   (`/challenges/new`). Creating a challenge has no other entry point.
-- **Home (`/`) is the dashboard:** your display name, your challenges, and
-  joining by invite. `/club` and `/coach` redirect here; they were merged
+- **Home (`/`) is the dashboard:** your challenges and joining by invite
+  (the display name is set at sign-up and changed on the Account page). `/club` and `/coach` redirect here; they were merged
   into it (2026-11-20 UI simplification).
 - Create, join, leaderboard, browser workout, and results pages share the
   typography, panels and buttons. Headings say what the page does;
@@ -49,6 +49,19 @@ No API routes, worker code, Anchor contracts, financial rules, signing, deposit,
 settlement, or claim handlers were changed for this design increment. The browser
 camera uses the existing local counter, which is the only capture path.
 
+## Accounts
+
+The app sits behind a login (`proxy.ts`); the invite pages under `/join/` show a
+preview while signed out. An account is an email and password with a unique
+display name; wallets are linked to it by signing a message, and the account page
+manages linked wallets, password and optional 2FA. Challenges and actions follow
+the account's linked wallets. A phone is designed to log in, view challenges
+and record workouts (the camera and layout have not been checked on a real
+device); deposits, creating a challenge and claims need desktop Phantom
+until phone signing is built (planned, not started). This is implemented and
+covered by unit tests and the mocked smoke test, not yet run against a real
+Supabase project, Phantom or phone.
+
 ## Verification
 
 Use Node 24 and the existing lockfiles. From the repository root:
@@ -56,15 +69,49 @@ Use Node 24 and the existing lockfiles. From the repository root:
 ```powershell
 npm.cmd --prefix apps/app run lint
 npm.cmd --prefix apps/app run build
-npm.cmd --prefix apps/app run start -- --hostname 127.0.0.1 --port 13000
-# In another terminal (needs `npx playwright install chromium` once):
-node apps/app/tests/ui-smoke.mjs
 ```
+
+The UI smoke test (`apps/app/tests/ui-smoke.mjs`) needs Chromium
+(`npx playwright install chromium` once) and talks to a fake Supabase that the
+script starts on port 13001 (`tests/fake-supabase.mjs`). The app must be built
+and started against it with obviously fake keys, because `NEXT_PUBLIC_*` values
+are inlined at build time. These are labelled test values, not real keys. From
+`apps/app`, in PowerShell:
+
+```powershell
+$env:NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:13001"
+$env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_smoke_test"
+$env:SUPABASE_SERVICE_ROLE_KEY = "sb_secret_smoke_test"
+npm.cmd run build; if ($LASTEXITCODE -eq 0) { npx.cmd next start -p 13000 }
+# in another shell, from apps/app
+node tests/ui-smoke.mjs
+# afterwards, in the first shell: clear the test variables before a normal rebuild
+Remove-Item Env:NEXT_PUBLIC_SUPABASE_URL, Env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, Env:SUPABASE_SERVICE_ROLE_KEY
+npm.cmd run build
+```
+
+or in bash:
+
+```bash
+export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:13001 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_smoke_test SUPABASE_SERVICE_ROLE_KEY=sb_secret_smoke_test
+npm run build && npx next start -p 13000
+# in another shell, from apps/app
+node tests/ui-smoke.mjs
+# afterwards, in the first shell
+unset NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY
+npm run build
+```
+
+In both forms the server starts only if the build succeeded. Always clear the
+variables and rebuild afterwards (the last two lines) before using the app
+against a real Supabase project, or the fake URL and key stay baked into
+`.next`.
 
 The browser script uses a simulated Phantom wallet, synthetic Anchor account
 data, and intercepted totals responses. It never signs a transaction. It covers
-mobile widths, navigation, invite validation, count and rank updates, outage
-retention/recovery, camera denial, and reduced motion. Screenshots are written
+the login gate, the signed-out invite preview, linked wallets on the Account
+page, mobile widths, navigation, invite validation, count and rank updates,
+outage retention/recovery, camera denial, and reduced motion. Screenshots are written
 under ignored `test-results/app-design/`.
 
 These checks do not establish real iPhone camera/wallet behavior, deployment,

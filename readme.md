@@ -16,21 +16,30 @@ Live app (devnet): https://moltivate-solo.vercel.app
 > claim) was run end to end on devnet from a local build of the original team
 > project. On 2026-11-19 the same loop was run on this fork's deployment
 > (moltivate-solo.vercel.app) with two wallets: create, join both teams, camera
-> squats, settle after the deadline, claim on both wallets, close. Phone camera
-> and layout have not been checked on a real device yet.
+> squats, settle after the deadline, claim on both wallets, close. Both runs
+> predate accounts and wallet linking; the accounts version has not been run end
+> to end. Phone camera and layout have not been checked on a real device yet.
 
 ## How it works
 
-1. **Connect** a Phantom wallet (desktop browsers).
-2. **Create or join** a challenge. Joining a team deposits your stake into the
+1. **Sign up or log in** with an email and password (the app is behind a login;
+   an invite link shows a preview while signed out). Pick a unique display name,
+   then **link your wallet** by connecting Phantom (desktop) and signing a
+   message that proves you control it. Logging in is designed to work from a
+   phone or desktop; the camera and layout have not been checked on a real
+   phone.
+2. **Create or join** a challenge (needs a linked wallet, on desktop Phantom). Joining a team deposits your stake into the
    program's escrow in the same transaction.
 3. **Record** squats with your camera. MediaPipe Pose runs in the browser and
    counts reps from the knee angle, with a liveness prompt. Video never leaves
-   the device; only the count is sent to `/api/workout-sessions`.
+   the device; only the count is sent to `/api/workout-sessions`, which accepts it
+   only if you're logged in and a wallet linked to your account owns the
+   member account on chain. This is designed to work from a phone; the camera
+   and layout have not been checked on a real device.
 4. **Score**: the scoreboard shows each member's contribution.
 5. **Settle**: after the deadline, the oracle route sums each member's sessions
    and signs the program's `settle()` instruction.
-6. **Claim**: each member claims their payout from the program.
+6. **Claim**: each member claims their payout from the program (desktop Phantom).
 
 ## Settlement rules
 
@@ -56,11 +65,12 @@ rake 3%, both-pass bonus 5%.
 | --- | --- | --- |
 | App and API | Next.js (React, TypeScript), App Router; API routes are the whole backend | `apps/app` |
 | Hosting | Vercel, Root Directory `apps/app`, Node 24 | see `apps/app/DEPLOYMENT.md` |
-| Wallet | Phantom via `@solana/wallet-adapter` | `apps/app` |
+| Wallet | Phantom via `@solana/wallet-adapter` (desktop; phone signing not built yet) | `apps/app` |
+| Accounts | Supabase Auth: email/password, cookie sessions via `@supabase/ssr`, optional TOTP 2FA, wallets linked by a signed single-use message | `apps/app` |
 | Workout capture | MediaPipe Pose (`@mediapipe/tasks-vision`) in the browser; squats counted in `lib/pose-squat-counter.ts` | `app/components/mediapipe-squat-session.tsx` |
 | On-chain program | Anchor (Rust) on Solana devnet, `DhWeNpUmpxjSXdZ6iN1VCbP1WJVAYg9Yrprtx1LBPDum`: escrow, settlement math, claims | `programs/commitment-stakes` |
 | Oracle | Server keypair in `/api/oracle/settle`; sums accepted sessions and signs `settle()` | `apps/app` |
-| Database | Supabase Postgres: display names, workout sessions, closed challenges. An index for convenience; the program is the authority on funds | `supabase/migrations` |
+| Database | Supabase Postgres: profiles (display names), linked wallets, workout sessions, closed challenges. An index for convenience; the program is the authority on funds | `supabase/migrations` |
 
 ## Repository guide
 
@@ -87,7 +97,7 @@ Checks:
 ```bash
 # in apps/app
 npm run lint
-npm test          # node:test unit tests (API validation, challenge discovery)
+npm test          # node:test unit tests (API validation, accounts, challenge discovery)
 npm run build
 
 # at the repo root
@@ -107,13 +117,28 @@ Building the Anchor program needs Linux or WSL2 (see `programs/commitment-stakes
   maintainer. This is not a trustless system, and the program's rules can change
   while an upgrade authority exists.
 - **No timeout refund** if settlement never happens.
-- **Phone wallet connect doesn't work yet** (blank in Phantom's in-app browser);
-  desktop works.
+- **A phone is designed to log in, view challenges and record workouts (the
+  camera and layout have not been checked on a real device), but cannot sign
+  deposits, create a challenge or claim yet.** Phone wallet connect is blank in
+  Phantom's in-app browser, so those actions need desktop Phantom. Phantom deep
+  links are planned and not started.
+- **Accounts:** identity is an email/password account (Supabase Auth). A wallet
+  counts as yours only after you sign a single-use, expiring message that names
+  the app, your account and the wallet. A wallet address on its own is never
+  treated as proof of anything. Account routes re-check the session on the
+  server (`requireAccount`), read linked wallets fresh on every request, and
+  reject cross-origin POSTs. Optional TOTP 2FA is offered on the Account page
+  only. Email links work only in the browser that requested them.
 - Workout submissions are checked on chain against the challenge's membership,
-  deadline and settled state. Each one is signed by a throwaway session key that
-  the member's wallet authorizes with one signature per visit (up to 2 hours),
-  so other people can't submit reps for you. It doesn't stop you faking your own.
-- Closing a challenge requires a signature from the creator's or a member's wallet.
+  deadline and settled state, and are accepted only from the logged-in account
+  whose linked wallet owns the member account. That stops other people
+  submitting reps for you. It doesn't stop you faking your own.
+- Closing a challenge requires a logged-in account with a linked wallet that is
+  the creator or a member.
+- **Verification status of accounts:** implemented and covered by unit tests and
+  a mocked UI smoke test (against a fake Supabase). Not yet run against a real
+  Supabase project, real Phantom, a real phone or devnet end to end. The
+  accounts migration is not applied anywhere yet; see `apps/app/DEPLOYMENT.md`.
 - The scoreboard polls every 5 seconds (and on tab focus); updates aren't pushed live.
 - A challenge creator isn't automatically a player; they must join a team too.
 - **Devnet only**, with test SOL. No real funds.

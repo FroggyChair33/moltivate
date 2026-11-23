@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { AccountLoadError, useAccount } from "@/app/components/account-provider";
+import { LinkedWalletGate } from "@/app/components/linked-wallet-gate";
 import { ClaimButton } from "@/app/components/claim-button";
 import { Eyebrow } from "@/app/components/eyebrow";
-import { useProgram } from "@/lib/use-program";
-import { fetchChallengeMembers, teamPda, NO_WINNER } from "@/lib/anchor";
+import { fetchChallengeMembers, getReadProgram, teamPda, NO_WINNER } from "@/lib/anchor";
 import { explorerTxUrl } from "@/lib/explorer";
-import { closeChallengeMessage } from "@/lib/close-challenge-message";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 type MemberRow = {
@@ -38,14 +38,17 @@ type Loaded = {
   target: number;
 };
 
+// Reads and Close go through the account's linked wallets; only Claim needs the connected wallet.
 export function ResultsClient({ id }: { id: string }) {
-  const { publicKey } = useWallet();
-  return <ResultsClientView key={id + (publicKey?.toBase58() ?? "disconnected")} id={id} />;
+  const { me, status } = useAccount();
+  const wallets = me?.wallets ?? [];
+  return <ResultsClientView key={id + wallets.join(",")} id={id} wallets={wallets} accountError={status === "error"} />;
 }
 
-function ResultsClientView({ id }: { id: string }) {
-  const program = useProgram();
-  const { publicKey, signMessage } = useWallet();
+function ResultsClientView({ id, wallets, accountError }: { id: string; wallets: string[]; accountError: boolean }) {
+  const { connection } = useConnection();
+  const connected = useWallet().publicKey?.toBase58();
+  const program = useMemo(() => getReadProgram(connection), [connection]);
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settling, setSettling] = useState(false);
@@ -64,7 +67,6 @@ function ResultsClientView({ id }: { id: string }) {
   const names = useDisplayNames(state?.members.map((m) => m.owner) ?? []);
 
   useEffect(() => {
-    if (!program) return;
     let cancelled = false;
     (async () => {
       try {
@@ -129,22 +131,16 @@ function ResultsClientView({ id }: { id: string }) {
   }, [id, reloadKey]);
 
   async function handleClose() {
-    if (!publicKey) return;
-    if (!signMessage) {
-      setCloseError("This wallet can't sign messages.");
-      return;
-    }
     setClosing(true);
     setCloseError(null);
     try {
-      const wallet = publicKey.toBase58();
-      const signed = await signMessage(new TextEncoder().encode(closeChallengeMessage(wallet, id)));
       const res = await fetch("/api/challenges/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ challengePubkey: id, wallet, signature: Buffer.from(signed).toString("base64") }),
+        body: JSON.stringify({ challengePubkey: id }),
       });
       const data = await res.json().catch(() => ({}));
+      if (res.status === 401) throw new Error("Sign in again to close this challenge.");
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       setClosed(true);
       window.dispatchEvent(new Event("moltivate:updated"));
@@ -186,14 +182,6 @@ function ResultsClientView({ id }: { id: string }) {
     }
   }
 
-  if (!program) {
-    return <section className="mx-auto w-full max-w-lg space-y-4 px-5 py-12">
-      <h1 className="text-3xl">Connect to your challenge</h1>
-      <p className="text-muted">Connect the wallet you created or joined with to load your devnet challenge.</p>
-      <Link href="/" className="underline">Return to your challenges</Link>
-    </section>;
-  }
-
   if (error && !state) {
     return (
       <div className="app-page form-page">
@@ -217,11 +205,14 @@ function ResultsClientView({ id }: { id: string }) {
       ? "Settled: either both teams made goal (equal-split bonus from the group pot) or both fell short (forfeits went to the group pot)."
       : `Settled: ${state.winningTeam === 0 ? state.teamAName : state.teamBName} won.`;
 
-  const isCreator = publicKey?.toBase58() === state.creator;
+  // Rematch is a create flow (the create page asks for the creator's connected wallet); Close needs only the account.
+  const isCreator = wallets.includes(state.creator);
+  const canClose = isCreator || state.members.some((m) => wallets.includes(m.owner));
   const allClaimed = state.members.length > 0 && state.members.every((m) => m.claimed);
 
   return (
     <div className="app-page form-page">
+      {accountError && <div className="mb-6"><AccountLoadError /></div>}
       <Eyebrow>{state.settled ? "Final results" : "Awaiting settlement"}</Eyebrow>
       <p className="mb-1 text-xs uppercase tracking-wide text-muted">
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
@@ -254,16 +245,23 @@ function ResultsClientView({ id }: { id: string }) {
           >
             Rematch -- same group, new challenge
           </Link>
-          <p className="mt-1 text-xs text-muted">
-            Only you (the creator) see this -- it prefills a new challenge with the same
-            teams, stake, and goal. The group pot carries forward automatically since
-            it&apos;s tied to your wallet. Make sure you&apos;ve claimed your own payout first
-            if you need it to fund the new stake.
-          </p>
+          {connected === state.creator ? (
+            <p className="mt-1 text-xs text-muted">
+              Only you (the creator) see this -- it prefills a new challenge with the same
+              teams, stake, and goal. The group pot carries forward because you&apos;re
+              connected with the creator&apos;s wallet. Make sure you&apos;ve claimed your own payout first
+              if you need it to fund the new stake.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs" role="note">
+              Rematch from the creator&apos;s wallet ({state.creator.slice(0, 4)}...{state.creator.slice(-4)}) to
+              carry the group pot forward. A rematch created from another wallet uses that wallet&apos;s own pot instead.
+            </p>
+          )}
         </div>
       )}
 
-      {state.settled && !closed && isCreator && (
+      {state.settled && !closed && canClose && (
         <div className="mb-8">
           {allClaimed ? (
             <>
@@ -343,14 +341,16 @@ function ResultsClientView({ id }: { id: string }) {
                           : `staked ${(member.stakeLamports / 1_000_000_000).toFixed(4)} SOL`}
                       </p>
                     </div>
-                    {state.settled && (
-                      <ClaimButton
+                    {state.settled && (() => {
+                      const claim = <ClaimButton
                         challenge={id}
                         teamMember={member.pubkey}
                         owner={member.owner}
                         alreadyClaimed={member.claimed}
-                      />
-                    )}
+                      />;
+                      // A linked or currently connected owner's unclaimed row signs, so it goes through the gate; other rows stay inert.
+                      return !member.claimed && (wallets.includes(member.owner) || connected === member.owner) ? <LinkedWalletGate>{claim}</LinkedWalletGate> : claim;
+                    })()}
                   </div>
                 ))}
             </div>

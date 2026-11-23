@@ -55,7 +55,8 @@ Everything else is server-only and must never be marked public.
 |---|---|---|---|
 | `NEXT_PUBLIC_SOLANA_NETWORK` | Public | Not read by code | The network is hard-coded to devnet in `app/providers.tsx`; this variable is kept as documentation. Mainnet needs a separate reviewed release (root `AGENTS.md` "Financial correctness"). |
 | `NEXT_PUBLIC_SOLANA_RPC_URL` | Public | `app/providers.tsx`, `lib/oracle.ts`, `lib/server-program.ts` | A **devnet-only** RPC URL (e.g. Helius `devnet.helius-rpc.com`). It ships in the browser bundle, so never use a key that also works on mainnet. Falls back to the public devnet endpoint if unset. |
-| `NEXT_PUBLIC_SUPABASE_URL` | Public | `lib/supabase-server.ts` | The fork's own Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_URL` | Public | `lib/supabase-server.ts`, `lib/supabase-auth.ts`, `lib/supabase-browser.ts`, `proxy.ts`, `app/auth/callback/route.ts`, `app/api/wallet-links/unlink/route.ts` | The fork's own Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | `proxy.ts`, `lib/supabase-browser.ts`, `lib/supabase-auth.ts`, `app/auth/callback/route.ts`, `app/api/wallet-links/unlink/route.ts`; checked by `next.config.ts` at build time | The project's publishable (anon) key, used for account sessions. Public by design. **Never put the service-role key here:** `next build` fails if this is set to anything other than a publishable/anon key (`lib/supabase-key.ts`), so a secret can't be inlined into the browser bundle. Set it for Production and Preview. |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Server-only secret** | `lib/supabase-server.ts` | Bypasses RLS. Never expose to the client, never commit. The server refuses an anon/publishable key here (`lib/supabase-key.ts`), since that would fail only on RLS-protected tables. |
 | `NEXT_PUBLIC_ORACLE_PUBKEY` | Public | create form | The oracle keypair's public half; new challenges set it as their on-chain `oracle`. |
 | `ORACLE_SECRET_KEY` | **Server-only secret** | `lib/oracle.ts` | 64-byte JSON array; signs `settle()` in `/api/oracle/settle`. Never expose, never commit. |
@@ -64,6 +65,68 @@ Everything else is server-only and must never be marked public.
 `NEXT_PUBLIC_*` values are inlined into the bundle at build time, so set them
 in Vercel before the production build, and redeploy after changing one. The
 two secrets are read only at request time.
+
+## Accounts setup (required before this version works)
+
+> **Deploy order warning.** If `main` auto-deploys through Vercel's Git
+> integration, do steps 1-3 **before merging** this version. Otherwise
+> production breaks: without the publishable key every page that needs an
+> account redirects to `/login` and logging in can't work, and without the
+> migration `/api/me` returns 500.
+
+This version adds email/password accounts and wallet linking. **None of the
+steps below have been done or run by the agent that wrote the code.** They are
+manual steps for the repository owner, in this order:
+
+1. **Apply the migration `supabase/migrations/20261123010000_accounts.sql`
+   before deploying this code.** The new workout route requires
+   `workout_sessions.account_id`, which the migration adds. This document
+   doesn't describe a migration command, so apply it in the Supabase SQL editor
+   or your usual migration tool, in filename order after the earlier files. The
+   file's own header says it has not been executed against any database.
+2. **Supabase dashboard -> Authentication:**
+   - Require email confirmation.
+   - Set the **Site URL**, and add **Redirect URLs** for `/auth/callback` on the
+     production domain and on Vercel preview deployments. Emailed links carry a
+     `?next=` path (`/reset-password`, or `/join/<code>` for a sign-up that
+     started from an invite), so the entries must allow a query string; Supabase
+     accepts wildcard entries (for example `https://<domain>/auth/callback**`).
+     Check the matching rules in the dashboard: a link that isn't allowed falls
+     back to the Site URL and loses the invite.
+   - Enable **TOTP multi-factor**.
+   - Set the **minimum password length to 12**. The 12-character rule is
+     enforced in the browser; the dashboard setting is the server-side
+     enforcement.
+   - Configure **custom SMTP**. The built-in sender is rate-limited and not for
+     real sign-ups.
+   - Turn on **secure password change** (the setting that requires a recent
+     login or reauthentication before a password change; the dashboard label
+     may differ). The Account page changes the password without asking for the
+     current one, so this is the server-side protection for a session left
+     signed in.
+3. **Set `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`** (the project's publishable/anon
+   key, never the service-role key) in Vercel for Production and Preview, and in
+   `apps/app/.env.local`.
+4. **Rebuild/redeploy**, since `NEXT_PUBLIC_*` values are inlined at build time.
+
+   For a deployment that already has data:
+   - Display names in the old wallet-keyed `users` table are not carried over.
+     People show as shortened wallet addresses until they create an account and
+     link their wallet.
+   - Workout rows recorded before the migration keep a null `account_id`.
+   - A wallet with an open stake or unclaimed payout can't be unlinked. A
+     challenge that never settles therefore keeps its wallets linked for good
+     (this is the known "no timeout refund" gap).
+5. **Manual verification still owed** (the code is only covered by unit tests
+   and the mocked UI smoke test so far):
+   - Sign-up email delivery and confirmation.
+   - Login and 2FA enrolment and login.
+   - Wallet link and unlink with real Phantom on desktop.
+   - A workout recorded from a real phone.
+   - An invite preview while signed out.
+   - The cross-origin POST check: it compares the `Origin` header to the request
+     URL's origin (`lib/same-origin.ts`). Behind Vercel, confirm it works on the
+     deployed domain and on preview URLs.
 
 ## Runtime: Node.js, not Edge (and don't force it either way)
 

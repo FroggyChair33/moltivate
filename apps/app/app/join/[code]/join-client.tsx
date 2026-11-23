@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { WalletButton } from "@/app/components/wallet-button";
+import { LinkedWalletGate } from "@/app/components/linked-wallet-gate";
+import { AccountLoadError, useAccount } from "@/app/components/account-provider";
 import { Eyebrow } from "@/app/components/eyebrow";
 import { CommitmentSlip } from "@/app/components/commitment-slip";
 import { useProgram } from "@/lib/use-program";
@@ -34,7 +35,8 @@ export function JoinClient({ code }: { code: string }) {
 }
 
 function JoinClientView({ code }: { code: string }) {
-  const { connected, publicKey, sendTransaction } = useWallet();
+  const { publicKey, sendTransaction } = useWallet();
+  const { status, me } = useAccount();
   const { connection } = useConnection();
   const program = useProgram();
 
@@ -202,12 +204,20 @@ function JoinClientView({ code }: { code: string }) {
             ? "This challenge has already been settled -- it's closed to new members."
             : "This challenge's deadline has already passed -- it's closed to new members."}
         </p>
-      ) : !connected ? (
+      ) : status === "loading" ? (
+        <p className="text-sm text-muted">Checking your account…</p>
+      ) : status === "error" && !me ? (
+        <AccountLoadError />
+      ) : status === "signedOut" ? (
         <div className="flex flex-col gap-3">
-          <p className="text-sm">Connect your Phantom wallet to join.</p>
-          <WalletButton />
+          <p className="text-sm">Log in or sign up to join.</p>
+          <div className="flex gap-3">
+            <Link href={`/login?next=${encodeURIComponent(`/join/${code}`)}`} className="button-primary">Log in</Link>
+            <Link href={`/signup?next=${encodeURIComponent(`/join/${code}`)}`} className="rounded-full border border-line px-5 py-2.5 text-center text-sm font-medium">Sign up</Link>
+          </div>
         </div>
       ) : (
+        <LinkedWalletGate>
         <div className="flex flex-col gap-5">
           <p className="text-sm text-muted">
             Connected as {publicKey ? displayNameOrShort(publicKey.toBase58(), myName) : ""}
@@ -272,6 +282,7 @@ function JoinClientView({ code }: { code: string }) {
             </p>
           )}
         </div>
+        </LinkedWalletGate>
       )}
     </div>
   );

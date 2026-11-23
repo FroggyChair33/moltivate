@@ -23,7 +23,7 @@ vm.runInNewContext(output, {
     throw new Error(name);
   },
 });
-const { fetchWalletChallenges } = exportsObject;
+const { fetchWalletChallenges, mergeWalletChallenges } = exportsObject;
 const owner = new PublicKey("creator");
 const entry = (id, settled = false) => ({
   publicKey: new PublicKey(id), account: { creator: owner, settled },
@@ -67,4 +67,20 @@ test("RPC failures propagate instead of producing an empty list", async () => {
     teamMember: { all: async () => [] },
   } };
   await assert.rejects(fetchWalletChallenges(program, owner), /RPC unavailable/);
+});
+
+test("merging wallet lists keeps one row per challenge and any-wallet flags", () => {
+  const row = (id, extra = {}) => ({ id, settled: false, creator: false, claimPending: false, ...extra });
+  const merged = mergeWalletChallenges([
+    [row("both"), row("only-a", { settled: true })],
+    [row("both", { creator: true, claimPending: true }), row("only-b")],
+  ]);
+  // Array.from: the helper runs in a vm context, so its arrays have another realm's prototype.
+  assert.deepEqual(Array.from(merged, (r) => r.id).sort(), ["both", "only-a", "only-b"]);
+  const both = merged.find((r) => r.id === "both");
+  assert.equal(both.creator, true);
+  assert.equal(both.claimPending, true);
+  assert.equal(merged.find((r) => r.id === "only-a").settled, true);
+  assert.equal(merged.find((r) => r.id === "only-b").creator, false);
+  assert.equal(mergeWalletChallenges([]).length, 0);
 });

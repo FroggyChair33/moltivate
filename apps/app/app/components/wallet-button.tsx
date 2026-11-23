@@ -14,6 +14,12 @@ function isMobileBrowser(): boolean {
   return /iPhone|iPod|Android.*Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
+// A phone browser without an injected Phantom: wallet connect is not expected to work there.
+export function isPhoneWithoutWallet(): boolean {
+  const injected = window as Window & { phantom?: { solana?: { isPhantom?: boolean } }; solana?: { isPhantom?: boolean } };
+  return isMobileBrowser() && !injected.phantom?.solana?.isPhantom && !injected.solana?.isPhantom;
+}
+
 // WalletMultiButton reads wallet-adapter state (connected wallet, selected
 // adapter) that only exists in the browser. Next.js still server-renders
 // "use client" components for the initial HTML, so its SSR markup ("Select
@@ -34,8 +40,7 @@ export function WalletButton() {
     // here too rather than during render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
-    const injected = (window as Window & { phantom?: { solana?: { isPhantom?: boolean } }; solana?: { isPhantom?: boolean } });
-    setIsMobile(isMobileBrowser() && !injected.phantom?.solana?.isPhantom && !injected.solana?.isPhantom);
+    setIsMobile(isPhoneWithoutWallet());
   }, []);
 
   if (!mounted) {
@@ -54,7 +59,7 @@ export function WalletButton() {
     return (
       <details className="mobile-wallet">
         <summary className="solana-button" aria-label="Connect Solana wallet on mobile"><ConnectLabel /></summary>
-        <p>Open this site in Phantom’s browser to try connecting. If it opens blank, return to Safari to browse, or connect from a desktop browser. iPhone wallet support is still being tested.</p>
+        <p>On a phone you can view your challenges and record workouts. Deposits and claims need a desktop browser with Phantom for now.</p>
       </details>
     );
   }
