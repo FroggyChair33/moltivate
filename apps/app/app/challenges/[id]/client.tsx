@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { useAccount } from "@/app/components/account-provider";
 import { RollingNumber } from "@/app/components/rolling-number";
 import { MediaPipeSquatSession } from "@/app/components/mediapipe-squat-session";
 import { Eyebrow } from "@/app/components/eyebrow";
-import { useProgram } from "@/lib/use-program";
-import { fetchChallengeMembers, teamPda } from "@/lib/anchor";
+import { fetchChallengeMembers, getReadProgram, teamPda } from "@/lib/anchor";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
 type MemberRow = {
@@ -31,14 +31,16 @@ type Loaded = {
   updatedAt: string;
 };
 
+// "You" is the account's linked wallets, not the connected one: a phone has none connected.
 export function ChallengeScoreboardClient({ id }: { id: string }) {
-  const { publicKey } = useWallet();
-  return <ChallengeScoreboardClientView key={id + (publicKey?.toBase58() ?? "disconnected")} id={id} />;
+  const { me } = useAccount();
+  const wallets = me?.wallets ?? [];
+  return <ChallengeScoreboardClientView key={id + wallets.join(",")} id={id} wallets={wallets} />;
 }
 
-function ChallengeScoreboardClientView({ id }: { id: string }) {
-  const program = useProgram();
-  const { publicKey } = useWallet();
+function ChallengeScoreboardClientView({ id, wallets }: { id: string; wallets: string[] }) {
+  const { connection } = useConnection();
+  const program = useMemo(() => getReadProgram(connection), [connection]);
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   // window.location.origin isn't available during SSR -- read it only after
@@ -136,14 +138,6 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
     };
   }, [program, id, reloadKey]);
 
-  if (!program) {
-    return <section className="mx-auto w-full max-w-lg space-y-4 px-5 py-12">
-      <h1 className="text-3xl">Connect to your challenge</h1>
-      <p className="text-muted">Connect the wallet you created or joined with to load your devnet challenge.</p>
-      <Link href="/" className="underline">Return to your challenges</Link>
-    </section>;
-  }
-
   if (error && !state) {
     return (
       <div className="app-page">
@@ -175,7 +169,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
     // Ranked leaderboard-style, like the marketing site's club board.
     .sort((a, b) => b.percent - a.percent || b.total - a.total);
 
-  const myMember = state.members.find((m) => m.owner === publicKey?.toBase58());
+  const myMember = state.members.find((m) => wallets.includes(m.owner));
 
   return (
     <div className="app-page">
@@ -242,7 +236,7 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
                       <li key={member.pubkey} className="flex items-center gap-3 text-xs">
                         <span className="min-w-0 flex-1 truncate text-[#dbe7f3]">
                           {displayNameOrShort(member.owner, names)}
-                          {member.owner === publicKey?.toBase58() && <span className="text-[#8fd0ff]"> (you)</span>}
+                          {wallets.includes(member.owner) && <span className="text-[#8fd0ff]"> (you)</span>}
                         </span>
                         <span className="shrink-0 text-right text-[#a9bdd1]">
                           <RollingNumber value={member.countedUnits / 2} />/{goalUnits / 2} ({pct}%)
@@ -268,13 +262,15 @@ function ChallengeScoreboardClientView({ id }: { id: string }) {
           <p className="text-sm text-muted">The deadline has passed, so new workouts can&apos;t be recorded. Open results to settle and claim.</p>
         ) : myMember ? (
           <MediaPipeSquatSession challengePubkey={id} teamMemberPubkey={myMember.pubkey} />
-        ) : publicKey ? (
+        ) : wallets.length ? (
           <div className="flex flex-col items-start gap-3">
             <p className="text-sm text-muted">You&apos;re not on a team in this challenge yet.</p>
             <Link href={`/join/${id}`} className="button-primary">Join a team</Link>
           </div>
         ) : (
-          <p className="text-sm text-muted">Connect the wallet you joined with to log a workout.</p>
+          <p className="text-sm text-muted">
+            <Link href="/account" className="underline">Link the wallet you joined with</Link> to log a workout.
+          </p>
         )}
         <div>
           <Link

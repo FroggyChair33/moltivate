@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PublicKey } from "@solana/web3.js";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { useAccount } from "@/app/components/account-provider";
+import { LinkedWalletGate } from "@/app/components/linked-wallet-gate";
 import { ClaimButton } from "@/app/components/claim-button";
 import { Eyebrow } from "@/app/components/eyebrow";
-import { useProgram } from "@/lib/use-program";
-import { fetchChallengeMembers, teamPda, NO_WINNER } from "@/lib/anchor";
+import { fetchChallengeMembers, getReadProgram, teamPda, NO_WINNER } from "@/lib/anchor";
 import { explorerTxUrl } from "@/lib/explorer";
 import { useDisplayNames, displayNameOrShort } from "@/lib/use-display-names";
 
@@ -37,14 +38,16 @@ type Loaded = {
   target: number;
 };
 
+// Reads and Close go through the account's linked wallets; only Claim needs the connected wallet.
 export function ResultsClient({ id }: { id: string }) {
-  const { publicKey } = useWallet();
-  return <ResultsClientView key={id + (publicKey?.toBase58() ?? "disconnected")} id={id} />;
+  const { me } = useAccount();
+  const wallets = me?.wallets ?? [];
+  return <ResultsClientView key={id + wallets.join(",")} id={id} wallets={wallets} />;
 }
 
-function ResultsClientView({ id }: { id: string }) {
-  const program = useProgram();
-  const { publicKey } = useWallet();
+function ResultsClientView({ id, wallets }: { id: string; wallets: string[] }) {
+  const { connection } = useConnection();
+  const program = useMemo(() => getReadProgram(connection), [connection]);
   const [state, setState] = useState<Loaded | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settling, setSettling] = useState(false);
@@ -63,7 +66,6 @@ function ResultsClientView({ id }: { id: string }) {
   const names = useDisplayNames(state?.members.map((m) => m.owner) ?? []);
 
   useEffect(() => {
-    if (!program) return;
     let cancelled = false;
     (async () => {
       try {
@@ -179,14 +181,6 @@ function ResultsClientView({ id }: { id: string }) {
     }
   }
 
-  if (!program) {
-    return <section className="mx-auto w-full max-w-lg space-y-4 px-5 py-12">
-      <h1 className="text-3xl">Connect to your challenge</h1>
-      <p className="text-muted">Connect the wallet you created or joined with to load your devnet challenge.</p>
-      <Link href="/" className="underline">Return to your challenges</Link>
-    </section>;
-  }
-
   if (error && !state) {
     return (
       <div className="app-page form-page">
@@ -210,7 +204,9 @@ function ResultsClientView({ id }: { id: string }) {
       ? "Settled: either both teams made goal (equal-split bonus from the group pot) or both fell short (forfeits went to the group pot)."
       : `Settled: ${state.winningTeam === 0 ? state.teamAName : state.teamBName} won.`;
 
-  const isCreator = publicKey?.toBase58() === state.creator;
+  // Rematch is a create flow (the create page asks for the creator's connected wallet); Close needs only the account.
+  const isCreator = wallets.includes(state.creator);
+  const canClose = isCreator || state.members.some((m) => wallets.includes(m.owner));
   const allClaimed = state.members.length > 0 && state.members.every((m) => m.claimed);
 
   return (
@@ -256,7 +252,7 @@ function ResultsClientView({ id }: { id: string }) {
         </div>
       )}
 
-      {state.settled && !closed && isCreator && (
+      {state.settled && !closed && canClose && (
         <div className="mb-8">
           {allClaimed ? (
             <>
@@ -336,14 +332,16 @@ function ResultsClientView({ id }: { id: string }) {
                           : `staked ${(member.stakeLamports / 1_000_000_000).toFixed(4)} SOL`}
                       </p>
                     </div>
-                    {state.settled && (
-                      <ClaimButton
+                    {state.settled && (() => {
+                      const claim = <ClaimButton
                         challenge={id}
                         teamMember={member.pubkey}
                         owner={member.owner}
                         alreadyClaimed={member.claimed}
-                      />
-                    )}
+                      />;
+                      // Only the member's own unclaimed row needs the connected wallet; other rows stay inert.
+                      return wallets.includes(member.owner) && !member.claimed ? <LinkedWalletGate>{claim}</LinkedWalletGate> : claim;
+                    })()}
                   </div>
                 ))}
             </div>

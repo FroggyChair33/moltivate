@@ -107,4 +107,18 @@ export async function fetchWalletChallenges(program: Program<CommitmentStakes>, 
   }));
 }
 
+export type WalletChallenge = Awaited<ReturnType<typeof fetchWalletChallenges>>[number];
+
+// One row per challenge across several linked wallets: a flag is set if any wallet has it.
+export function mergeWalletChallenges(lists: WalletChallenge[][]): WalletChallenge[] {
+  const merged = new Map<string, WalletChallenge>();
+  for (const row of lists.flat()) {
+    const seen = merged.get(row.id);
+    merged.set(row.id, seen
+      ? { ...seen, creator: seen.creator || row.creator, claimPending: seen.claimPending || row.claimPending }
+      : row);
+  }
+  return [...merged.values()];
+}
+
 export const NO_WINNER = 2;
