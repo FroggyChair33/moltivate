@@ -1,5 +1,12 @@
 // UI-only mocks. Never signs a transaction or uses production workout records.
+// Sessions and table reads come from tests/fake-supabase.mjs, which this script starts on port 13001. The app must be
+// built and started against it with obviously fake keys (NEXT_PUBLIC_* values are inlined at build time). From apps/app:
+//   export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:13001 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_smoke_test SUPABASE_SERVICE_ROLE_KEY=sb_secret_smoke_test
+//   npm run build && npx next start -p 13000   # then, in another shell:
+//   node tests/ui-smoke.mjs
+// Rebuild without these variables afterwards before using the app against real Supabase.
 import { chromium } from '@playwright/test';
+import { startFakeSupabase } from './fake-supabase.mjs';
 import { createRequire } from 'node:module';
 import { readFile, mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
@@ -57,10 +64,28 @@ async function mockRpc(route) {
 const base = process.env.UI_BASE_URL || 'http://127.0.0.1:13000';
 const output = new URL('../../../test-results/app-design/', import.meta.url);
 await mkdir(output, { recursive: true });
+const fake = await startFakeSupabase(13001);
+fake.setLinkedWallets([owner.toBase58()]);
+const signIn = (context) => context.addCookies([{ ...fake.sessionCookie, url: base }]);
 const browser = await chromium.launch({ headless: true });
 const errors = [];
 try {
+  // Signed out: pages redirect to /login, but an invite stays viewable.
+  const guest = await browser.newContext();
+  await guest.route('**/*', mockRpc);
+  const guestPage = await guest.newPage();
+  guestPage.on('pageerror', error => errors.push(error.message));
+  await guestPage.goto(base + '/');
+  assert.equal(new URL(guestPage.url()).pathname, '/login');
+  await guestPage.goto(base + '/join/' + challenge);
+  await guestPage.getByText('Sunrise Squad vs Night Owls').waitFor();
+  await guestPage.getByText('Log in or sign up to join.').waitFor();
+  await guestPage.goto(base + '/join/' + expired);
+  await guestPage.getByText("This challenge's deadline has already passed").waitFor();
+  await guest.close();
+
   const context = await browser.newContext();
+  await signIn(context);
   await context.route('**/*', mockRpc);
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
@@ -87,18 +112,26 @@ try {
     await page.goto(base + retired);
     await page.waitForURL(base + '/');
   }
+  // Signed in with no wallet connected (phone-style): challenges follow the linked wallet, read-only.
+  await page.goto(base);
+  await page.getByRole('link', { name: new RegExp('Open challenge.*' + challenge.toBase58()) }).waitFor();
+  // The account page lists the linked wallet.
+  await page.goto(base + '/account');
+  await page.getByText(owner.toBase58().slice(0, 4) + '...' + owner.toBase58().slice(-4), { exact: true }).waitFor();
   // Without a wallet, an invite still shows the challenge, and says when it's closed.
   await page.goto(base + '/join/' + challenge);
   await page.getByText('Sunrise Squad vs Night Owls').waitFor();
-  await page.getByText('Connect your Phantom wallet to join.').waitFor();
+  await page.getByText('Connect the Phantom wallet linked to your account to sign this on devnet.').waitFor();
   await page.goto(base + '/join/' + expired);
   await page.getByText("This challenge's deadline has already passed").waitFor();
   await context.close();
 
   const connected = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await signIn(connected);
   await connected.addInitScript(({ bytes, address }) => {
     localStorage.setItem('walletName', JSON.stringify('Phantom'));
-    const wallet = { isPhantom: true, isConnected: true, publicKey: { toBytes: () => Uint8Array.from(bytes), toBase58: () => address }, on() {}, off() {}, connect: async () => {}, disconnect: async () => {}, signTransaction: async () => { throw Error('No transactions in UI tests'); }, signAllTransactions: async () => { throw Error('No transactions in UI tests'); }, signMessage: async () => ({ signature: new Uint8Array(64) }) };
+    window.signMessageCalls = 0;
+    const wallet = { isPhantom: true, isConnected: true, publicKey: { toBytes: () => Uint8Array.from(bytes), toBase58: () => address }, on() {}, off() {}, connect: async () => {}, disconnect: async () => {}, signTransaction: async () => { throw Error('No transactions in UI tests'); }, signAllTransactions: async () => { throw Error('No transactions in UI tests'); }, signMessage: async () => { window.signMessageCalls++; return { signature: new Uint8Array(64) }; } };
     window.isPhantomInstalled = true; window.phantom = { solana: wallet }; window.solana = wallet;
   }, { bytes: [...owner.toBytes()], address: owner.toBase58() });
   let total = 6, fail = false, requests = 0;
@@ -111,6 +144,11 @@ try {
   await connected.route('**/*', mockRpc);
   const live = await connected.newPage();
   live.on('pageerror', error => errors.push(error.message));
+  // A connected wallet that isn't linked to the account can't join.
+  fake.setLinkedWallets([key(8).toBase58()]);
+  await live.goto(base + '/join/' + challenge);
+  await live.getByText("This wallet isn't linked to your account").waitFor();
+  fake.setLinkedWallets([owner.toBase58()]);
   await live.goto(base + '/challenges/' + challenge);
   await live.getByText('Leaderboard', { exact: true }).waitFor();
   const sunrise = live.locator('.board-row').filter({ hasText: 'Sunrise Squad' });
@@ -127,6 +165,7 @@ try {
   await live.getByRole('button', { name: 'Start squat session' }).click();
   await live.locator('.camera-room .session-error').waitFor(); // Camera denial must recover visibly.
   await live.getByRole('button', { name: 'Start squat session' }).waitFor();
+  assert.equal(await live.evaluate(() => window.signMessageCalls), 0, 'starting a squat session asked the wallet to sign');
   await live.emulateMedia({ reducedMotion: 'reduce' });
   assert.equal(await sunrise.locator('.rolling-strip').first().evaluate(el => getComputedStyle(el).transitionDuration), '0s');
   for (const path of ['/challenges/new', '/join/'+challenge, '/challenges/'+challenge+'/results']) {
@@ -154,5 +193,5 @@ try {
   await live.waitForURL('**/join/**');
   lateCreate = false;
   assert.deepEqual(errors, []);
-  console.log('PASS: 24 responsive route checks, navigation, invite validation, disconnected invite + closed notice, mocked wallet/RPC standings, 5s updates, rank changes, outage retention/recovery, camera denial, reduced motion, late deposit/create recovery. Totals requests:', requests);
-} finally { await browser.close(); }
+  console.log('PASS: signed-out login redirect + invite preview, 24 signed-in responsive route checks, navigation, invite validation, linked-wallet challenges with no wallet connected, account wallet list, disconnected invite + closed notice, unlinked wallet refused, mocked wallet/RPC standings, 5s updates, rank changes, outage retention/recovery, camera denial without signMessage, reduced motion, late deposit/create recovery. Totals requests:', requests);
+} finally { await browser.close(); fake.close(); }
