@@ -1,6 +1,6 @@
 // Shared checks for the link and unlink routes: validate the request fields, find the stored nonce, rebuild the
-// message the server issued and verify the wallet's signature over it. Nothing here consumes the nonce; the
-// link_wallet / unlink_wallet SQL functions do that atomically, so any rejection in this file leaves it reusable.
+// message the server issued and verify the wallet's signature over it. Nothing here consumes the nonce (the link
+// route's link_wallet SQL function and the unlink route's atomic claim UPDATE do), so any rejection here leaves it reusable.
 import { PublicKey } from "@solana/web3.js";
 import nacl from "tweetnacl";
 import { linkWalletMessage, unlinkWalletMessage, type WalletProof } from "./wallet-link-message";

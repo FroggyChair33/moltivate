@@ -388,7 +388,7 @@ test("unlink: success claims the nonce, re-checks the password, deletes the link
   const p = addRow("unlink");
   const res = await read(await unlinkReq(p));
   assert.deepEqual([res.status, res.body], [200, { wallet: walletKey }]);
-  assert.equal(rpcCalls.length, 0, "no unlink_wallet RPC any more");
+  assert.equal(rpcCalls.length, 0, "unlink makes no RPC call");
   assert.deepEqual(json(deleteCalls), [{ wallet_address: walletKey, user_id: "u1" }]);
   assert.equal(linkedWallets.length, 0);
   assert.ok(rows[0].used_at, "nonce spent");

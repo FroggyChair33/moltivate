@@ -45,7 +45,7 @@ alter table linked_wallets enable row level security;
 alter table wallet_link_nonces enable row level security;
 
 -- Which account a workout session was submitted under (null for older rows).
-alter table workout_sessions add column account_id uuid references auth.users(id);
+alter table workout_sessions add column account_id uuid references auth.users(id) on delete set null;
 
 -- Atomically consume a 'link' nonce and link the wallet. Returns
 -- 'linked', 'bad_nonce' or 'taken' (wallet already linked; nonce left unused).
@@ -53,7 +53,7 @@ create or replace function link_wallet(p_nonce text, p_user uuid, p_wallet text)
 returns text
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
     v_nonce wallet_link_nonces%rowtype;
@@ -79,39 +79,6 @@ begin
 end;
 $$;
 
--- Atomically consume an 'unlink' nonce and unlink the caller's wallet. Returns
--- 'unlinked', 'bad_nonce' or 'not_linked' (nonce left unused).
-create or replace function unlink_wallet(p_nonce text, p_user uuid, p_wallet text)
-returns text
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-    v_nonce wallet_link_nonces%rowtype;
-begin
-    select * into v_nonce from wallet_link_nonces where nonce = p_nonce for update;
-    if not found
-        or v_nonce.purpose <> 'unlink'
-        or v_nonce.user_id <> p_user
-        or v_nonce.wallet_address <> p_wallet
-        or v_nonce.used_at is not null
-        or v_nonce.expires_at <= now() then
-        return 'bad_nonce';
-    end if;
-
-    delete from linked_wallets where wallet_address = p_wallet and user_id = p_user;
-    if not found then
-        return 'not_linked';
-    end if;
-
-    update wallet_link_nonces set used_at = now() where nonce = p_nonce;
-    return 'unlinked';
-end;
-$$;
-
 -- Functions in `public` are callable through the anon key's RPC endpoint unless revoked.
 revoke all on function link_wallet(text, uuid, text) from public, anon, authenticated;
 grant execute on function link_wallet(text, uuid, text) to service_role;
-revoke all on function unlink_wallet(text, uuid, text) from public, anon, authenticated;
-grant execute on function unlink_wallet(text, uuid, text) to service_role;

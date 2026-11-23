@@ -22,21 +22,24 @@ test("wallet_address is the linked_wallets primary key and display_name_key is u
   assert.match(lower, /display_name_key text not null unique/);
 });
 
-test("both functions are security definer, pinned search_path, service_role only", () => {
-  for (const fn of ["link_wallet", "unlink_wallet"]) {
-    const start = lower.indexOf(`create or replace function ${fn}(`);
-    assert.ok(start >= 0, `${fn} defined`);
-    const next = lower.indexOf("create or replace function", start + 1);
-    const body = lower.slice(start, next < 0 ? undefined : next);
-    assert.match(body, /security definer/);
-    assert.match(body, /set search_path = public/);
-    assert.match(body, /for update/);
-    // revoke/grant sit after the function bodies, so check the whole file.
-    assert.ok(lower.includes(`revoke all on function ${fn}(text, uuid, text) from public, anon, authenticated;`));
-    assert.ok(lower.includes(`grant execute on function ${fn}(text, uuid, text) to service_role;`));
-  }
+test("link_wallet is security definer, pinned search_path with pg_temp, service_role only", () => {
+  const start = lower.indexOf("create or replace function link_wallet(");
+  assert.ok(start >= 0, "link_wallet defined");
+  const next = lower.indexOf("create or replace function", start + 1);
+  const body = lower.slice(start, next < 0 ? undefined : next);
+  assert.match(body, /security definer/);
+  assert.match(body, /set search_path = public, pg_temp/);
+  assert.match(body, /for update/);
+  // revoke/grant sit after the function body, so check the whole file.
+  assert.ok(lower.includes("revoke all on function link_wallet(text, uuid, text) from public, anon, authenticated;"));
+  assert.ok(lower.includes("grant execute on function link_wallet(text, uuid, text) to service_role;"));
 });
 
-test("workout_sessions gains account_id", () => {
-  assert.match(lower, /alter table workout_sessions add column account_id uuid references auth\.users\(id\)/);
+test("the unused unlink_wallet function is not defined", () => {
+  // The unlink route claims the nonce and deletes the link itself.
+  assert.doesNotMatch(lower, /function unlink_wallet/);
+});
+
+test("workout_sessions gains account_id that is nulled when the user is deleted", () => {
+  assert.match(lower, /alter table workout_sessions add column account_id uuid references auth\.users\(id\) on delete set null/);
 });
