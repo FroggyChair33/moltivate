@@ -34,3 +34,9 @@ export function assertPublishableKey(key: string): void {
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY must be the project's publishable (or anon) key, never the service_role/secret key",
   );
 }
+
+// Build-time guard used by next.config.ts: NEXT_PUBLIC_* values are inlined into the browser bundle, so a build with
+// a secret key here must fail. Unset or empty passes (CI builds without Supabase env vars).
+export function assertBuildPublishableKey(key: string | undefined): void {
+  if (key) assertPublishableKey(key);
+}

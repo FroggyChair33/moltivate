@@ -9,7 +9,7 @@ const output = ts.transpileModule(fs.readFileSync("lib/supabase-key.ts", "utf8")
 }).outputText;
 const exportsObject = {};
 vm.runInNewContext(output, { exports: exportsObject, Buffer });
-const { assertServiceKey, assertPublishableKey } = exportsObject;
+const { assertServiceKey, assertPublishableKey, assertBuildPublishableKey } = exportsObject;
 
 const jwt = (payload) =>
   ["eyJhbGciOiJIUzI1NiJ9", Buffer.from(JSON.stringify(payload)).toString("base64url"), "sig"].join(".");
@@ -57,4 +57,14 @@ test("publishable: rejects unrecognized keys and never echoes the key", () => {
     () => assertPublishableKey("sb_secret_SECRETVALUE"),
     (err) => !err.message.includes("SECRETVALUE"),
   );
+});
+
+// next.config.ts calls this so a secret key can never be inlined into the browser bundle at build time.
+test("build check: unset or empty passes, publishable passes, secret or unrecognized fails without echoing", () => {
+  assert.doesNotThrow(() => assertBuildPublishableKey(undefined));
+  assert.doesNotThrow(() => assertBuildPublishableKey(""));
+  assert.doesNotThrow(() => assertBuildPublishableKey("sb_publishable_abc"));
+  assert.throws(() => assertBuildPublishableKey("sb_secret_SECRETVALUE"), (err) => /PUBLISHABLE_KEY/.test(err.message) && !err.message.includes("SECRETVALUE"));
+  assert.throws(() => assertBuildPublishableKey(jwt({ role: "service_role" })), /PUBLISHABLE_KEY/);
+  assert.throws(() => assertBuildPublishableKey("hello"), /PUBLISHABLE_KEY/);
 });
