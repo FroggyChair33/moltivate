@@ -116,15 +116,15 @@ Failure modes the spec implies that most need a pinned test, most likely first:
 ### Task 4: Wallet link and unlink API
 
 **Files:**
-- Create: `apps/app/app/api/wallets/nonce/route.ts`, `apps/app/app/api/wallets/link/route.ts`, `apps/app/app/api/wallets/unlink/route.ts`, `apps/app/lib/open-stakes.ts`
+- Create: `apps/app/app/api/wallet-links/nonce/route.ts`, `apps/app/app/api/wallet-links/link/route.ts`, `apps/app/app/api/wallet-links/unlink/route.ts`, `apps/app/lib/open-stakes.ts`
 - Test: `apps/app/tests/wallet-link.test.mjs`, `apps/app/tests/open-stakes.test.mjs`
 
 **Interfaces:**
 - Consumes: `requireAccount`, `getLinkedWallets`, `linkWalletMessage`/`unlinkWalletMessage`, `getReadOnlyProgram` and `fetchMemberships` (existing), SQL functions from Task 2.
 - Produces:
-  - `POST /api/wallets/nonce` body `{ wallet: string, purpose: "link" | "unlink" }` → `{ nonce, expiresAt, message }`. The server builds `message` (so the client signs exactly what the server verifies). Nonce is 32 random bytes, base64url; lifetime 5 minutes. Refuses with 429 when the account already has 10 unused unexpired nonces.
-  - `POST /api/wallets/link` body `{ wallet, nonce, signature }` (signature base64) → 200 `{ wallet }`; 400 invalid or expired/used nonce; 401 signature mismatch; 409 `{error:"this wallet can't be linked to your account"}` when taken.
-  - `POST /api/wallets/unlink` body `{ wallet, nonce, signature, password }`; the server re-checks the password with a throwaway anon client (`persistSession: false`) calling `signInWithPassword` for the account's email, never touching the cookie session; wrong password → 401. Blocked with 409 `{error:"this wallet still has an open stake or an unclaimed payout"}` per `hasOpenStake`.
+  - `POST /api/wallet-links/nonce` body `{ wallet: string, purpose: "link" | "unlink" }` → `{ nonce, expiresAt, message }`. The server builds `message` (so the client signs exactly what the server verifies). Nonce is 32 random bytes, base64url; lifetime 5 minutes. Refuses with 429 when the account already has 10 unused unexpired nonces.
+  - `POST /api/wallet-links/link` body `{ wallet, nonce, signature }` (signature base64) → 200 `{ wallet }`; 400 invalid or expired/used nonce; 401 signature mismatch; 409 `{error:"this wallet can't be linked to your account"}` when taken.
+  - `POST /api/wallet-links/unlink` body `{ wallet, nonce, signature, password }`; the server re-checks the password with a throwaway anon client (`persistSession: false`) calling `signInWithPassword` for the account's email, never touching the cookie session; wrong password → 401. Blocked with 409 `{error:"this wallet still has an open stake or an unclaimed payout"}` per `hasOpenStake`.
   - `hasOpenStake(program: Program<CommitmentStakes>, wallet: PublicKey): Promise<boolean>`: true if any membership of `wallet` belongs to an unsettled challenge, or a settled one with `claimed === false`. Built on `fetchMemberships` and `program.account.challenge.fetchMultiple`.
 
 - [ ] **Step 1: Write failing tests** (real `tweetnacl` and `web3.js` keys as in `workout-sessions.test.mjs`; stub `requireAccount`, the service client RPC, and the program):
@@ -230,7 +230,7 @@ Failure modes the spec implies that most need a pinned test, most likely first:
 - Delete: `apps/app/app/components/display-name-editor.tsx`, `apps/app/lib/display-name-message.ts`; remove the editor from `apps/app/app/page.tsx`
 
 **Interfaces:**
-- Consumes: `useAccount`, `POST /api/wallets/nonce|link|unlink`, `POST /api/profile`, `useWallet` (for `signMessage` and the connected key).
+- Consumes: `useAccount`, `POST /api/wallet-links/nonce|link|unlink`, `POST /api/profile`, `useWallet` (for `signMessage` and the connected key).
 - Produces: a page showing email, display name with rename, the linked wallets (address, unlink with password prompt and wallet signature), a "Link connected wallet" button (nonce → `signMessage` of the server's `message` → link; when no wallet is connected on desktop it shows `WalletButton`, on a phone it explains linking needs a desktop browser), change password (`auth.updateUser`), optional authenticator-app setup (`mfa.enroll` shows the QR/secret, `mfa.challenge` + `mfa.verify` confirms; offered once after first sign-in), "Log out" and "Log out of all devices" (`signOut({ scope: "global" })`). After link or unlink, `refresh()` and dispatch `moltivate:updated`.
 
 - [ ] **Step 1:** Write the page and client component; reuse existing form styles. No new unit test (UI); the Task 11 smoke covers it.
