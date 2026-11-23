@@ -93,6 +93,23 @@ function LoginForm() {
     }
   }
 
+  // Way out of the code step (e.g. a lost authenticator): drop the password-only session and start over.
+  async function handleSignOut() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { error: signOutError } = await createBrowserAuthClient().auth.signOut({ scope: "local" });
+      if (signOutError) throw signOutError;
+      setFactorId(null);
+      setCode("");
+      window.dispatchEvent(new Event("moltivate:updated"));
+    } catch {
+      setError("Could not sign out right now. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="app-page form-page max-w-md">
       <h1>Log in</h1>
@@ -106,6 +123,9 @@ function LoginForm() {
           </label>
           {error && <p role="alert" className="rounded-lg bg-red-950/40 p-3 text-sm text-red-300">{error}</p>}
           <button type="submit" disabled={busy} className="button-primary disabled:opacity-50">{busy ? "Checking…" : "Verify"}</button>
+          <button type="button" disabled={busy} onClick={handleSignOut} className="text-sm underline disabled:opacity-50">
+            Use a different account (sign out)
+          </button>
         </form>
       ) : (
         <form onSubmit={handlePassword} className="flex flex-col gap-5">

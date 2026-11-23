@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createBrowserAuthClient } from "@/lib/supabase-browser";
 import { normalizeDisplayName } from "@/lib/display-name";
+import { isNeutralAuthError } from "@/lib/auth-errors";
 
 const MIN_PASSWORD = 12;
 
@@ -33,11 +34,11 @@ export default function SignupPage() {
         password,
         options: { data: { display_name: parsed.name }, emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
-      // An already-registered address gets the same "check your email" answer, so sign-up never reveals who has an account.
-      if (signUpError && signUpError.code !== "user_already_exists" && signUpError.code !== "email_exists") {
-        return setError(signUpError.code === "weak_password"
+      // Every server answer except weak_password shows "check your email", so sign-up never reveals who has an account.
+      if (!isNeutralAuthError(signUpError, "signup")) {
+        return setError(signUpError?.code === "weak_password"
           ? "That password is too weak or has appeared in a data breach. Choose another."
-          : "Could not create the account right now. Try again later.");
+          : "Could not reach the server. Check your connection and try again.");
       }
       setPassword("");
       setSent(true);

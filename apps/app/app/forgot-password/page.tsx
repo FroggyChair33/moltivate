@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { createBrowserAuthClient } from "@/lib/supabase-browser";
+import { isNeutralAuthError } from "@/lib/auth-errors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -18,8 +19,9 @@ export default function ForgotPasswordPage() {
       const { error: resetError } = await createBrowserAuthClient().auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
       });
-      if (resetError) setError("Could not send the email right now. Try again later.");
-      else setSent(true);
+      // Any server answer (even a rate limit) shows the neutral result, so this never reveals who has an account.
+      if (isNeutralAuthError(resetError, "recover")) setSent(true);
+      else setError("Could not reach the server. Check your connection and try again.");
     } catch {
       setError("Could not send the email right now. Try again later.");
     } finally {
