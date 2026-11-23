@@ -56,7 +56,7 @@ Everything else is server-only and must never be marked public.
 | `NEXT_PUBLIC_SOLANA_NETWORK` | Public | Not read by code | The network is hard-coded to devnet in `app/providers.tsx`; this variable is kept as documentation. Mainnet needs a separate reviewed release (root `AGENTS.md` "Financial correctness"). |
 | `NEXT_PUBLIC_SOLANA_RPC_URL` | Public | `app/providers.tsx`, `lib/oracle.ts`, `lib/server-program.ts` | A **devnet-only** RPC URL (e.g. Helius `devnet.helius-rpc.com`). It ships in the browser bundle, so never use a key that also works on mainnet. Falls back to the public devnet endpoint if unset. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | `lib/supabase-server.ts` | The fork's own Supabase project URL. |
-| `SUPABASE_SERVICE_ROLE_KEY` | **Server-only secret** | `lib/supabase-server.ts` | Bypasses RLS. Never expose to the client, never commit. |
+| `SUPABASE_SERVICE_ROLE_KEY` | **Server-only secret** | `lib/supabase-server.ts` | Bypasses RLS. Never expose to the client, never commit. The server refuses an anon/publishable key here (`lib/supabase-key.ts`), since that would fail only on RLS-protected tables. |
 | `NEXT_PUBLIC_ORACLE_PUBKEY` | Public | create form | The oracle keypair's public half; new challenges set it as their on-chain `oracle`. |
 | `ORACLE_SECRET_KEY` | **Server-only secret** | `lib/oracle.ts` | 64-byte JSON array; signs `settle()` in `/api/oracle/settle`. Never expose, never commit. |
 

@@ -4,6 +4,7 @@
 // and repository."
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+import { assertServiceKey } from "./supabase-key";
 
 export function getSupabaseServerClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,5 +12,6 @@ export function getSupabaseServerClient() {
   if (!url || !key) {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
   }
+  assertServiceKey(key);
   return createClient(url, key, { auth: { persistSession: false } });
 }

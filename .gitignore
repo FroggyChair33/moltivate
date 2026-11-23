@@ -27,3 +27,7 @@ secrets/
 id.json
 *.patch
 *.bundle
+
+# Editor swap/undo files (Vim undo files can contain .env.local contents).
+*.swp
+*.un~

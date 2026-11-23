@@ -10,11 +10,14 @@ devnet test SOL only, fixed house rules, no promises of returns.
 
 **Are you Moltivated?**
 
-Live app (devnet): TODO, the fork's own Vercel URL once it's deployed.
+Live app (devnet): https://moltivate-solo.vercel.app
 
-> Status (2026-11-18): the full loop (create → join → camera workout → settle →
+> Status (2026-11-19): the full loop (create → join → camera workout → settle →
 > claim) was run end to end on devnet from a local build of the original team
-> project. This fork's own deployment has not yet been verified end to end.
+> project. On 2026-11-19 the same loop was run on this fork's deployment
+> (moltivate-solo.vercel.app) with two wallets: create, join both teams, camera
+> squats, settle after the deadline, claim on both wallets, close. Phone camera
+> and layout have not been checked on a real device yet.
 
 ## How it works
 
@@ -67,7 +70,7 @@ rake 3%, both-pass bonus 5%.
 | `programs/commitment-stakes/` | Anchor program; `src/math.rs` holds the settlement math and its unit tests |
 | `supabase/migrations/` | Database schema, applied in filename order |
 | `scripts/check-repository.mjs`, `tests/repository.test.js` | Repo guard: rejects gitlinks, keypairs, `.env` files and build output |
-| `.github/workflows/app.yml` | CI: repo guard, then `apps/app` lint, unit tests and build |
+| `.github/workflows/app.yml` | CI: repo guard, `apps/app` lint, unit tests and build, and the program's `math.rs` unit tests |
 | [AGENTS.md](AGENTS.md) | Contributor rules: financial correctness, trust model, verification expectations |
 
 ## Run locally
@@ -106,6 +109,10 @@ Building the Anchor program needs Linux or WSL2 (see `programs/commitment-stakes
 - **No timeout refund** if settlement never happens.
 - **Phone wallet connect doesn't work yet** (blank in Phantom's in-app browser);
   desktop works.
+- Workout submissions are checked on chain against the challenge's membership,
+  deadline and settled state, but the caller isn't authenticated per session:
+  anyone who knows a member account could submit reps for it.
+- Closing a challenge requires a signature from the creator's or a member's wallet.
 - The scoreboard polls every 5 seconds (and on tab focus); updates aren't pushed live.
 - A challenge creator isn't automatically a player; they must join a team too.
 - **Devnet only**, with test SOL. No real funds.

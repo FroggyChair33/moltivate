@@ -8,6 +8,7 @@ import ts from "typescript";
 // transpile, then run with stubbed modules so no Supabase or network is touched.
 let inserted;
 let nextResult;
+let fakeProgram;
 const fakeSupabase = {
   from: () => ({
     insert(row) {
@@ -30,9 +31,15 @@ vm.runInNewContext(output, {
       return { NextResponse: { json: (body, init) => ({ body, status: init?.status ?? 200 }) } };
     }
     if (name === "@solana/web3.js") {
-      return { PublicKey: class { constructor(v) { if (v === "bad") throw new Error("bad pubkey"); } } };
+      return {
+        PublicKey: class {
+          constructor(v) { if (v === "bad") throw new Error("bad pubkey"); this.v = v; }
+          equals(o) { return o.v === this.v; }
+        },
+      };
     }
     if (name === "@/lib/supabase-server") return { getSupabaseServerClient: () => fakeSupabase };
+    if (name === "@/lib/server-program") return { getReadOnlyProgram: () => fakeProgram };
     throw new Error(name);
   },
 });
@@ -42,9 +49,20 @@ const valid = { challengePubkey: "c", teamMemberPubkey: "m", idempotencyKey: "k1
 const post = (body, headers = {}) =>
   POST(new Request("http://x/api/workout-sessions", { method: "POST", headers, body: JSON.stringify(body) }));
 
+const unix = (offsetSeconds) => ({ toNumber: () => Math.floor(Date.now() / 1000) + offsetSeconds });
+let challengeAcc;
+let memberAcc;
 beforeEach(() => {
   inserted = [];
   nextResult = { data: { id: "row-1" }, error: null };
+  challengeAcc = { settled: false, deadlineUnix: unix(3600) };
+  memberAcc = { challenge: { equals: () => true } };
+  fakeProgram = {
+    account: {
+      challenge: { fetchNullable: async () => challengeAcc },
+      teamMember: { fetchNullable: async () => memberAcc },
+    },
+  };
 });
 
 test("rejects chert_facetime source", async () => {
@@ -89,4 +107,48 @@ test("duplicate idempotency key is not an error", async () => {
   const res = await post(valid);
   assert.equal(res.status, 200);
   assert.equal(res.body.status, "duplicate");
+});
+
+test("rejects empty or oversized idempotency keys", async () => {
+  for (const idempotencyKey of ["", "   ", "k".repeat(201)]) {
+    const res = await post({ ...valid, idempotencyKey });
+    assert.equal(res.status, 400, JSON.stringify(idempotencyKey.slice(0, 5)));
+  }
+  assert.equal(inserted.length, 0);
+});
+
+test("unknown challenge is 404", async () => {
+  challengeAcc = null;
+  const res = await post(valid);
+  assert.equal(res.status, 404);
+  assert.equal(inserted.length, 0);
+});
+
+test("member of another challenge is 403", async () => {
+  memberAcc = { challenge: { equals: () => false } };
+  assert.equal((await post(valid)).status, 403);
+  memberAcc = null;
+  assert.equal((await post(valid)).status, 403);
+  assert.equal(inserted.length, 0);
+});
+
+test("rejects sessions after the deadline", async () => {
+  challengeAcc = { settled: false, deadlineUnix: unix(-60) };
+  const res = await post(valid);
+  assert.equal(res.status, 409);
+  assert.match(res.body.error, /deadline/i);
+  assert.equal(inserted.length, 0);
+});
+
+test("rejects sessions for a settled challenge", async () => {
+  challengeAcc = { settled: true, deadlineUnix: unix(3600) };
+  assert.equal((await post(valid)).status, 409);
+  assert.equal(inserted.length, 0);
+});
+
+test("RPC failure is 503, not 403", async () => {
+  fakeProgram.account.challenge.fetchNullable = async () => { throw new Error("rpc down"); };
+  const res = await post(valid);
+  assert.equal(res.status, 503);
+  assert.equal(inserted.length, 0);
 });

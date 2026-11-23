@@ -1,5 +1,8 @@
 # PR #5 recovery evidence
 
+> Historical record of the 14 Nov 2026 recovery. The program has since been
+> completed; see [../README.md](../README.md).
+
 Inspected 14 November 2026. Main at inspection was
 `b272c1933cf4e49faecf24b676fc3a7941bae735`; PR #5 head was
 `63d0011fe17f77b5b5fc87563763f93efeda86ff`.
