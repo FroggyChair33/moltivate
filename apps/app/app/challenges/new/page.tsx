@@ -57,8 +57,22 @@ function NewChallengeForm() {
   // abandoned attempt can't overwrite the current UI state.
   const attempt = useRef(0);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  // One challenge id per form, reused until a create succeeds. The account
+  // address comes from (creator, id), so a cancelled approval that lands late
+  // and a retry both target the same account: never two challenges.
+  const pendingId = useRef<BN | null>(null);
 
   const isRematch = params.get("rematchOf") !== null;
+
+  function openChallenge(challenge: PublicKey, late: boolean) {
+    pendingId.current = null;
+    attempt.current++; // nothing still in flight may update this page now
+    setPhase(null);
+    if (late) setNotice("Your earlier request went through. Opening your challenge…");
+    window.dispatchEvent(new Event("moltivate:updated"));
+    router.push(`/join/${challenge.toBase58()}`);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,7 +83,13 @@ function NewChallengeForm() {
       if (attempt.current === mine) setPhase(p);
     };
     setError(null);
+    pendingId.current ??= new BN(Date.now());
+    const challengeId = pendingId.current;
+    const challenge = challengePda(publicKey, challengeId);
     try {
+      // An earlier, cancelled approval may have created it since.
+      if (await connection.getAccountInfo(challenge)) return openChallenge(challenge, true);
+
       // Always the real backend oracle (app/api/oracle/settle) -- only that
       // service's key can actually sign settle(), so there's no real
       // self-settle path for a creator-chosen oracle to support in the UI.
@@ -90,8 +110,6 @@ function NewChallengeForm() {
         if (attempt.current !== mine) return;
       }
 
-      const challengeId = new BN(Date.now());
-      const challenge = challengePda(publicKey, challengeId);
       const deadlineUnix = new BN(Math.floor(Date.now() / 1000 + Number(durationDays) * 86400));
 
       const createTx = await program.methods
@@ -122,19 +140,21 @@ function NewChallengeForm() {
         .transaction();
       createTx.feePayer = publicKey;
       await sendWithPhases(connection, sendTransaction, createTx, onPhase);
-      if (attempt.current !== mine) return;
-
-      window.dispatchEvent(new Event("moltivate:updated"));
-      router.push(`/join/${challenge.toBase58()}`);
+      // Landed after Cancel? Still a real challenge: say so and open it.
+      openChallenge(challenge, attempt.current !== mine);
     } catch (err) {
-      if (attempt.current === mine) setError(describeTxError(err, program.idl.errors ?? []));
+      if (attempt.current !== mine) return;
+      // A retry fails if a cancelled approval landed first; that's a success.
+      if (await connection.getAccountInfo(challenge).catch(() => null)) return openChallenge(challenge, true);
+      setError(describeTxError(err, program.idl.errors ?? []));
     } finally {
       if (attempt.current === mine) setPhase(null);
     }
   }
 
-  // Cancel only stops waiting: Phantom's pending request can't be withdrawn,
-  // so approving it later can still create a challenge (deferred design problem).
+  // Cancel only stops waiting: Phantom's pending request can't be withdrawn.
+  // If it's approved later, openChallenge reports it; the reused id means a
+  // retry can't create a second challenge.
   function cancelApproval() {
     attempt.current++;
     setPhase(null);
@@ -233,6 +253,7 @@ function NewChallengeForm() {
             {error}
           </p>
         )}
+        {notice && <p className="rounded-lg bg-accent/15 p-3 text-sm" role="status">{notice}</p>}
 
         <button
           type="submit"

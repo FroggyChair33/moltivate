@@ -32,6 +32,8 @@ await account(expired, 'Challenge', {
 });
 for (let i=0;i<2;i++) await account(PublicKey.findProgramAddressSync([Buffer.from('team'), expired.toBuffer(), Buffer.from([i])], program)[0], 'Team', { challenge: expired, index: i, name: ['Early Birds', 'Late Owls'][i], member_count: 0, bump: 1 });
 const members = await Promise.all([account(member, 'TeamMember', { challenge, team: teams[0], owner, stake_lamports: new BN(250000000), counted_units: new BN(0), payout_lamports: new BN(0), claimed: false, bump: 1 }), account(peerMember, 'TeamMember', { challenge, team: teams[1], owner: peer, stake_lamports: new BN(250000000), counted_units: new BN(0), payout_lamports: new BN(0), claimed: false, bump: 1 })]);
+// lateCreate: any unknown account "exists", as if a cancelled create landed.
+let lateCreate = false;
 // Any JSON-RPC POST, whatever RPC URL the build has baked in (.env.local may set Helius).
 async function mockRpc(route) {
   let body = null;
@@ -40,12 +42,13 @@ async function mockRpc(route) {
   if (!first || first.jsonrpc !== '2.0') return route.fallback();
   const respond = request => {
     let result;
-    if (request.method === 'getAccountInfo') result = { context: { slot: 1 }, value: records.get(request.params[0]) || null };
+    if (request.method === 'getAccountInfo') result = { context: { slot: 1 }, value: records.get(request.params[0]) || (lateCreate ? challengeRecord.account : null) };
     else if (request.method === 'getMultipleAccounts') result = { context: { slot: 1 }, value: request.params[0].map(p => records.get(p) || null) };
     else if (request.method === 'getProgramAccounts') {
       const filters = request.params[1].filters;
       result = filters.some(f => f.memcmp?.offset === 8 && f.memcmp.bytes === owner.toBase58()) ? [challengeRecord] : members;
-    } else if (request.method === 'getBalance') result = { context: { slot: 1 }, value: 1000000000 };
+    } else if (request.method === 'getLatestBlockhash') result = { context: { slot: 1 }, value: { blockhash: key(9).toBase58(), lastValidBlockHeight: 100 } };
+    else if (request.method === 'getBalance') result = { context: { slot: 1 }, value: 1000000000 };
     else throw Error('Unexpected mock RPC '+request.method);
     return { jsonrpc: '2.0', id: request.id, result };
   };
@@ -133,6 +136,23 @@ try {
     assert.ok(await live.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `connected overflow ${path}`);
     await live.screenshot({ path: new URL('connected-'+path.replaceAll('/','_')+'.png', output).pathname.replace(/^\/(\w:)/,'$1'), fullPage: true });
   }
+  // A cancelled deposit that landed anyway: the retry fails in the wallet, but
+  // the member account exists, so the page reports the join instead of an error.
+  const myMember = PublicKey.findProgramAddressSync([Buffer.from('member'), challenge.toBuffer(), owner.toBuffer()], program)[0];
+  await account(myMember, 'TeamMember', { challenge, team: teams[0], owner, stake_lamports: new BN(250000000), counted_units: new BN(0), payout_lamports: new BN(0), claimed: false, bump: 1 });
+  await live.goto(base + '/join/' + challenge);
+  await live.getByRole('button', { name: 'Sunrise Squad' }).click();
+  await live.getByRole('button', { name: /^Deposit/ }).click();
+  await live.getByText('Your earlier request went through.').waitFor();
+  await live.getByRole('button', { name: 'Deposited' }).waitFor();
+  records.delete(myMember.toBase58());
+  // A cancelled create that landed anyway: the reused id points at an existing
+  // challenge, so Create opens it instead of making a second one.
+  lateCreate = true;
+  await live.goto(base + '/challenges/new');
+  await live.getByRole('button', { name: 'Create' }).click();
+  await live.waitForURL('**/join/**');
+  lateCreate = false;
   assert.deepEqual(errors, []);
-  console.log('PASS: 24 responsive route checks, navigation, invite validation, disconnected invite + closed notice, mocked wallet/RPC standings, 5s updates, rank changes, outage retention/recovery, camera denial, reduced motion. Totals requests:', requests);
+  console.log('PASS: 24 responsive route checks, navigation, invite validation, disconnected invite + closed notice, mocked wallet/RPC standings, 5s updates, rank changes, outage retention/recovery, camera denial, reduced motion, late deposit/create recovery. Totals requests:', requests);
 } finally { await browser.close(); }
