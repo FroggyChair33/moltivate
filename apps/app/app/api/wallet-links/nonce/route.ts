@@ -5,6 +5,11 @@ import { isPurpose, parseWallet, walletMessage } from "@/lib/wallet-proof";
 
 const NONCE_TTL_SECONDS = 5 * 60;
 const MAX_OUTSTANDING = 10;
+// An unlink nonce allows one password guess (a wrong password consumes it), so the number of unlink nonces an account
+// can request is what bounds password guessing. There is no created_at column: expires_at is created + 5 minutes, so
+// rows created in the last 15 minutes are those with expires_at after now - 10 minutes. Used rows count.
+const MAX_UNLINK_PER_WINDOW = 5;
+const UNLINK_WINDOW_SECONDS = 15 * 60;
 
 // Issues a single-use nonce and the exact message the wallet must sign. The link/unlink routes rebuild that message
 // from the stored row, so what the client signs is what the server verifies.
@@ -32,6 +37,20 @@ export async function POST(request: Request) {
   if (countError) return Response.json({ error: "could not issue a nonce" }, { status: 500 });
   if ((count ?? 0) >= MAX_OUTSTANDING) {
     return Response.json({ error: "too many outstanding requests, wait a few minutes" }, { status: 429 });
+  }
+
+  if (purpose === "unlink") {
+    const since = new Date(Date.now() - (UNLINK_WINDOW_SECONDS - NONCE_TTL_SECONDS) * 1000).toISOString();
+    const { count: recent, error: recentError } = await supabase
+      .from("wallet_link_nonces")
+      .select("nonce", { count: "exact", head: true })
+      .eq("user_id", accountId)
+      .eq("purpose", "unlink")
+      .gt("expires_at", since);
+    if (recentError) return Response.json({ error: "could not issue a nonce" }, { status: 500 });
+    if ((recent ?? 0) >= MAX_UNLINK_PER_WINDOW) {
+      return Response.json({ error: "too many unlink attempts, try again in a few minutes" }, { status: 429 });
+    }
   }
 
   const nonce = randomBytes(32).toString("base64url");

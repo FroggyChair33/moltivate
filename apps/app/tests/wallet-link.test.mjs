@@ -28,7 +28,6 @@ const sameOrigin = load("lib/same-origin.ts", none);
 // ---- per-test state ----
 let user;
 let rows; // wallet_link_nonces table
-let outstanding; // what the count query returns
 let rpcCalls;
 let rpcResult;
 let rpcError;
@@ -53,14 +52,26 @@ const account = load("lib/account-auth.ts", (n) => {
 // Chainable stand-in for the supabase query builder: filters are recorded, awaiting resolves to the count result.
 const nonceTable = () => {
   const filters = {};
+  let nullCol; // is(col, null)
+  let gt; // gt(col, iso)
+  let patch; // update(values)
+  const matching = () =>
+    rows.filter((r) =>
+      Object.entries(filters).every(([c, v]) => r[c] === v) &&
+      (!nullCol || r[nullCol] === null) &&
+      (!gt || Date.parse(r[gt.col]) > Date.parse(gt.value)));
   const q = {
     select: () => q,
+    update: (values) => { patch = values; return q; },
     eq: (col, val) => { filters[col] = val; return q; },
-    is: () => q,
-    gt: () => q,
-    maybeSingle: async () => ({ data: rows.find((r) => r.nonce === filters.nonce && r.user_id === filters.user_id && r.purpose === filters.purpose) ?? null, error: null }),
-    insert: async (row) => { rows.push(row); return { error: null }; },
-    then: (resolve) => resolve({ count: outstanding, error: null }),
+    is: (col) => { nullCol = col; return q; },
+    gt: (col, value) => { gt = { col, value }; return q; },
+    maybeSingle: async () => ({ data: matching()[0] ?? null, error: null }),
+    insert: async (row) => { rows.push({ used_at: null, ...row }); return { error: null }; },
+    then: (resolve) => {
+      if (patch) { matching().forEach((r) => Object.assign(r, patch)); return resolve({ error: null }); }
+      return resolve({ count: matching().length, error: null });
+    },
   };
   return q;
 };
@@ -101,9 +112,9 @@ const stubs = (n) => {
   }
   throw new Error(n);
 };
-const nonceRoute = load("app/api/wallets/nonce/route.ts", stubs);
-const linkRoute = load("app/api/wallets/link/route.ts", stubs);
-const unlinkRoute = load("app/api/wallets/unlink/route.ts", stubs);
+const nonceRoute = load("app/api/wallet-links/nonce/route.ts", stubs);
+const linkRoute = load("app/api/wallet-links/link/route.ts", stubs);
+const unlinkRoute = load("app/api/wallet-links/unlink/route.ts", stubs);
 
 // ---- helpers ----
 const wallet = nacl.sign.keyPair();
@@ -111,7 +122,7 @@ const walletKey = new web3.PublicKey(wallet.publicKey).toBase58();
 const OTHER_ACCOUNT = "22222222-2222-2222-2222-222222222222";
 const ORIGIN = "https://app.test";
 const post = (route, path, body, headers = {}) =>
-  route.POST(new Request(`${ORIGIN}/api/wallets/${path}`, {
+  route.POST(new Request(`${ORIGIN}/api/wallet-links/${path}`, {
     method: "POST",
     headers: { origin: ORIGIN, "content-type": "application/json", ...headers },
     body: typeof body === "string" ? body : JSON.stringify(body),
@@ -131,7 +142,6 @@ const addRow = (purpose, over = {}) => {
 beforeEach(() => {
   user = { id: "u1", email: "a@b.co", email_confirmed_at: "2026-11-01T00:00:00Z", factors: [] };
   rows = [];
-  outstanding = 0;
   rpcCalls = [];
   rpcResult = "linked";
   rpcError = null;
@@ -197,13 +207,43 @@ test("nonce: signed out is 401", async () => {
   assert.equal(res.status, 401);
 });
 
+// Rows that look like nonces issued just now (expires_at = created + 5 minutes).
+const fill = (count, purpose, over = {}) => {
+  for (let i = 0; i < count; i++) {
+    rows.push({ nonce: `f${rows.length}`, user_id: "u1", wallet_address: walletKey, purpose, expires_at: new Date(Date.now() + 240000).toISOString(), used_at: null, ...over });
+  }
+};
+
 test("nonce: ten outstanding nonces allowed, the eleventh is 429", async () => {
-  outstanding = 9;
+  fill(9, "link");
   assert.equal((await post(nonceRoute, "nonce", { wallet: walletKey, purpose: "link" })).status, 200);
-  outstanding = 10;
-  const res = await post(nonceRoute, "nonce", { wallet: walletKey, purpose: "link" });
+  const over = await post(nonceRoute, "nonce", { wallet: walletKey, purpose: "link" });
+  assert.equal(over.status, 429);
+  assert.equal(rows.length, 10);
+});
+
+test("nonce: another account's nonces do not count toward the cap", async () => {
+  fill(10, "link", { user_id: OTHER_ACCOUNT });
+  assert.equal((await post(nonceRoute, "nonce", { wallet: walletKey, purpose: "link" })).status, 200);
+});
+
+test("nonce: the sixth unlink nonce in the window is 429 even when the earlier ones were used", async () => {
+  fill(5, "unlink", { used_at: new Date().toISOString() });
+  const res = await post(nonceRoute, "nonce", { wallet: walletKey, purpose: "unlink" });
   assert.equal(res.status, 429);
-  assert.equal(rows.length, 1);
+  assert.equal(rows.length, 5);
+});
+
+test("nonce: five used unlink nonces are fine, and only unlink requests are throttled this way", async () => {
+  fill(4, "unlink", { used_at: new Date().toISOString() });
+  assert.equal((await post(nonceRoute, "nonce", { wallet: walletKey, purpose: "unlink" })).status, 200);
+  // Five unlink rows now exist; link requests are unaffected.
+  assert.equal((await post(nonceRoute, "nonce", { wallet: walletKey, purpose: "link" })).status, 200);
+});
+
+test("nonce: unlink nonces older than the window are not counted", async () => {
+  fill(5, "unlink", { used_at: new Date().toISOString(), expires_at: new Date(Date.now() - 11 * 60000).toISOString() });
+  assert.equal((await post(nonceRoute, "nonce", { wallet: walletKey, purpose: "unlink" })).status, 200);
 });
 
 // ---- link ----
@@ -333,6 +373,26 @@ test("unlink: a wrong password is 401 with no RPC", async () => {
   assert.equal(res.status, 401);
   assert.equal(rpcCalls.length, 0);
   assert.ok(!JSON.stringify(res.body).includes("a@b.co"));
+});
+
+test("unlink: a wrong password consumes the nonce, so a replay with the right password is refused", async () => {
+  const p = addRow("unlink");
+  const body = unlinkBody(p, sign(messages.unlinkWalletMessage(p)));
+  signIn = { data: { session: null }, error: { status: 400, code: "invalid_credentials", message: "Invalid login credentials" } };
+  assert.equal((await post(unlinkRoute, "unlink", body)).status, 401);
+  assert.ok(rows[0].used_at, "nonce marked used");
+  signIn = { data: { session: {} }, error: null };
+  const replay = await post(unlinkRoute, "unlink", body);
+  assert.equal(replay.status, 400);
+  assert.equal(signInCalls.length, 1, "no second password guess");
+  assert.equal(rpcCalls.length, 0);
+});
+
+test("unlink: an auth outage does not consume the nonce", async () => {
+  const p = addRow("unlink");
+  signIn = { data: { session: null }, error: { status: 503, message: "upstream" } };
+  await post(unlinkRoute, "unlink", unlinkBody(p, sign(messages.unlinkWalletMessage(p))));
+  assert.equal(rows[0].used_at, null);
 });
 
 test("unlink: an auth outage is not reported as a wrong password", async () => {
