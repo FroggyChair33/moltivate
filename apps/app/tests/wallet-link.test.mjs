@@ -31,6 +31,9 @@ let rows; // wallet_link_nonces table
 let rpcCalls;
 let rpcResult;
 let rpcError;
+let linkedWallets; // linked_wallets table
+let deleteCalls;
+let deleteError;
 let openStake;
 let signIn; // result of signInWithPassword
 let signInCalls;
@@ -55,28 +58,49 @@ const nonceTable = () => {
   let nullCol; // is(col, null)
   let gt; // gt(col, iso)
   let patch; // update(values)
+  let wantRows = false; // select() after update()
   const matching = () =>
     rows.filter((r) =>
       Object.entries(filters).every(([c, v]) => r[c] === v) &&
       (!nullCol || r[nullCol] === null) &&
       (!gt || Date.parse(r[gt.col]) > Date.parse(gt.value)));
   const q = {
-    select: () => q,
+    select: () => { wantRows = true; return q; },
     update: (values) => { patch = values; return q; },
     eq: (col, val) => { filters[col] = val; return q; },
     is: (col) => { nullCol = col; return q; },
     gt: (col, value) => { gt = { col, value }; return q; },
     maybeSingle: async () => ({ data: matching()[0] ?? null, error: null }),
     insert: async (row) => { rows.push({ used_at: null, ...row }); return { error: null }; },
+    // Awaiting runs the whole filter+update synchronously, which models the database's atomic UPDATE ... RETURNING.
     then: (resolve) => {
-      if (patch) { matching().forEach((r) => Object.assign(r, patch)); return resolve({ error: null }); }
+      if (patch) {
+        const hit = matching();
+        hit.forEach((r) => Object.assign(r, patch));
+        return resolve({ data: wantRows ? hit.map((r) => ({ nonce: r.nonce })) : null, error: null });
+      }
       return resolve({ count: matching().length, error: null });
     },
   };
   return q;
 };
+const linkedTable = () => {
+  const filters = {};
+  const q = {
+    delete: () => q,
+    select: () => q,
+    eq: (col, val) => { filters[col] = val; return q; },
+    then: (resolve) => {
+      deleteCalls.push({ ...filters });
+      const hit = linkedWallets.filter((w) => w.wallet_address === filters.wallet_address && w.user_id === filters.user_id);
+      linkedWallets = linkedWallets.filter((w) => !hit.includes(w));
+      return resolve({ data: hit, error: deleteError });
+    },
+  };
+  return q;
+};
 const serverClient = {
-  from: (table) => { assert.equal(table, "wallet_link_nonces"); return nonceTable(); },
+  from: (table) => { assert.ok(["wallet_link_nonces", "linked_wallets"].includes(table)); return table === "linked_wallets" ? linkedTable() : nonceTable(); },
   rpc: async (fn, args) => { rpcCalls.push({ fn, args }); return { data: rpcResult, error: rpcError }; },
 };
 
@@ -145,6 +169,9 @@ beforeEach(() => {
   rpcCalls = [];
   rpcResult = "linked";
   rpcError = null;
+  linkedWallets = [{ wallet_address: walletKey, user_id: "u1" }];
+  deleteCalls = [];
+  deleteError = null;
   openStake = false;
   signIn = { data: { session: {} }, error: null };
   signInCalls = [];
@@ -354,61 +381,72 @@ test("link: a foreign Origin is 403", async () => {
 // ---- unlink ----
 const unlinkBody = (p, signature, over = {}) => ({ wallet: p.wallet, nonce: p.nonce, signature, password: "hunter2hunter2", ...over });
 
-test("unlink: success re-checks the password, calls unlink_wallet and drops the throwaway session", async () => {
+const json = (x) => JSON.parse(JSON.stringify(x));
+const unlinkReq = (p, over = {}) => post(unlinkRoute, "unlink", unlinkBody(p, sign(messages.unlinkWalletMessage(p)), over));
+
+test("unlink: success claims the nonce, re-checks the password, deletes the link and drops the throwaway session", async () => {
   const p = addRow("unlink");
-  rpcResult = "unlinked";
-  const res = await read(await post(unlinkRoute, "unlink", unlinkBody(p, sign(messages.unlinkWalletMessage(p)))));
+  const res = await read(await unlinkReq(p));
   assert.deepEqual([res.status, res.body], [200, { wallet: walletKey }]);
-  assert.deepEqual(JSON.parse(JSON.stringify(rpcCalls)), [{ fn: "unlink_wallet", args: { p_nonce: "n1", p_user: "u1", p_wallet: walletKey } }]);
-  assert.deepEqual(JSON.parse(JSON.stringify(signInCalls)), [{ email: "a@b.co", password: "hunter2hunter2" }]);
-  assert.deepEqual(JSON.parse(JSON.stringify(signOutCalls)), [{ scope: "local" }]);
-  assert.deepEqual(JSON.parse(JSON.stringify(clientOptions.options.auth)), { persistSession: false, autoRefreshToken: false });
+  assert.equal(rpcCalls.length, 0, "no unlink_wallet RPC any more");
+  assert.deepEqual(json(deleteCalls), [{ wallet_address: walletKey, user_id: "u1" }]);
+  assert.equal(linkedWallets.length, 0);
+  assert.ok(rows[0].used_at, "nonce spent");
+  assert.deepEqual(json(signInCalls), [{ email: "a@b.co", password: "hunter2hunter2" }]);
+  assert.deepEqual(json(signOutCalls), [{ scope: "local" }]);
+  assert.deepEqual(json(clientOptions.options.auth), { persistSession: false, autoRefreshToken: false });
   assert.equal(clientOptions.key, "sb_publishable_x");
 });
 
-test("unlink: a wrong password is 401 with no RPC", async () => {
+test("unlink: a wrong password is 401, spends the nonce and deletes nothing", async () => {
   const p = addRow("unlink");
   signIn = { data: { session: null }, error: { status: 400, code: "invalid_credentials", message: "Invalid login credentials" } };
-  const res = await read(await post(unlinkRoute, "unlink", unlinkBody(p, sign(messages.unlinkWalletMessage(p)))));
+  const res = await read(await unlinkReq(p));
   assert.equal(res.status, 401);
-  assert.equal(rpcCalls.length, 0);
+  assert.ok(rows[0].used_at, "nonce spent by the claim");
+  assert.equal(deleteCalls.length, 0);
   assert.ok(!JSON.stringify(res.body).includes("a@b.co"));
-});
-
-test("unlink: a wrong password consumes the nonce, so a replay with the right password is refused", async () => {
-  const p = addRow("unlink");
-  const body = unlinkBody(p, sign(messages.unlinkWalletMessage(p)));
-  signIn = { data: { session: null }, error: { status: 400, code: "invalid_credentials", message: "Invalid login credentials" } };
-  assert.equal((await post(unlinkRoute, "unlink", body)).status, 401);
-  assert.ok(rows[0].used_at, "nonce marked used");
+  // Replaying with the right password is refused without another guess.
   signIn = { data: { session: {} }, error: null };
-  const replay = await post(unlinkRoute, "unlink", body);
-  assert.equal(replay.status, 400);
-  assert.equal(signInCalls.length, 1, "no second password guess");
-  assert.equal(rpcCalls.length, 0);
+  assert.equal((await unlinkReq(p)).status, 400);
+  assert.equal(signInCalls.length, 1);
+  assert.equal(deleteCalls.length, 0);
 });
 
-test("unlink: an auth outage does not consume the nonce", async () => {
+test("unlink: two concurrent requests with one nonce get exactly one password guess", async () => {
   const p = addRow("unlink");
-  signIn = { data: { session: null }, error: { status: 503, message: "upstream" } };
-  await post(unlinkRoute, "unlink", unlinkBody(p, sign(messages.unlinkWalletMessage(p))));
-  assert.equal(rows[0].used_at, null);
+  signIn = { data: { session: null }, error: { status: 400, code: "invalid_credentials", message: "Invalid login credentials" } };
+  const results = await Promise.all([unlinkReq(p), unlinkReq(p)]);
+  assert.deepEqual(results.map((r) => r.status).sort(), [400, 401]);
+  assert.equal(signInCalls.length, 1);
+  assert.equal(deleteCalls.length, 0);
 });
 
-test("unlink: an auth outage is not reported as a wrong password", async () => {
+test("unlink: an auth outage is 503, says to request a new one, and the nonce is spent", async () => {
   const p = addRow("unlink");
   signIn = { data: { session: null }, error: { status: 503, message: "upstream" } };
-  const res = await post(unlinkRoute, "unlink", unlinkBody(p, sign(messages.unlinkWalletMessage(p))));
+  const res = await read(await unlinkReq(p));
   assert.equal(res.status, 503);
-  assert.equal(rpcCalls.length, 0);
+  assert.match(res.body.error, /new one/);
+  assert.ok(rows[0].used_at);
+  assert.equal(deleteCalls.length, 0);
 });
 
-test("unlink: an open stake is 409 with no RPC", async () => {
+test("unlink: an auth rate limit is also 503 and deletes nothing", async () => {
+  const p = addRow("unlink");
+  signIn = { data: { session: null }, error: { status: 429, message: "rate" } };
+  assert.equal((await unlinkReq(p)).status, 503);
+  assert.equal(deleteCalls.length, 0);
+});
+
+test("unlink: an open stake is 409 and leaves the nonce unspent, with no password attempt", async () => {
   const p = addRow("unlink");
   openStake = true;
   const res = await read(await post(unlinkRoute, "unlink", unlinkBody(p, sign(messages.unlinkWalletMessage(p)))));
   assert.deepEqual([res.status, res.body], [409, { error: "this wallet still has an open stake or an unclaimed payout" }]);
-  assert.equal(rpcCalls.length, 0);
+  assert.equal(rows[0].used_at, null);
+  assert.equal(signInCalls.length, 0);
+  assert.equal(deleteCalls.length, 0);
 });
 
 test("unlink: a signature over the link message is 401 and the password is never tried", async () => {
@@ -416,7 +454,7 @@ test("unlink: a signature over the link message is 401 and the password is never
   const res = await post(unlinkRoute, "unlink", unlinkBody(p, sign(messages.linkWalletMessage(p))));
   assert.equal(res.status, 401);
   assert.equal(signInCalls.length, 0);
-  assert.equal(rpcCalls.length, 0);
+  assert.equal(deleteCalls.length, 0);
 });
 
 test("unlink: a link-purpose nonce does not work", async () => {
@@ -426,13 +464,25 @@ test("unlink: a link-purpose nonce does not work", async () => {
   assert.equal(rpcCalls.length, 0);
 });
 
-test("unlink: not_linked is 409, bad_nonce is 400", async () => {
+test("unlink: a wallet that is not linked is 409 (nothing deleted)", async () => {
   const p = addRow("unlink");
-  const body = unlinkBody(p, sign(messages.unlinkWalletMessage(p)));
-  rpcResult = "not_linked";
-  assert.equal((await post(unlinkRoute, "unlink", body)).status, 409);
-  rpcResult = "bad_nonce";
-  assert.equal((await post(unlinkRoute, "unlink", body)).status, 400);
+  linkedWallets = [];
+  assert.equal((await unlinkReq(p)).status, 409);
+});
+
+test("unlink: only this account's link row is deleted", async () => {
+  const p = addRow("unlink");
+  linkedWallets = [{ wallet_address: walletKey, user_id: OTHER_ACCOUNT }];
+  assert.equal((await unlinkReq(p)).status, 409);
+  assert.equal(linkedWallets.length, 1);
+});
+
+test("unlink: a database failure on delete is 500", async () => {
+  const p = addRow("unlink");
+  deleteError = { message: "secret db detail" };
+  const res = await read(await unlinkReq(p));
+  assert.equal(res.status, 500);
+  assert.ok(!JSON.stringify(res.body).includes("secret"));
 });
 
 test("unlink: a missing or non-string password is 400", async () => {
