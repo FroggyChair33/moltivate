@@ -1,21 +1,15 @@
 Moltivate self-hosted fonts
 Retrieved from the official Google Fonts repository, 2026-11-14.
 
-Files converted to WOFF2 without glyph subsetting. Variable weight ranges are narrowed to the supplied interface weights; optical-size and Fraunces SOFT/WONK axes are preserved.
+Files converted to WOFF2 without glyph subsetting. Variable weight ranges are narrowed to the supplied interface weights; the optical-size axis is preserved.
 Original family names are retained. Each family is distributed under its bundled SIL Open Font License 1.1.
 
 dm-sans.woff2 — DM Sans, normal, weights 400 700
 https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/DMSans%5Bopsz%2Cwght%5D.ttf
 
-fraunces.woff2 — Fraunces, normal, weights 500 700
-https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/Fraunces%5BSOFT%2CWONK%2Copsz%2Cwght%5D.ttf
-
-fraunces-italic.woff2 — Fraunces, italic, weights 500 600
-https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/Fraunces-Italic%5BSOFT%2CWONK%2Copsz%2Cwght%5D.ttf
-
-la-belle-aurore.woff2 — La Belle Aurore, normal, weights 400
-https://raw.githubusercontent.com/google/fonts/main/ofl/labelleaurore/LaBelleAurore.ttf
+redaction-35-400.woff2, redaction-35-700.woff2 — Redaction 35 (Jeremy Mickel / MCKL, with Forest Young), latin subset, normal 400 and 700.
+Copied unchanged from the Fontsource npm package @fontsource/redaction-35@5.3.0 (files/redaction-35-latin-{400,700}-normal.woff2), retrieved 2026-11-20.
+Dual licensed SIL OFL 1.1 / LGPL 2.1; used here under the OFL.
 
 dmsans-OFL.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/dmsans/OFL.txt
-fraunces-OFL.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/OFL.txt
-labelleaurore-OFL.txt: https://raw.githubusercontent.com/google/fonts/main/ofl/labelleaurore/OFL.txt
+redaction-OFL.txt: LICENSE from @fontsource/redaction-35@5.3.0

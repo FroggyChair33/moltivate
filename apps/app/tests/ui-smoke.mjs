@@ -36,7 +36,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   for (const width of [320, 390, 430, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ['/', '/coach', '/club', '/challenges/new', '/join/'+challenge, '/challenges/'+challenge+'/results']) {
+    for (const path of ['/', '/challenges/new', '/join/'+challenge, '/challenges/'+challenge+'/results']) {
       await page.goto(base + path);
       await page.locator('h1').first().waitFor();
       await page.evaluate(() => document.fonts.ready);
@@ -48,10 +48,15 @@ try {
   await page.getByLabel('Challenge address or invite link').fill('bad');
   await page.getByRole('button', { name: 'Review invitation' }).click();
   await page.getByRole('alert').filter({ hasText: 'Paste a valid' }).waitFor();
-  await page.getByRole('navigation').getByRole('link', { name: 'Coach', exact: true }).click();
-  await page.getByText('Runs in your browser').waitFor();
-  await page.getByRole('link', { name: 'Find my workout' }).click();
-  await page.waitForURL('**/coach#choose-challenge');
+  // The two-item nav, and the retired /club and /coach routes landing on the dashboard.
+  await page.getByRole('navigation').getByRole('link', { name: 'New challenge', exact: true }).click();
+  await page.waitForURL('**/challenges/new');
+  await page.getByRole('navigation').getByRole('link', { name: 'Challenges', exact: true }).click();
+  await page.getByRole('heading', { name: 'Your challenges' }).waitFor();
+  for (const retired of ['/club', '/coach']) {
+    await page.goto(base + retired);
+    await page.waitForURL(base + '/');
+  }
   await context.close();
 
   const connected = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -67,8 +72,12 @@ try {
   });
   await connected.route('**/api/users?**', route => route.fulfill({ json: { names: { [owner.toBase58()]: 'You', [peer.toBase58()]: 'Sam' } } }));
   await connected.route('**/api/challenges/close?**', route => route.fulfill({ json: { closed: [] } }));
-  await connected.route('https://api.devnet.solana.com/**', async route => {
-    const body = route.request().postDataJSON();
+  // Any JSON-RPC POST, whatever RPC URL the build has baked in (.env.local may set Helius).
+  await connected.route('**/*', async route => {
+    let body = null;
+    try { body = route.request().method() === 'POST' ? route.request().postDataJSON() : null; } catch {}
+    const first = Array.isArray(body) ? body[0] : body;
+    if (!first || first.jsonrpc !== '2.0') return route.fallback();
     const respond = request => {
       let result;
       if (request.method === 'getAccountInfo') result = { context: { slot: 1 }, value: records.get(request.params[0]) || null };

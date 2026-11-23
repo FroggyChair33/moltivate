@@ -61,18 +61,18 @@ export function ClaimButton({
         type="button"
         disabled={!isOwner || claimed || alreadyClaimed || claiming}
         onClick={handleClaim}
-        className="rounded-full border border-black/10 px-4 py-1.5 text-xs font-medium disabled:opacity-40 dark:border-white/15"
+        className="rounded-full border border-line px-4 py-1.5 text-xs font-medium disabled:opacity-40"
         title={isOwner ? undefined : "Only this member's own wallet can claim their payout"}
       >
         {claimed || alreadyClaimed ? "Claimed" : claiming ? "Awaiting wallet / confirmation…" : "Claim"}
       </button>
-      {error && <p className="text-xs text-red-700 dark:text-red-300">{error}</p>}
+      {error && <p className="text-xs text-red-300">{error}</p>}
       {signature && (
         <a
           href={explorerTxUrl(signature)}
           target="_blank"
           rel="noreferrer"
-          className="text-xs underline text-zinc-500"
+          className="text-xs underline text-muted"
         >
           View on Solana Explorer
         </a>

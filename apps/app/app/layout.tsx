@@ -4,10 +4,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Nav } from "./components/nav";
 
-// Self-hosted brand fonts (app/fonts/, OFL license files alongside).
-// DM Sans is body text, Fraunces
-// is the serif used for headings, La Belle Aurore is a handwritten
-// accent font for sparing use (not body or heading text).
+// Self-hosted brand fonts (app/fonts/, OFL licenses alongside): DM Sans for
+// interface text, Redaction 35 for headings and the wordmark.
 const dmSans = localFont({
   src: "./fonts/dm-sans.woff2",
   weight: "400 700",
@@ -15,19 +13,12 @@ const dmSans = localFont({
   display: "swap",
 });
 
-const fraunces = localFont({
+const redaction = localFont({
   src: [
-    { path: "./fonts/fraunces.woff2", weight: "500 700", style: "normal" },
-    { path: "./fonts/fraunces-italic.woff2", weight: "500 600", style: "italic" },
+    { path: "./fonts/redaction-35-400.woff2", weight: "400" },
+    { path: "./fonts/redaction-35-700.woff2", weight: "700" },
   ],
-  variable: "--font-fraunces",
-  display: "swap",
-});
-
-const laBelleAurore = localFont({
-  src: "./fonts/la-belle-aurore.woff2",
-  weight: "400",
-  variable: "--font-hand",
+  variable: "--font-redaction",
   display: "swap",
 });
 
@@ -44,7 +35,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#173e2c",
+  themeColor: "#07121f",
   viewportFit: "cover",
 };
 
@@ -52,7 +43,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${fraunces.variable} ${laBelleAurore.variable} h-full antialiased`}
+      className={`${dmSans.variable} ${redaction.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <Providers>

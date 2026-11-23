@@ -6,7 +6,6 @@ import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { PublicKey } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { WalletButton } from "@/app/components/wallet-button";
-import { Eyebrow } from "@/app/components/eyebrow";
 import { useProgram } from "@/lib/use-program";
 import { DEFAULT_GROUP_ID, challengePda, potPda, teamPda } from "@/lib/anchor";
 import { describeTxError, sendWithPhases, type TxPhase } from "@/lib/send-tx";
@@ -144,33 +143,26 @@ function NewChallengeForm() {
   if (!publicKey) {
     return (
       <div className="app-page form-page">
-        <Eyebrow>New challenge</Eyebrow>
-        <h1>Make a pact.<br /><em>Make it happen.</em></h1>
-        <p className="page-intro">Bring your friends, pick a goal, and give yourselves a reason to show up.</p>
-        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+        <h1>New challenge</h1>
+        <p className="mb-4 text-sm text-muted">
           Connect your Phantom wallet (devnet) to create a challenge.
         </p>
         <WalletButton />
-        <blockquote className="motivation">“The first step counts, too.”</blockquote>
       </div>
     );
   }
 
   return (
     <div className="app-page form-page">
-      <Eyebrow>{isRematch ? "Run it back" : "New challenge"}</Eyebrow>
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        {isRematch ? "One more round?" : <>Make a pact.<br /><em>Make it happen.</em></>}
-      </h1>
+      <h1 className="mb-6">{isRematch ? "Rematch" : "New challenge"}</h1>
       {isRematch && (
-        <p className="mb-6 rounded-lg bg-black/[.03] p-3 text-sm text-zinc-600 dark:bg-white/[.06] dark:text-zinc-400">
+        <p className="mb-6 rounded-lg bg-white/[.06] p-3 text-sm text-muted">
           Prefilled from the challenge you just settled -- the group pot carries
           forward automatically since it&apos;s tied to your wallet, not to any one
           challenge. Pick a new duration and everyone rejoins via the new
           invite link, same as before.
         </p>
       )}
-      <p className="page-intro">A goal, a little accountability, and your favorite people. Let’s set it up.</p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <Field label="Title">
           <input
@@ -237,7 +229,7 @@ function NewChallengeForm() {
         </div>
 
         {error && (
-          <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          <p className="rounded-lg bg-red-950/40 p-3 text-sm text-red-300">
             {error}
           </p>
         )}
@@ -256,7 +248,7 @@ function NewChallengeForm() {
                 : "Create"}
         </button>
         {phase === "approve" && (
-          <p className="text-center text-xs text-zinc-500" role="status">
+          <p className="text-center text-xs text-muted" role="status">
             No Phantom window? Open the Phantom extension.{" "}
             <button type="button" onClick={cancelApproval} className="underline">
               Cancel
@@ -264,14 +256,13 @@ function NewChallengeForm() {
           </p>
         )}
 
-        <p className="text-center text-[11px] leading-relaxed text-zinc-500">
+        <p className="text-center text-[11px] leading-relaxed text-muted">
           House rules, not yours to set: {HOUSE_ALPHA_PERCENT}% of your stake is always at
           risk even if you hit your goal, and the house takes a {HOUSE_RAKE_PERCENT}% rake
           from forfeits only (never from a winner&apos;s principal, waived entirely if both
           teams pass).
         </p>
       </form>
-      <blockquote className="motivation">“Small promises. Kept daily. That’s where it starts.”</blockquote>
     </div>
   );
 }

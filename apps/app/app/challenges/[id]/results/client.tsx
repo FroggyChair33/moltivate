@@ -197,7 +197,7 @@ function ResultsClientView({ id }: { id: string }) {
   if (error && !state) {
     return (
       <div className="app-page form-page">
-        <p role="alert" className="text-sm text-red-700">{error}</p>
+        <p role="alert" className="text-sm text-red-300">{error}</p>
         <button className="mt-4 underline" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>
       </div>
     );
@@ -206,7 +206,7 @@ function ResultsClientView({ id }: { id: string }) {
   if (!state) {
     return (
       <div className="app-page form-page">
-        <p className="text-sm text-zinc-500">Loading results from devnet...</p>
+        <p className="text-sm text-muted">Loading results from devnet...</p>
       </div>
     );
   }
@@ -223,17 +223,17 @@ function ResultsClientView({ id }: { id: string }) {
   return (
     <div className="app-page form-page">
       <Eyebrow>{state.settled ? "Final results" : "Awaiting settlement"}</Eyebrow>
-      <p className="mb-1 text-xs uppercase tracking-wide text-zinc-500">
+      <p className="mb-1 text-xs uppercase tracking-wide text-muted">
         Challenge {id.slice(0, 4)}...{id.slice(-4)}
       </p>
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-        {state.settled ? <>The effort.<br /><em>The outcome.</em></> : <>Every rep matters.<br /><em>Results to come.</em></>}
+        {state.settled ? "Results" : "Results pending"}
       </h1>
 
       <p className="mb-4 result-panel text-sm">{outcomeLabel}</p>
 
       {state.settled && closed && (
-        <p className="mb-8 rounded-lg border border-black/10 p-3 text-sm text-zinc-500 dark:border-white/15">
+        <p className="mb-8 rounded-lg border border-line p-3 text-sm text-muted">
           This challenge is closed. It won&apos;t show up as a &quot;current challenge&quot; or
           rematch suggestion anymore -- everyone already claimed, and nothing on-chain
           changes because of this.
@@ -250,11 +250,11 @@ function ResultsClientView({ id }: { id: string }) {
               stakeSol: String(state.stakeLamports / 1_000_000_000),
               goalReps: String(state.target),
             }).toString()}`}
-            className="w-fit rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] dark:border-white/15 dark:hover:bg-white/[.06]"
+            className="w-fit rounded-full border border-line px-5 py-2.5 text-sm font-medium transition-colors hover:bg-white/[.06]"
           >
             Rematch -- same group, new challenge
           </Link>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-muted">
             Only you (the creator) see this -- it prefills a new challenge with the same
             teams, stake, and goal. The group pot carries forward automatically since
             it&apos;s tied to your wallet. Make sure you&apos;ve claimed your own payout first
@@ -271,27 +271,27 @@ function ResultsClientView({ id }: { id: string }) {
                 type="button"
                 disabled={closing}
                 onClick={handleClose}
-                className="w-fit rounded-full border border-black/10 px-5 py-2.5 text-sm font-medium transition-colors hover:bg-black/[.04] disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/[.06]"
+                className="w-fit rounded-full border border-line px-5 py-2.5 text-sm font-medium transition-colors hover:bg-white/[.06] disabled:opacity-50"
               >
                 {closing ? "Closing..." : "Close challenge"}
               </button>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted">
                 Nobody wants a rematch? Everyone&apos;s claimed, so this is safe to close --
                 it&apos;s a UI-only dismissal, not an on-chain action.
               </p>
             </>
           ) : (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               Close challenge becomes available once every member has claimed their payout.
             </p>
           )}
-          {closeError && <p className="mt-1 text-xs text-red-700 dark:text-red-300">{closeError}</p>}
+          {closeError && <p className="mt-1 text-xs text-red-300">{closeError}</p>}
         </div>
       )}
 
       {!state.settled && (
         <div className="mb-8 flex flex-col gap-2">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Deadline: {new Date(state.deadlineUnix * 1000).toLocaleString()}
             {state.loadedAtMs < state.deadlineUnix * 1000 && " (hasn't passed yet - settle will fail on-chain until it does)"}
           </p>
@@ -299,12 +299,12 @@ function ResultsClientView({ id }: { id: string }) {
             type="button"
             disabled={settling}
             onClick={handleSettleNow}
-            className="w-fit rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background disabled:opacity-50"
+            className="w-fit rounded-full bg-accent px-5 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {settling ? "Settling..." : "Settle now"}
           </button>
           {settleMessage && (
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted">
               {settleMessage}
               {settleSignature && (
                 <>
@@ -327,17 +327,17 @@ function ResultsClientView({ id }: { id: string }) {
       <div className="flex flex-col gap-6">
         {[0, 1].map((idx) => (
           <div key={idx} className="result-panel">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
               {idx === 0 ? state.teamAName : state.teamBName}
             </h2>
-            <div className="flex flex-col divide-y divide-black/10 dark:divide-white/10">
+            <div className="flex flex-col divide-y divide-line">
               {state.members
                 .filter((m) => m.teamIndex === idx)
                 .map((member) => (
                   <div key={member.pubkey} className="flex items-center justify-between py-3">
                     <div>
                       <p className="text-sm font-medium">{displayNameOrShort(member.owner, names)}</p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-muted">
                         {state.settled
                           ? `payout ${(member.payoutLamports / 1_000_000_000).toFixed(4)} SOL (staked ${(member.stakeLamports / 1_000_000_000).toFixed(4)})`
                           : `staked ${(member.stakeLamports / 1_000_000_000).toFixed(4)} SOL`}
@@ -357,7 +357,6 @@ function ResultsClientView({ id }: { id: string }) {
           </div>
         ))}
       </div>
-      <blockquote className="motivation">“Look at you. Keeping promises to yourself.”</blockquote>
     </div>
   );
 }

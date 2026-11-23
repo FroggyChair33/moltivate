@@ -9,12 +9,14 @@ import ts from "typescript";
 let inserted;
 let nextResult;
 let fakeProgram;
+let existingRow; // what a lookup by (member, idempotency key) finds
 const fakeSupabase = {
   from: () => ({
     insert(row) {
       inserted.push(row);
       return { select: () => ({ single: async () => nextResult }) };
     },
+    select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => (existingRow === "error" ? { data: undefined, error: { message: "db" } } : { data: existingRow, error: null }) }) }) }),
   }),
 };
 
@@ -54,6 +56,7 @@ let challengeAcc;
 let memberAcc;
 beforeEach(() => {
   inserted = [];
+  existingRow = null;
   nextResult = { data: { id: "row-1" }, error: null };
   challengeAcc = { settled: false, deadlineUnix: unix(3600) };
   memberAcc = { challenge: { equals: () => true } };
@@ -151,4 +154,25 @@ test("RPC failure is 503, not 403", async () => {
   const res = await post(valid);
   assert.equal(res.status, 503);
   assert.equal(inserted.length, 0);
+});
+
+test("retry after the deadline of an already-saved session reports duplicate, not 409", async () => {
+  challengeAcc = { settled: false, deadlineUnix: unix(-60) };
+  existingRow = { id: "row-1" };
+  const res = await post(valid);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.status, "duplicate");
+  assert.equal(inserted.length, 0);
+});
+
+test("retry after settlement of an already-saved session reports duplicate", async () => {
+  challengeAcc = { settled: true, deadlineUnix: unix(-60) };
+  existingRow = { id: "row-1" };
+  assert.equal((await post(valid)).body.status, "duplicate");
+});
+
+test("a failed duplicate lookup still returns the 409", async () => {
+  challengeAcc = { settled: false, deadlineUnix: unix(-60) };
+  existingRow = "error";
+  assert.equal((await post(valid)).status, 409);
 });

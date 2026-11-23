@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { useWallet } from "@solana/wallet-adapter-react";
 
-function SolanaLabel() {
-  return <><svg width="26" height="26" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true"><path d="m8 5-5 5h21l5-5H8Zm-5 8 5 5h21l-5-5H3Zm5 8-5 5h21l5-5H8Z" /></svg><span className="solana-label"><small>CONNECT WITH</small><strong>Solana</strong></span></>;
+function ConnectLabel() {
+  return <>Connect wallet</>;
 }
 
 // Injected Phantom can connect directly. Other mobile browsers get explicit
@@ -45,7 +45,7 @@ export function WalletButton() {
         disabled
         className="solana-button"
       >
-        <SolanaLabel />
+        <ConnectLabel />
       </button>
     );
   }
@@ -53,11 +53,11 @@ export function WalletButton() {
   if (isMobile) {
     return (
       <details className="mobile-wallet">
-        <summary className="solana-button" aria-label="Connect Solana wallet on mobile"><SolanaLabel /></summary>
+        <summary className="solana-button" aria-label="Connect Solana wallet on mobile"><ConnectLabel /></summary>
         <p>Open this site in Phantom’s browser to try connecting. If it opens blank, return to Safari to browse, or connect from a desktop browser. iPhone wallet support is still being tested.</p>
       </details>
     );
   }
 
-  return <WalletMultiButton className="solana-button">{!connected && !connecting ? <SolanaLabel /> : undefined}</WalletMultiButton>;
+  return <WalletMultiButton className="solana-button">{!connected && !connecting ? <ConnectLabel /> : undefined}</WalletMultiButton>;
 }

@@ -1,26 +1,30 @@
 # Mobile app design checkpoint
 
-Updated 2026-11-15 on `codex/pwa-functional-flow`.
+Updated 2026-11-20 on `experimental`.
 
-The Next.js app now carries the marketing site's cream paper, forest green,
-copper accents, Fraunces headings, DM Sans interface text, and La Belle Aurore
-handwritten notes. The Solana wallet control uses the marketing App Store
-button's pale green glass treatment. Wallet-adapter owns connection behavior.
+The app uses one fixed dark theme centered on brand blue `#0496ff`: a
+navy-black page (`#07121f`), slightly lighter panels, light text, and blue
+for every primary action, focus ring and progress bar. Tokens live in
+`:root` in `app/globals.css`. Redaction 35 (OFL) sets headings and the
+wordmark; DM Sans sets everything else.
+Controls are flat: no paper texture, glossy wallet badge, rotated avatars or
+mascot.
 
 ## Pages and assets
 
-- Home introduces the club, coaching, commitments, invitations, and installation.
-- `/coach` provides preparation guidance and links to the user's challenges.
-  The in-browser camera is the only capture path. There is no fake call
-  button, pretend video, streaming count, or fabricated conversation.
-- `/club` collects challenge discovery, results links, invitations, and the
-  existing display-name editor.
-- Create, invite, leaderboard, browser workout, and results screens share the
-  typography, panels, mobile navigation, and short original motivational notes.
-- `apps/app/app/components/club-art.tsx` owns the polaroid placeholders and
-  original SVG doodles. Future supplied photos should replace the interior of
-  `Polaroid`, preserving the frame and caption and adding meaningful alt text.
-  No user photographs are bundled or uploaded by this change.
+- **Navigation has two items:** Challenges (`/`) and New challenge
+  (`/challenges/new`). Creating a challenge has no other entry point.
+- **Home (`/`) is the dashboard:** your display name, your challenges, and
+  joining by invite. `/club` and `/coach` redirect here; they were merged
+  into it (2026-11-20 UI simplification).
+- Create, join, leaderboard, browser workout, and results pages share the
+  typography, panels and buttons. Headings say what the page does;
+  decorative quotes, photos and ribbons were removed.
+- Camera setup guidance lives inside the workout session itself. The
+  in-browser camera is the only capture path.
+- `apps/app/app/components/club-art.tsx` holds the two nav icons.
+- The leaderboard is a plain ranked list: rank number, team name, reps and
+  a blue progress bar, with members listed by name and count.
 
 Visual references were [Folk](https://www.folk.com/) for friendly coaching,
 [HeyClicky](https://www.heyclicky.com/) for playful physical details, and
@@ -55,9 +59,6 @@ npm.cmd --prefix apps/app run build
 npm.cmd --prefix apps/app run start -- --hostname 127.0.0.1 --port 13000
 # In another terminal (needs `npx playwright install chromium` once):
 node apps/app/tests/ui-smoke.mjs
-# The smoke test mocks only https://api.devnet.solana.com. If .env.local sets a
-# different NEXT_PUBLIC_SOLANA_RPC_URL, build and start with
-# NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com first.
 ```
 
 The browser script uses a simulated Phantom wallet, synthetic Anchor account

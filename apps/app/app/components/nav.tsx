@@ -6,10 +6,8 @@ import { WalletButton } from "./wallet-button";
 import { ClubIcon } from "./club-art";
 
 const links = [
-  { href: "/", label: "Home", icon: "home" },
-  { href: "/coach", label: "Coach", icon: "coach" },
-  { href: "/club", label: "Your club", icon: "club" },
-  { href: "/challenges/new", label: "Create", icon: "plus" },
+  { href: "/", label: "Challenges", icon: "list" },
+  { href: "/challenges/new", label: "New challenge", icon: "plus" },
 ] as const;
 
 export function Nav() {
@@ -23,7 +21,8 @@ export function Nav() {
     </header>
     <nav aria-label="Main navigation" className="app-nav">
       {links.map(({ href, label, icon }) => {
-        const active = pathname === href || (href === "/club" && pathname.startsWith("/challenges/") && pathname !== "/challenges/new");
+        // Challenge, results and join pages all belong under "Challenges".
+        const active = href === "/" ? pathname !== "/challenges/new" : pathname === href;
         return <Link key={href} href={href} aria-current={active ? "page" : undefined}><ClubIcon kind={icon} /><span>{label}</span></Link>;
       })}
     </nav>

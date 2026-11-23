@@ -10,8 +10,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Put your money where your muscles are.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f9f8f2",
-    theme_color: "#173e2c",
+    background_color: "#07121f",
+    theme_color: "#07121f",
     icons: [
       { src: "/icon", sizes: "32x32", type: "image/png" },
       { src: "/apple-icon", sizes: "180x180", type: "image/png" },

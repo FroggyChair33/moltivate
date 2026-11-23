@@ -63,11 +63,18 @@ export async function POST(request: Request) {
   if (!memberAcc || !memberAcc.challenge.equals(challengePk)) {
     return NextResponse.json({ error: "not a member of this challenge" }, { status: 403 });
   }
-  if (challengeAcc.settled) {
-    return NextResponse.json({ error: "challenge is already settled" }, { status: 409 });
-  }
-  if (Date.now() / 1000 >= challengeAcc.deadlineUnix.toNumber()) {
-    return NextResponse.json({ error: "challenge deadline has passed" }, { status: 409 });
+  const closedReason = challengeAcc.settled
+    ? "challenge is already settled"
+    : Date.now() / 1000 >= challengeAcc.deadlineUnix.toNumber()
+      ? "challenge deadline has passed"
+      : null;
+  if (closedReason) {
+    // A retry whose first attempt was saved just before closing (response lost)
+    // should hear "already recorded", not that the set was lost.
+    if (await alreadyRecorded(body.teamMemberPubkey, body.idempotencyKey)) {
+      return NextResponse.json({ status: "duplicate", message: "already recorded" }, { status: 200 });
+    }
+    return NextResponse.json({ error: closedReason }, { status: 409 });
   }
 
   // Everything below can throw before ever reaching a `{ error }` (missing
@@ -107,3 +114,19 @@ export async function POST(request: Request) {
   }
 }
 
+
+// Lookup failures count as "not recorded": the caller then gets the 409, which
+// is what they'd have seen without this check.
+async function alreadyRecorded(teamMemberPubkey: string, idempotencyKey: string): Promise<boolean> {
+  try {
+    const { data, error } = await getSupabaseServerClient()
+      .from("workout_sessions")
+      .select("id")
+      .eq("team_member_pubkey", teamMemberPubkey)
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+    return !error && Boolean(data);
+  } catch {
+    return false;
+  }
+}
