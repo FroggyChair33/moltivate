@@ -7,10 +7,11 @@
 -- RLS is on with no policies, as in 20261120010000_enable_rls.sql: only the
 -- app's server touches these tables, using the service-role key.
 
--- The old wallet-keyed `users` table stays: challenges.creator_id references
--- it. The app no longer reads or writes it once accounts ship.
+-- The old wallet-keyed `users` table stays: challenges.creator_id and
+-- team_members.user_id reference it. The app no longer reads or writes it once
+-- accounts ship.
 comment on table users is
-    'Legacy wallet-keyed table. Kept only because challenges.creator_id references it; the app no longer reads or writes it.';
+    'Legacy wallet-keyed table. Kept only because challenges.creator_id and team_members.user_id reference it; the app no longer reads or writes it.';
 
 create table profiles (
     user_id uuid primary key references auth.users(id) on delete cascade,
