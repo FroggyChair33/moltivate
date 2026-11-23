@@ -21,6 +21,8 @@ target/
 .anchor/
 test-ledger/
 wallets/
+# The wallet-link API routes live under a directory with this name; they are source, not keypairs.
+!/apps/app/app/api/wallets/
 keypairs/
 secrets/
 *.pem
