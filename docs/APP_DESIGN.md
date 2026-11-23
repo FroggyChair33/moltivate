@@ -49,6 +49,18 @@ No API routes, worker code, Anchor contracts, financial rules, signing, deposit,
 settlement, or claim handlers were changed for this design increment. The browser
 camera uses the existing local counter, which is the only capture path.
 
+## Accounts
+
+The app sits behind a login (`proxy.ts`); the invite pages under `/join/` show a
+preview while signed out. An account is an email and password with a unique
+display name; wallets are linked to it by signing a message, and the account page
+manages linked wallets, password and optional 2FA. Challenges and actions follow
+the account's linked wallets. On a phone you can log in, view challenges and
+record workouts; deposits, creating a challenge and claims need desktop Phantom
+until phone signing is built (planned, not started). This is implemented and
+covered by unit tests and the mocked smoke test, not yet run against a real
+Supabase project, Phantom or phone.
+
 ## Verification
 
 Use Node 24 and the existing lockfiles. From the repository root:
@@ -56,10 +68,35 @@ Use Node 24 and the existing lockfiles. From the repository root:
 ```powershell
 npm.cmd --prefix apps/app run lint
 npm.cmd --prefix apps/app run build
-npm.cmd --prefix apps/app run start -- --hostname 127.0.0.1 --port 13000
-# In another terminal (needs `npx playwright install chromium` once):
-node apps/app/tests/ui-smoke.mjs
 ```
+
+The UI smoke test (`apps/app/tests/ui-smoke.mjs`) needs Chromium
+(`npx playwright install chromium` once) and talks to a fake Supabase that the
+script starts on port 13001 (`tests/fake-supabase.mjs`). The app must be built
+and started against it with obviously fake keys, because `NEXT_PUBLIC_*` values
+are inlined at build time. These are labelled test values, not real keys. From
+`apps/app`, in PowerShell:
+
+```powershell
+$env:NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:13001"
+$env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_smoke_test"
+$env:SUPABASE_SERVICE_ROLE_KEY = "sb_secret_smoke_test"
+npm run build; npx next start -p 13000
+# in another shell, from apps/app
+node tests/ui-smoke.mjs
+```
+
+or in bash:
+
+```bash
+export NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:13001 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_smoke_test SUPABASE_SERVICE_ROLE_KEY=sb_secret_smoke_test
+npm run build && npx next start -p 13000
+# in another shell, from apps/app
+node tests/ui-smoke.mjs
+```
+
+Rebuild without these variables afterwards before using the app against a real
+Supabase project.
 
 The browser script uses a simulated Phantom wallet, synthetic Anchor account
 data, and intercepted totals responses. It never signs a transaction. It covers

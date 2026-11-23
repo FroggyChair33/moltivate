@@ -56,6 +56,7 @@ Everything else is server-only and must never be marked public.
 | `NEXT_PUBLIC_SOLANA_NETWORK` | Public | Not read by code | The network is hard-coded to devnet in `app/providers.tsx`; this variable is kept as documentation. Mainnet needs a separate reviewed release (root `AGENTS.md` "Financial correctness"). |
 | `NEXT_PUBLIC_SOLANA_RPC_URL` | Public | `app/providers.tsx`, `lib/oracle.ts`, `lib/server-program.ts` | A **devnet-only** RPC URL (e.g. Helius `devnet.helius-rpc.com`). It ships in the browser bundle, so never use a key that also works on mainnet. Falls back to the public devnet endpoint if unset. |
 | `NEXT_PUBLIC_SUPABASE_URL` | Public | `lib/supabase-server.ts` | The fork's own Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Public | `proxy.ts`, `lib/supabase-browser.ts`, `lib/supabase-auth.ts` | The project's publishable (anon) key, used for account sessions. Public by design. **Never put the service-role key here.** Set it for Production and Preview. |
 | `SUPABASE_SERVICE_ROLE_KEY` | **Server-only secret** | `lib/supabase-server.ts` | Bypasses RLS. Never expose to the client, never commit. The server refuses an anon/publishable key here (`lib/supabase-key.ts`), since that would fail only on RLS-protected tables. |
 | `NEXT_PUBLIC_ORACLE_PUBKEY` | Public | create form | The oracle keypair's public half; new challenges set it as their on-chain `oracle`. |
 | `ORACLE_SECRET_KEY` | **Server-only secret** | `lib/oracle.ts` | 64-byte JSON array; signs `settle()` in `/api/oracle/settle`. Never expose, never commit. |
@@ -64,6 +65,46 @@ Everything else is server-only and must never be marked public.
 `NEXT_PUBLIC_*` values are inlined into the bundle at build time, so set them
 in Vercel before the production build, and redeploy after changing one. The
 two secrets are read only at request time.
+
+## Accounts setup (required before this version works)
+
+This version adds email/password accounts and wallet linking. **None of the
+steps below have been done or run by the agent that wrote the code.** They are
+manual steps for the repository owner, in this order:
+
+1. **Apply the migration `supabase/migrations/20261123010000_accounts.sql`
+   before deploying this code.** The new workout route requires
+   `workout_sessions.account_id`, which the migration adds. This document
+   doesn't describe a migration command, so apply it in the Supabase SQL editor
+   or your usual migration tool, in filename order after the earlier files. The
+   file's own header says it has not been executed against any database. The
+   migration also defines an `unlink_wallet` SQL function that the app
+   currently does not use.
+2. **Supabase dashboard -> Authentication:**
+   - Require email confirmation.
+   - Set the **Site URL**, and add **Redirect URLs** for `/auth/callback` on the
+     production domain and on Vercel preview deployments. If the dashboard needs
+     exact entries, also add the `/auth/callback?next=/reset-password` form.
+   - Enable **TOTP multi-factor**.
+   - Set the **minimum password length to 12**. The 12-character rule is
+     enforced in the browser; the dashboard setting is the server-side
+     enforcement.
+   - Configure **custom SMTP**. The built-in sender is rate-limited and not for
+     real sign-ups.
+3. **Set `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`** (the project's publishable/anon
+   key, never the service-role key) in Vercel for Production and Preview, and in
+   `apps/app/.env.local`.
+4. **Rebuild/redeploy**, since `NEXT_PUBLIC_*` values are inlined at build time.
+5. **Manual verification still owed** (the code is only covered by unit tests
+   and the mocked UI smoke test so far):
+   - Sign-up email delivery and confirmation.
+   - Login and 2FA enrolment and login.
+   - Wallet link and unlink with real Phantom on desktop.
+   - A workout recorded from a real phone.
+   - An invite preview while signed out.
+   - The cross-origin POST check: it compares the `Origin` header to the request
+     URL's origin (`lib/same-origin.ts`). Behind Vercel, confirm it works on the
+     deployed domain and on preview URLs.
 
 ## Runtime: Node.js, not Edge (and don't force it either way)
 

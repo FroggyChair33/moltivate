@@ -38,11 +38,12 @@ simulated transaction or planned feature as working.
 | --- | --- | --- |
 | App and API | Next.js (React, TypeScript), App Router; API routes are the whole backend | `apps/app` |
 | Hosting | Vercel, Root Directory `apps/app`, Node 24 | Stephen's Vercel project |
-| Wallet | Phantom via `@solana/wallet-adapter`; desktop browsers work, phone wallet connect does not yet | `apps/app` |
+| Wallet | Phantom via `@solana/wallet-adapter`; desktop browsers work. On a phone you can log in, view challenges and record workouts, but deposits, creating a challenge and claims need desktop Phantom until phone signing is built (planned, not started) | `apps/app` |
+| Accounts | Supabase Auth: email/password accounts, sessions in cookies via `@supabase/ssr` (`proxy.ts`, `lib/account-auth.ts`), optional TOTP 2FA, wallets linked to an account by a signed single-use message (`app/api/wallet-links`, `lib/wallet-proof.ts`) | `apps/app` |
 | Workout capture | MediaPipe Pose (`@mediapipe/tasks-vision`) in the browser; squats counted from the knee angle (`lib/pose-squat-counter.ts`), with a liveness prompt. Video never leaves the device; only the count is sent | `app/components/mediapipe-squat-session.tsx` |
 | On-chain program | Anchor (Rust) on Solana devnet: escrow, settlement math, claims | `programs/commitment-stakes` |
 | Oracle | Server keypair in `/api/oracle/settle`; sums accepted sessions and signs `settle()` | `apps/app` |
-| Database | Supabase Postgres: display names, workout sessions, closed challenges. An index for convenience, never the authority on funds | `supabase/migrations` |
+| Database | Supabase Postgres: profiles (display names), linked wallets, workout sessions, closed challenges. An index for convenience, never the authority on funds | `supabase/migrations` |
 | RPC | A dedicated devnet RPC endpoint (Helius) via `NEXT_PUBLIC_SOLANA_RPC_URL`; it ships in the browser bundle, so use a devnet-only key | Vercel env |
 
 There is **one** capture path: the browser. There is no server-side CV worker,
@@ -67,8 +68,8 @@ versions in lockfiles and record why.
 ## Working on the app (`apps/app`)
 
 - Before finishing any change, run `npm run lint` and `npm run build` in `apps/app`. At the root, run `npm run ci`.
-- `apps/app/tests/ui-smoke.mjs` is a Playwright UI smoke test using mocks. Mocked tests don't replace a real devnet run.
-- Secrets live in `apps/app/.env.local` (gitignored) and in Vercel's Production env vars. The variables are `NEXT_PUBLIC_SOLANA_NETWORK`, `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_ORACLE_PUBKEY` and `ORACLE_SECRET_KEY`.
+- `apps/app/tests/ui-smoke.mjs` is a Playwright UI smoke test using mocks, including a fake Supabase (`tests/fake-supabase.mjs`). It needs the app built against that fake with obviously fake keys; the exact commands (bash and PowerShell) are in the header of the script and in `docs/APP_DESIGN.md`. Rebuild without those variables afterwards. Mocked tests don't replace a real devnet run or a real Supabase run.
+- Secrets live in `apps/app/.env.local` (gitignored) and in Vercel's Production env vars. The variables are `NEXT_PUBLIC_SOLANA_NETWORK`, `NEXT_PUBLIC_SOLANA_RPC_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (public by design; the anon/publishable key only, never the service-role key), `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_ORACLE_PUBKEY` and `ORACLE_SECRET_KEY`.
   - Never put a secret in a `NEXT_PUBLIC_*` variable.
   - Never print, log or commit any value.
   - Keep a redacted `.env.example` in sync when variables change.
@@ -110,7 +111,8 @@ let it silently rewrite an already-funded challenge.
 
 - Client-reported rep counts are **untrusted**. Every browser session is stored as `trust_level: 'unverified'`, and settlement currently counts them. Say so plainly; don't add a path that lets a caller assert a higher trust level without a real, reviewed verifier.
 - Validate everything at API boundaries: pubkeys, membership, deadlines, idempotency keys, and integer, non-negative reps. Never credit one session twice.
-- A supplied wallet address is not authentication. Wallet-bound actions (for example display names) need a signed, expiring, single-use message bound to the app and the wallet.
+- A supplied wallet address alone is not authentication. Identity is an email/password account (Supabase Auth). A wallet is tied to an account only by a signed, expiring, single-use message bound to the app, the account and the wallet (`lib/wallet-link-message.ts`, `lib/wallet-proof.ts`). Account-bound API routes call `requireAccount` and read the account's linked wallets fresh on each request, so unlinking takes effect immediately. Cookie-authenticated POSTs also check that `Origin` matches the request origin (`lib/same-origin.ts`).
+- Accounts, wallet linking and the new workout authorization are implemented and covered by unit tests and the mocked UI smoke test only. They have not been run against a real Supabase project, real Phantom, a real phone or devnet end to end; `apps/app/DEPLOYMENT.md` lists the setup and checks still owed.
 - MediaPipe pose estimation is a measurement input, not a medical assessment or proof of identity or liveness. Describe its anti-cheat limits honestly.
 - Keep video, pose data, tokens and personal details off-chain and out of logs. The browser path sends counts only.
 - Never stage `.isolated/`, recovery patches or bundles, build output, validator ledgers, wallets or keypairs. Check `git diff --cached --summary` for mode 160000 (gitlinks) before pushing.
@@ -118,9 +120,14 @@ let it silently rewrite an already-funded challenge.
 ## Known gaps (state them, don't hide them)
 
 - Browser-counted reps can be faked by a determined user.
-- Workout submissions are signed by a per-visit session key that the member's wallet authorizes once (up to 2 hours; `lib/workout-auth.ts`). This stops other people submitting reps for you, not you faking your own reps.
+- Workouts are authorized by the logged-in account whose linked wallet is the member account's on-chain owner (`lib/linked-wallets.ts`, `app/api/workout-sessions`). This stops other people submitting reps for you, not you faking your own reps.
 - No timeout refund if settlement never happens.
-- Phone wallet connect is blank in Phantom's in-app browser; desktop works.
+- Phone wallet connect is blank in Phantom's in-app browser, so a phone cannot sign deposits, create or claim yet. Planned (project 2: Phantom deep links), not started. Desktop works.
+- Email links (confirmation and password reset) only work in the browser that requested them (PKCE).
+- Optional 2FA (TOTP) is offered only on the Account page; sign-up doesn't nudge towards it.
+- Display-name uniqueness is case-insensitive but doesn't fold look-alike characters from other scripts.
+- The signed-in check in `proxy.ts` is a quick session check; every API route re-verifies with `requireAccount`.
+- The 12-character minimum password is enforced in the browser; the server-side enforcement is the Supabase dashboard setting, which Stephen must set.
 - The scoreboard polls every 5 seconds (and on tab focus); updates aren't pushed live.
 - A creator isn't automatically a player; they must join a team too.
 
