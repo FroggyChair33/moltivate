@@ -179,6 +179,13 @@ test("duplicate idempotency key is not an error", async () => {
   assert.equal(res.body.status, "duplicate");
 });
 
+test("a database error is a 500 with a generic message, never the database text", async () => {
+  nextResult = { data: null, error: { code: "XX000", message: "relation workout_sessions secret detail" } };
+  const res = await post(valid);
+  assert.equal(res.status, 500);
+  assert.doesNotMatch(JSON.stringify(res.body), /secret detail|relation/);
+});
+
 test("rejects empty or oversized idempotency keys", async () => {
   for (const idempotencyKey of ["", "   ", "k".repeat(201)]) {
     const res = await post({ ...valid, idempotencyKey });

@@ -125,12 +125,12 @@ export async function POST(request: Request) {
       if (error.code === "23505") {
         return NextResponse.json({ status: "duplicate", message: "already recorded" }, { status: 200 });
       }
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "could not record the workout" }, { status: 500 });
     }
 
     return NextResponse.json({ status: "recorded", id: data.id, trustLevel: "unverified" }, { status: 201 });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "could not record the workout" }, { status: 500 });
   }
 }
 

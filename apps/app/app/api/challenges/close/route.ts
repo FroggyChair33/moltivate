@@ -22,11 +22,11 @@ export async function GET(request: Request) {
       .in("challenge_pubkey", challenges.split(",").filter(Boolean));
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "could not look up closed challenges" }, { status: 500 });
     }
     return NextResponse.json({ closed: (data ?? []).map((row) => row.challenge_pubkey) });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "could not look up closed challenges" }, { status: 500 });
   }
 }
 
@@ -95,10 +95,10 @@ export async function POST(request: Request) {
       .upsert({ challenge_pubkey: body.challengePubkey, closed_by: closer }, { onConflict: "challenge_pubkey" });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "could not close the challenge" }, { status: 500 });
     }
     return NextResponse.json({ status: "closed" });
-  } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "could not close the challenge" }, { status: 500 });
   }
 }

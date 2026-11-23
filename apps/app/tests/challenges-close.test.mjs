@@ -22,6 +22,7 @@ const load = (file, requireFn) => {
 const none = (n) => { throw new Error(n); };
 
 let upserts;
+let dbError; // what the fake database returns as `error` (null = success)
 let closedRows;
 let members;
 let settled;
@@ -52,8 +53,8 @@ const { GET, POST } = load("app/api/challenges/close/route.ts", (name) => {
     return {
       getSupabaseServerClient: () => ({
         from: () => ({
-          upsert: async (row) => { upserts.push(row); return { error: null }; },
-          select: () => ({ in: async () => ({ data: closedRows, error: null }) }),
+          upsert: async (row) => { upserts.push(row); return { error: dbError }; },
+          select: () => ({ in: async () => (dbError ? { data: null, error: dbError } : { data: closedRows, error: null }) }),
         }),
       }),
     };
@@ -68,6 +69,7 @@ const valid = () => ({ challengePubkey: challengeA.toBase58() });
 
 beforeEach(() => {
   upserts = [];
+  dbError = null;
   closedRows = [];
   settled = true;
   members = [{ account: { owner: creatorPk, claimed: true } }, { account: { owner: memberPk, claimed: true } }];
@@ -162,6 +164,16 @@ test("a member who has not claimed is 400", async () => {
   members = [{ account: { owner: creatorPk, claimed: true } }, { account: { owner: memberPk, claimed: false } }];
   assert.equal((await post(valid())).status, 400);
   assert.equal(upserts.length, 0);
+});
+
+test("database errors are 500s with a generic message, never the database text", async () => {
+  dbError = { message: "relation challenge_closures secret detail" };
+  const posted = await post(valid());
+  const got = await GET(new Request(`${ORIGIN}/api/challenges/close?challenges=${challengeA.toBase58()}`));
+  for (const res of [posted, got]) {
+    assert.equal(res.status, 500);
+    assert.doesNotMatch(JSON.stringify(res.body), /secret detail|relation/);
+  }
 });
 
 test("GET batch lookup stays public", async () => {
